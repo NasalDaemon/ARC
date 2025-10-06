@@ -1,9 +1,9 @@
 #include <doctest/doctest.h>
 
-#include "di/detail/cast.hpp"
-#include "di/macros.hpp"
+#include "arc/detail/cast.hpp"
+#include "arc/macros.hpp"
 
-namespace di::tests {
+namespace arc::tests {
 
 struct A { int ai; };
 struct B { int bi; };
@@ -50,39 +50,39 @@ TEST_CASE("Member Pointer")
     t3.a.ai = 20;
     t3.x = 21;
 
-    CHECK(DI_MEM_PTR(Test0, a).getMemberFromClass(t0).ai == 1);
-    CHECK(DI_MEM_PTR(Test0, b).getMemberFromClass(t0).bi == 2);
-    CHECK(DI_MEM_PTR(Test0, c).getMemberFromClass(t0).ci == 3);
-    CHECK(DI_MEM_PTR(Test0, x).getMemberFromClass(t0) == 4);
-    CHECK(DI_MEM_PTR(Test1, ai).getMemberFromClass(t1) == 5);
-    CHECK(DI_MEM_PTR(Test1, bi).getMemberFromClass(t1) == 6);
-    CHECK(DI_MEM_PTR(Test1, ci).getMemberFromClass(t1) == 7);
-    CHECK(DI_MEM_PTR(Test1, x).getMemberFromClass(t1) == 8);
-    CHECK(DI_MEM_PTR(Test2, a).getMemberFromClass(t2).ai == 14);
+    CHECK(ARC_MEM_PTR(Test0, a).getMemberFromClass(t0).ai == 1);
+    CHECK(ARC_MEM_PTR(Test0, b).getMemberFromClass(t0).bi == 2);
+    CHECK(ARC_MEM_PTR(Test0, c).getMemberFromClass(t0).ci == 3);
+    CHECK(ARC_MEM_PTR(Test0, x).getMemberFromClass(t0) == 4);
+    CHECK(ARC_MEM_PTR(Test1, ai).getMemberFromClass(t1) == 5);
+    CHECK(ARC_MEM_PTR(Test1, bi).getMemberFromClass(t1) == 6);
+    CHECK(ARC_MEM_PTR(Test1, ci).getMemberFromClass(t1) == 7);
+    CHECK(ARC_MEM_PTR(Test1, x).getMemberFromClass(t1) == 8);
+    CHECK(ARC_MEM_PTR(Test2, a).getMemberFromClass(t2).ai == 14);
     // B is an ambiguous member of Test2, so this correctly fails to compile
-    // CHECK(DI_MEM_PTR(Test2, b).getMemberFromClass(t2) == 10);
-    CHECK(DI_MEM_PTR(Test2, c).getMemberFromClass(t2).ci == 11);
-    CHECK(DI_MEM_PTR(Test2, x).getMemberFromClass(t2) == 15);
-    CHECK(DI_MEM_PTR(Test3, a).getMemberFromClass(t3).ai == 20);
+    // CHECK(ARC_MEM_PTR(Test2, b).getMemberFromClass(t2) == 10);
+    CHECK(ARC_MEM_PTR(Test2, c).getMemberFromClass(t2).ci == 11);
+    CHECK(ARC_MEM_PTR(Test2, x).getMemberFromClass(t2) == 15);
+    CHECK(ARC_MEM_PTR(Test3, a).getMemberFromClass(t3).ai == 20);
     // B is a virtual member of Test3, so this correctly fails to compile
-    // CHECK(DI_MEM_PTR(Test3, bi).getMemberFromClass(t3) == 15);
-    CHECK(DI_MEM_PTR(Test3, c).getMemberFromClass(t3).ci == 19);
-    CHECK(DI_MEM_PTR(Test3, x).getMemberFromClass(t3) == 21);
+    // CHECK(ARC_MEM_PTR(Test3, bi).getMemberFromClass(t3) == 15);
+    CHECK(ARC_MEM_PTR(Test3, c).getMemberFromClass(t3).ci == 19);
+    CHECK(ARC_MEM_PTR(Test3, x).getMemberFromClass(t3) == 21);
 
-    CHECK(&(DI_MEM_PTR(Test0, a).getClassFromMember(t0.a)) == &t0);
-    CHECK(&(DI_MEM_PTR(Test0, b).getClassFromMember(t0.b)) == &t0);
-    CHECK(&(DI_MEM_PTR(Test0, c).getClassFromMember(t0.c)) == &t0);
-    CHECK(&(DI_MEM_PTR(Test2, a).getClassFromMember(t2.a)) == &t2);
-    CHECK(&(DI_MEM_PTR(Test2, c).getClassFromMember(t2.c)) == &t2);
-    CHECK(&(DI_MEM_PTR(Test3, a).getClassFromMember(t3.a)) == &t3);
-    CHECK(&(DI_MEM_PTR(Test3, c).getClassFromMember(t3.c)) == &t3);
+    CHECK(&(ARC_MEM_PTR(Test0, a).getClassFromMember(t0.a)) == &t0);
+    CHECK(&(ARC_MEM_PTR(Test0, b).getClassFromMember(t0.b)) == &t0);
+    CHECK(&(ARC_MEM_PTR(Test0, c).getClassFromMember(t0.c)) == &t0);
+    CHECK(&(ARC_MEM_PTR(Test2, a).getClassFromMember(t2.a)) == &t2);
+    CHECK(&(ARC_MEM_PTR(Test2, c).getClassFromMember(t2.c)) == &t2);
+    CHECK(&(ARC_MEM_PTR(Test3, a).getClassFromMember(t3.a)) == &t3);
+    CHECK(&(ARC_MEM_PTR(Test3, c).getClassFromMember(t3.c)) == &t3);
 }
 
 struct Empty {};
 struct Int { int value; };
 struct Char { char value; };
 struct Aligned { alignas(16) Int a; Char b; };
-#if DI_COMPILER_MSVC
+#if ARC_COMPILER_MSVC
 #pragma pack(push, 1)
 struct Packed { Int a; Char b; };
 #pragma pack(pop)
@@ -105,41 +105,41 @@ struct WithEmptyBase : Empty { Int x; };
 TEST_CASE("MemberPtr edge cases")
 {
     ConstVolatile cv(42);
-    CHECK(DI_MEM_PTR(ConstVolatile, ci).getMemberFromClass(cv).value == 42);
-    CHECK(DI_MEM_PTR(ConstVolatile, vi).getMemberFromClass(cv).value == 43);
-    CHECK(DI_MEM_PTR(ConstVolatile, arr).getMemberFromClass(cv)[0].value == 42);
-    CHECK(DI_MEM_PTR(ConstVolatile, arr).getMemberFromClass(cv)[2].value == 45);
-    CHECK(DI_MEM_PTR(ConstVolatile, pi).getMemberFromClass(cv)->value == 42);
+    CHECK(ARC_MEM_PTR(ConstVolatile, ci).getMemberFromClass(cv).value == 42);
+    CHECK(ARC_MEM_PTR(ConstVolatile, vi).getMemberFromClass(cv).value == 43);
+    CHECK(ARC_MEM_PTR(ConstVolatile, arr).getMemberFromClass(cv)[0].value == 42);
+    CHECK(ARC_MEM_PTR(ConstVolatile, arr).getMemberFromClass(cv)[2].value == 45);
+    CHECK(ARC_MEM_PTR(ConstVolatile, pi).getMemberFromClass(cv)->value == 42);
 
-    CHECK((&(DI_MEM_PTR(ConstVolatile, ci).getClassFromMember(cv.ci)) == &cv));
-    CHECK((&(DI_MEM_PTR(ConstVolatile, vi).getClassFromMember(cv.vi)) == &cv));
+    CHECK((&(ARC_MEM_PTR(ConstVolatile, ci).getClassFromMember(cv.ci)) == &cv));
+    CHECK((&(ARC_MEM_PTR(ConstVolatile, vi).getClassFromMember(cv.vi)) == &cv));
 
     ZeroOffset zo{{100}, {200}};
-    CHECK(DI_MEM_PTR(ZeroOffset, first).getMemberFromClass(zo).value == 100);
-    CHECK(DI_MEM_PTR(ZeroOffset, second).getMemberFromClass(zo).value == 200);
-    CHECK(&(DI_MEM_PTR(ZeroOffset, first).getClassFromMember(zo.first)) == &zo);
-    CHECK(&(DI_MEM_PTR(ZeroOffset, second).getClassFromMember(zo.second)) == &zo);
+    CHECK(ARC_MEM_PTR(ZeroOffset, first).getMemberFromClass(zo).value == 100);
+    CHECK(ARC_MEM_PTR(ZeroOffset, second).getMemberFromClass(zo).value == 200);
+    CHECK(&(ARC_MEM_PTR(ZeroOffset, first).getClassFromMember(zo.first)) == &zo);
+    CHECK(&(ARC_MEM_PTR(ZeroOffset, second).getClassFromMember(zo.second)) == &zo);
 
     WithEmptyBase web; web.x.value = 77;
-    CHECK(DI_MEM_PTR(WithEmptyBase, x).getMemberFromClass(web).value == 77);
+    CHECK(ARC_MEM_PTR(WithEmptyBase, x).getMemberFromClass(web).value == 77);
 
-    CHECK(&(DI_MEM_PTR(WithEmptyBase, x).getClassFromMember(web.x)) == &web);
+    CHECK(&(ARC_MEM_PTR(WithEmptyBase, x).getClassFromMember(web.x)) == &web);
 
     Aligned al; al.a.value = 123; al.b.value = 'z';
-    CHECK(DI_MEM_PTR(Aligned, a).getMemberFromClass(al).value == 123);
-    CHECK(DI_MEM_PTR(Aligned, b).getMemberFromClass(al).value == 'z');
+    CHECK(ARC_MEM_PTR(Aligned, a).getMemberFromClass(al).value == 123);
+    CHECK(ARC_MEM_PTR(Aligned, b).getMemberFromClass(al).value == 'z');
 
-    CHECK(&(DI_MEM_PTR(Aligned, a).getClassFromMember(al.a)) == &al);
-    CHECK(&(DI_MEM_PTR(Aligned, b).getClassFromMember(al.b)) == &al);
+    CHECK(&(ARC_MEM_PTR(Aligned, a).getClassFromMember(al.a)) == &al);
+    CHECK(&(ARC_MEM_PTR(Aligned, b).getClassFromMember(al.b)) == &al);
 
     Packed pk; pk.a.value = 321; pk.b.value = 'y';
-    CHECK(DI_MEM_PTR(Packed, a).getMemberFromClass(pk).value == 321);
-    CHECK(DI_MEM_PTR(Packed, b).getMemberFromClass(pk).value == 'y');
+    CHECK(ARC_MEM_PTR(Packed, a).getMemberFromClass(pk).value == 321);
+    CHECK(ARC_MEM_PTR(Packed, b).getMemberFromClass(pk).value == 'y');
 
-#if !DI_COMPILER_GCC // GCC won't compile this
-    CHECK(&(DI_MEM_PTR(Packed, a).getClassFromMember(pk.a)) == &pk);
+#if !ARC_COMPILER_GCC // GCC won't compile this
+    CHECK(&(ARC_MEM_PTR(Packed, a).getClassFromMember(pk.a)) == &pk);
 #endif
-    CHECK(&(DI_MEM_PTR(Packed, b).getClassFromMember(pk.b)) == &pk);
+    CHECK(&(ARC_MEM_PTR(Packed, b).getClassFromMember(pk.b)) == &pk);
 }
 
 }

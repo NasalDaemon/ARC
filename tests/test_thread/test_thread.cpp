@@ -1,21 +1,21 @@
 #include <doctest/doctest.h>
 
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <typeinfo>
 #endif
 
-import di.tests.thread.cluster;
-import di.tests.thread.global_scheduler;
-import di.tests.thread.poster;
-import di;
+import arc.tests.thread.cluster;
+import arc.tests.thread.global_scheduler;
+import arc.tests.thread.poster;
+import arc;
 
-namespace di::tests::thread {
+namespace arc::tests::thread {
 
 TEST_CASE("TestThread")
 {
-    di::GraphWithGlobal<Cluster, GlobalScheduler> g{
+    arc::GraphWithGlobal<Cluster, GlobalScheduler> g{
         .global{
             [](auto& scheduler)
             {
@@ -35,9 +35,9 @@ TEST_CASE("TestThread")
     };
     g.onConstructed();
 
-    CHECK(1 == di::withThread<1>(g->a)->i);
+    CHECK(1 == arc::withThread<1>(g->a)->i);
 
-    auto scheduler = g.global.asTrait(di::trait::scheduler);
+    auto scheduler = g.global.asTrait(arc::trait::scheduler);
 
     auto task =
         [&]
@@ -61,4 +61,4 @@ TEST_CASE("TestThread")
     scheduler.run();
 }
 
-} // namespace di::tests::thread
+} // namespace arc::tests::thread

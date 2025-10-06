@@ -1,28 +1,28 @@
 #include <doctest/doctest.h>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <any>
 #include <typeinfo>
 #include <variant>
 #include <vector>
 #endif
 
-import di;
+import arc;
 
-namespace di::tests::lazy {
+namespace arc::tests::lazy {
 
-struct Trait : di::UnconstrainedTrait
+struct Trait : arc::UnconstrainedTrait
 {
-    #define DI_METHODS_Trait(TAG) \
+    #define ARC_METHODS_Trait(TAG) \
         TAG(get)
 
-    DI_METHODS(Trait)
+    ARC_METHODS(Trait)
 } inline constexpr trait{};
 
-struct Node : di::Node
+struct Node : arc::Node
 {
-    using Traits = di::Traits<Node, Trait>;
+    using Traits = arc::Traits<Node, Trait>;
 
     int impl(this auto& self, Trait::get)
     {
@@ -40,9 +40,9 @@ TEST_CASE("std::variant element offset")
     CHECK(static_cast<void*>(&v) == static_cast<void*>(&std::get<int>(v)));
 }
 
-TEST_CASE("di::Lazy")
+TEST_CASE("arc::Lazy")
 {
-    di::test::Graph<di::Lazy<Node>> g{.node{33}};
+    arc::test::Graph<arc::Lazy<Node>> g{.node{33}};
     g.mocks->define([](Trait::get) { return 10; });
     auto g2 = std::move(g);
     auto g3 = g2;

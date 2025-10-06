@@ -1,7 +1,7 @@
-module di.bench.compile99.node15:impl;
-import di.bench.compile99.node15;
+module arc.bench.compile99.node15:impl;
+import arc.bench.compile99.node15;
 
-namespace di::bench::compile99 {
+namespace arc::bench::compile99 {
 template<class Context>
 int Node15::Node<Context>::impl(trait::Trait15::get) const
 {

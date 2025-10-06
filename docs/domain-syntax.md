@@ -1,12 +1,12 @@
 # Domains
 
 ### PLEASE NOTE:
-Domains in Static-DI are special `cluster`s with extra restrictions. If you are unfamiliar with the `cluster` syntax in Static-DI, please first familiarise yourself with `cluster`s and their syntax [here](cluster-syntax.md).
+Domains in ARC are special `cluster`s with extra restrictions. If you are unfamiliar with the `cluster` syntax in ARC, please first familiarise yourself with `cluster`s and their syntax [here](cluster-syntax.md).
 
 <details>
 <summary>:eyes: TL;DR:</summary>
 
-> **Domains** in Static-DI are specialized clusters designed to enforce clear boundaries, reduce coupling, and encourage a scale-free topology in your dependency graph. Scale-free topologies—where a few nodes (hubs) have many connections and most have few—make large codebases more maintainable, resilient, and easier to reason about, mirroring robust real-world networks.
+> **Domains** in ARC are specialized clusters designed to enforce clear boundaries, reduce coupling, and encourage a scale-free topology in your dependency graph. Scale-free topologies—where a few nodes (hubs) have many connections and most have few—make large codebases more maintainable, resilient, and easier to reason about, mirroring robust real-world networks.
 >
 > Domains differ from normal clusters by requiring a single nexus node (the orchestrator), restricting direct sub-node connections, and enforcing naming/wiring rules. This results in flatter, shallower, and more modular graphs, ideal for complex or growing projects.
 >
@@ -20,7 +20,7 @@ Domains in Static-DI are special `cluster`s with extra restrictions. If you are 
 
 As a project grows, the structure of the dependency graph increasingly impacts maintainability and simplicity. Dependency graphs often become more complex with longer chains of dependencies, cyclic dependencies, and deeper nesting of clusters. Greater complexity makes it more difficult to add new functionality, maintain existing functionality, and generally reason about the code and explain its behaviour.
 
-A `domain` in Static-DI is a special kind of `cluster` that, when used throughout the entire graph, encourages a flatter and shallower graph shape overall, with looser coupling between nodes. It demands thoughtful design in terms of delegation of responsibility into logical domains with clear boundaries. This is achieved by preferring certain kinds of dependencies and by making explicit the statefulness and arity of sub-nodes (i.e., whether a sub-node is unary or a cluster/domain).
+A `domain` in ARC is a special kind of `cluster` that, when used throughout the entire graph, encourages a flatter and shallower graph shape overall, with looser coupling between nodes. It demands thoughtful design in terms of delegation of responsibility into logical domains with clear boundaries. This is achieved by preferring certain kinds of dependencies and by making explicit the statefulness and arity of sub-nodes (i.e., whether a sub-node is unary or a cluster/domain).
 
 **Note:** `domain`s will not solve all architectural problems. They encourage a graph shape that generally results in a simpler composition. They do this by restricting or highlighting particular dependency anti-patterns to prevent them from pervading the graph and the wider codebase, but there may be situations when the less restrictive `cluster` is preferable.
 
@@ -34,11 +34,11 @@ In graph theory, the [scale-free](https://en.wikipedia.org/wiki/Scale-free_netwo
 
 Complex networks tend to evolve towards a highly resilient scale-free topology to adapt to sporadic change and growth. For example, the shape of the internet is approximately scale-free. Online services organically become significant hubs when they not only provide high value, but are also resilient enough to meet increasing demand as the number of clients inevitably grows. For the hub to remain highly available to clients, it internally delegates units of work to a small cluster of workers. Clients in turn are able to extract maximal value from the hubs without affecting the stability of the whole network. Ideally, codebases should likewise remain robust in the face of inevitable change and growth in scope, where bugs are rarely introduced as code is added or refactored.
 
-The fact that social networks are approximately scale-free in shape also suggests that it is a suitable topology to aspire to in the dependency graph of a large project developed by multiple teams. One can conceive of the responsibility of `clusters` and `domain`s mapping fairly neatly onto the responsibility of teams, and vice versa. The dependencies between teams would then be expressed explicitly in the Static-DI DIG. By clarifying coupling between teams, cross-team dependencies can be optimised to improve each team's velocity in the project without compromising the overall project's stability.
+The fact that social networks are approximately scale-free in shape also suggests that it is a suitable topology to aspire to in the dependency graph of a large project developed by multiple teams. One can conceive of the responsibility of `clusters` and `domain`s mapping fairly neatly onto the responsibility of teams, and vice versa. The dependencies between teams would then be expressed explicitly in the ARC DSL. By clarifying coupling between teams, cross-team dependencies can be optimised to improve each team's velocity in the project without compromising the overall project's stability.
 
 ## Emergence of good topology
 
-According to various studies, iteratively growing networks tend to become scale-free when new nodes preferentially connect to existing nodes with a higher degree (i.e., hubs connected to many other nodes). Static-DI `domains` aim to encourage the emergence of approximately scale-free dependency graphs through the following:
+According to various studies, iteratively growing networks tend to become scale-free when new nodes preferentially connect to existing nodes with a higher degree (i.e., hubs connected to many other nodes). ARC `domains` aim to encourage the emergence of approximately scale-free dependency graphs through the following:
 
 * Every `domain` must have a _single_ traitful unary nexus-node which acts as the central hub or coordinator for the `domain`
 * Sub-`cluster`s or sub-`domain`s must have names in ALL_CAPS
@@ -52,7 +52,7 @@ According to various studies, iteratively growing networks tend to become scale-
 * Any unary-to-unary connection must use strong arrows (`--->>>`) which get progressively uglier (`---->>>>`) as the total number of unary-to-unary connections in the domain increases
   * This discourages unary-to-unary sub-node connections
   * It encourages tightly-coupled unary sub-nodes to be either merged into one sub-node or put into a sub-`domain`
-* All sub-nodes must have their dependencies specified via a `di::Depends` list in the node definition, even if the list is empty
+* All sub-nodes must have their dependencies specified via a `arc::Depends` list in the node definition, even if the list is empty
   * In clusters, this is optional, but in domains it is mandatory to ensure that nodes are held to the higher standards of the domain
 * Sink traits are not allowed in domains
   * All connections between nodes in the `domain` must be explicitly defined in the `domain` block
@@ -132,9 +132,9 @@ Instead, `ShopRestAPI` takes ownership of the entire flow of the order, delegati
 struct ShopRestAPI
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Depends = di::Depends<
+        using Depends = arc::Depends<
               trait::ShopResponse
             , trait::CustomerRequest
             , trait::DeliveryRequest
@@ -142,7 +142,7 @@ struct ShopRestAPI
             , trait::OrderCancel
         >;
 
-        using Traits = di::Traits<Node
+        using Traits = arc::Traits<Node
             , trait::ShopRequest
             , trait::CustomerResponse
             , trait::DeliveryResponse

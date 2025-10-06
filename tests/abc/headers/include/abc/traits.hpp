@@ -1,15 +1,15 @@
 #pragma once
 
-#include "di/manual/trait.hpp"
+#include "arc/manual/trait.hpp"
 
 namespace abc::trait {
 
-struct AliceRead : di::Trait
+struct AliceRead : arc::Trait
 {
-    #define DI_METHODS_AliceRead(TAG) \
+    #define ARC_METHODS_AliceRead(TAG) \
         TAG(get) \
 
-    DI_METHODS(AliceRead)
+    ARC_METHODS(AliceRead)
 
     template<class Self, class T, class Types>
     requires requires (T const c)
@@ -20,12 +20,12 @@ struct AliceRead : di::Trait
     using Implements = void;
 } inline constexpr aliceRead{};
 
-struct AliceWrite : di::Trait
+struct AliceWrite : arc::Trait
 {
-    #define DI_METHODS_AliceWrite(TAG) \
+    #define ARC_METHODS_AliceWrite(TAG) \
         TAG(set) \
 
-    DI_METHODS(AliceWrite)
+    ARC_METHODS(AliceWrite)
 
     template<class Self, class T, class Types>
     requires requires (T t, int i)
@@ -36,13 +36,13 @@ struct AliceWrite : di::Trait
     using Implements = void;
 } inline constexpr aliceWrite{};
 
-struct Bob : di::Trait
+struct Bob : arc::Trait
 {
-    #define DI_METHODS_Bob(TAG) \
+    #define ARC_METHODS_Bob(TAG) \
         TAG(get) \
         TAG(set) \
 
-    DI_METHODS(Bob)
+    ARC_METHODS(Bob)
 
     template<class Self, class T, class Types>
     requires requires (T const c)
@@ -53,12 +53,12 @@ struct Bob : di::Trait
     using Implements = void;
 } inline constexpr bob{};
 
-struct Charlie : di::Trait
+struct Charlie : arc::Trait
 {
-    #define DI_METHODS_Charlie(TAG) \
+    #define ARC_METHODS_Charlie(TAG) \
         TAG(get) \
 
-    DI_METHODS(Charlie)
+    ARC_METHODS(Charlie)
 
     template<class Self, class T, class Types>
     requires requires (T const c)
@@ -70,12 +70,12 @@ struct Charlie : di::Trait
     using Implements = void;
 } inline constexpr charlie{};
 
-struct Ellie : di::Trait
+struct Ellie : arc::Trait
 {
-    #define DI_METHODS_Ellie(TAG) \
+    #define ARC_METHODS_Ellie(TAG) \
         TAG(get) \
 
-    DI_METHODS(Ellie)
+    ARC_METHODS(Ellie)
 
     template<class Self, class T, class Types>
     requires requires (T const c)
@@ -85,22 +85,22 @@ struct Ellie : di::Trait
     using Implements = void;
 } inline constexpr ellie{};
 
-struct Visitable : di::Trait
+struct Visitable : arc::Trait
 {
-    #define DI_METHODS_Visitable(TAG) \
+    #define ARC_METHODS_Visitable(TAG) \
         TAG(count) \
 
-    DI_METHODS(Visitable)
+    ARC_METHODS(Visitable)
 
     template<class Self, class T, class Types>
     using Implements = void;
 } inline constexpr visitable{};
 
-using Alice = di::JoinedTrait<AliceRead, AliceWrite>;
-using Charlie2 = di::AltTrait<Charlie, struct Charlie_Tag2>;
-using Charlie3 = di::AltTrait<Charlie, struct Charlie_Tag3>;
-using Ellie2 = di::AltTrait<Ellie, struct Ellie_Tag2>;
-using Ellie3 = di::AltTrait<Ellie, struct Ellie_Tag3>;
+using Alice = arc::JoinedTrait<AliceRead, AliceWrite>;
+using Charlie2 = arc::AltTrait<Charlie, struct Charlie_Tag2>;
+using Charlie3 = arc::AltTrait<Charlie, struct Charlie_Tag3>;
+using Ellie2 = arc::AltTrait<Ellie, struct Ellie_Tag2>;
+using Ellie3 = arc::AltTrait<Ellie, struct Ellie_Tag3>;
 inline constexpr Alice alice{};
 inline constexpr Charlie2 charlie2{};
 inline constexpr Charlie3 charlie3{};
@@ -109,7 +109,7 @@ inline constexpr Ellie3 ellie3{};
 
 }
 
-#undef DI_METHODS_AliceRead
-#undef DI_METHODS_AliceWrite
-#undef DI_METHODS_Bob
-#undef DI_METHODS_Charlie
+#undef ARC_METHODS_AliceRead
+#undef ARC_METHODS_AliceWrite
+#undef ARC_METHODS_Bob
+#undef ARC_METHODS_Charlie

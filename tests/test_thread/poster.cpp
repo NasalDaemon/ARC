@@ -1,7 +1,7 @@
 module;
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -21,11 +21,11 @@ module;
 #endif
 
 // #include <signal.h>
-module di.tests.thread.poster;
+module arc.tests.thread.poster;
 
-import di;
+import arc;
 
-namespace di::tests::thread {
+namespace arc::tests::thread {
 
 struct Thread
 {
@@ -96,7 +96,7 @@ struct Scheduler::ThreadContext
                 std::println("Thread {} is stopping, cannot post task", threadId);
                 return false;
             }
-            tasks.push(DI_FWD(task));
+            tasks.push(ARC_FWD(task));
         }
         cv.notify_one();
         return true;
@@ -170,7 +170,7 @@ private:
         }
     }
 
-    [[using DI_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
+    [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
     void pauseLoop(std::unique_lock<std::mutex>& lk, State& state)
     {
         do
@@ -417,7 +417,7 @@ bool Scheduler::postExclusiveTask(std::type_index ti, Function<void()> task)
         exclusiveTasks.push(
             [this, ti, task = std::move(task)]() mutable
             {
-                auto const clear = di::Defer([this, ti]{ std::erase(exclusiveTaskTags, ti); });
+                auto const clear = arc::Defer([this, ti]{ std::erase(exclusiveTaskTags, ti); });
                 task();
             });
     }

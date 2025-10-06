@@ -2,21 +2,21 @@
 
 #include "abc/traits.hpp"
 
-#include "di/depends.hpp"
-#include "di/node.hpp"
-#include "di/resolve.hpp"
-#include "di/traits.hpp"
+#include "arc/depends.hpp"
+#include "arc/node.hpp"
+#include "arc/resolve.hpp"
+#include "arc/traits.hpp"
 
 namespace abc {
 
 struct Bob
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Depends = di::Depends<trait::Alice, trait::Charlie>;
+        using Depends = arc::Depends<trait::Alice, trait::Charlie>;
 
-        using Traits = di::Traits<Node
+        using Traits = arc::Traits<Node
             , trait::AliceRead
             , trait::Bob
             , trait::Charlie
@@ -32,10 +32,10 @@ struct Bob
         struct Types
         {
             using BobType = int;
-            using CharlieType = di::ResolveTypes<Node, trait::Charlie>::CharlieType;
+            using CharlieType = arc::ResolveTypes<Node, trait::Charlie>::CharlieType;
         };
 
-        using AliceType = di::ResolveTypes<Node, trait::Alice>::AliceType;
+        using AliceType = arc::ResolveTypes<Node, trait::Alice>::AliceType;
         using BobType = Types::BobType;
         using CharlieType = Types::CharlieType;
 

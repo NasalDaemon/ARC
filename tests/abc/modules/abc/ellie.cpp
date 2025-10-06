@@ -1,10 +1,10 @@
 module;
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <cstdio>
 #endif
 module abc.ellie;
 
-#if DI_IMPORT_STD
+#if ARC_IMPORT_STD
 import std;
 #endif
 

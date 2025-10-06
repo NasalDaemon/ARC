@@ -1,25 +1,25 @@
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
 #include <doctest/doctest.h>
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <concepts>
 #include <cstdio>
 #include <utility>
 #endif
 
-import di;
+import arc;
 
-namespace di::tests::union_ {
+namespace arc::tests::union_ {
 
 namespace trait {
 
-    struct Name : di::Trait
+    struct Name : arc::Trait
     {
-        #define DI_METHODS_Name(TAG) \
+        #define ARC_METHODS_Name(TAG) \
             TAG(get) \
 
-        DI_METHODS(Name)
+        ARC_METHODS(Name)
 
         template<class Self, class T, class Types>
         requires requires (T const c)
@@ -33,9 +33,9 @@ namespace trait {
 
 struct MouseType;
 
-struct Cat : di::Node
+struct Cat : arc::Node
 {
-    using Traits = di::Traits<Cat, trait::Name>;
+    using Traits = arc::Traits<Cat, trait::Name>;
     struct Types
     {
         struct CatType;
@@ -49,15 +49,15 @@ struct Cat : di::Node
 struct Dog
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Traits = di::Traits<Node, trait::Name>;
+        using Traits = arc::Traits<Node, trait::Name>;
         struct Types
         {
             struct DogType;
         };
 
-        static_assert(std::is_same_v<MouseType, typename di::ResolveTypes<Node, trait::Name>::MouseType>);
+        static_assert(std::is_same_v<MouseType, typename arc::ResolveTypes<Node, trait::Name>::MouseType>);
 
         int impl(trait::Name::get) const
         {
@@ -66,9 +66,9 @@ struct Dog
     };
 };
 template<class Context>
-struct Mouse : di::Node
+struct Mouse : arc::Node
 {
-    using Traits = di::Traits<Mouse, trait::Name>;
+    using Traits = arc::Traits<Mouse, trait::Name>;
     struct Types
     {
         using MouseType = union_::MouseType;
@@ -78,31 +78,31 @@ struct Mouse : di::Node
 };
 
 template<class Context>
-struct Union : di::Cluster
+struct Union : arc::Cluster
 {
     struct Onion;
     struct Mouse;
 
-    DI_LINK(trait::Name, Onion)
+    ARC_LINK(trait::Name, Onion)
 
-    struct Onion : di::Context<Union, di::Union<Cat, Dog>>
+    struct Onion : arc::Context<Union, arc::Union<Cat, Dog>>
     {
-        DI_LINK(trait::Name, Mouse)
+        ARC_LINK(trait::Name, Mouse)
     };
-    struct Mouse : di::InlineContext<Union, union_::Mouse>
+    struct Mouse : arc::InlineContext<Union, union_::Mouse>
     {
-        DI_LINK(trait::Name, Onion)
+        ARC_LINK(trait::Name, Onion)
     };
 
-    DI_NODE(Onion, onion)
-    DI_NODE(Mouse, mouse)
+    ARC_NODE(Onion, onion)
+    ARC_NODE(Mouse, mouse)
 };
 
 constexpr bool testWithIndex()
 {
     for (int i = 0; i < 24; ++i)
     {
-        if (i != di::withIndex<24>(i, [](auto index) -> int { return index; }))
+        if (i != arc::withIndex<24>(i, [](auto index) -> int { return index; }))
             return false;
     }
     return true;
@@ -110,10 +110,10 @@ constexpr bool testWithIndex()
 
 static_assert(testWithIndex());
 
-TEST_CASE("di::Union")
+TEST_CASE("arc::Union")
 {
-    di::InlineGraph<Union> cat{.onion{std::in_place_index<0>}};
-    di::InlineGraph<Union> dog{.onion{di::withFactory, [](auto c) { return c(std::in_place_type<Dog>); }}};
+    arc::InlineGraph<Union> cat{.onion{std::in_place_index<0>}};
+    arc::InlineGraph<Union> dog{.onion{arc::withFactory, [](auto c) { return c(std::in_place_type<Dog>); }}};
 
     using DogTypes = decltype(dog.onion.asTrait(trait::Name{}))::Types;
     static_assert(DogTypes::TypesCount == 2);
@@ -141,7 +141,7 @@ TEST_CASE("di::Union")
     CHECK(dog.onion.asTrait(trait::Name{})->visit([]<class T>(T) { return requires { typename T::Types::DogType; }; }));
 
     {
-        di::Defer keepAlive;
+        arc::Defer keepAlive;
         {
             auto d = cat.onion->getIf<0>()->exchangeImpl<Dog>();
             CHECK(cat.onion.asTrait(trait::Name{}).get() == 141);
@@ -152,6 +152,6 @@ TEST_CASE("di::Union")
     CHECK(cat.onion.asTrait(trait::Name{}).get() == 42);
 }
 
-} // di::tests::union_
+} // arc::tests::union_
 
-DI_INSTANTIATE(di::InlineGraph<di::tests::union_::Union>, onion->get<1>())
+ARC_INSTANTIATE(arc::InlineGraph<arc::tests::union_::Union>, onion->get<1>())

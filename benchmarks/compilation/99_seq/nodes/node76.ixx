@@ -1,16 +1,16 @@
-export module di.bench.compile99_seq.node76;
+export module arc.bench.compile99_seq.node76;
 
-import di;
-export import di.bench.compile99_seq.trait.trait75;
-export import di.bench.compile99_seq.trait.trait76;
+import arc;
+export import arc.bench.compile99_seq.trait.trait75;
+export import arc.bench.compile99_seq.trait.trait76;
 
-namespace di::bench::compile99_seq {
+namespace arc::bench::compile99_seq {
 
 export
-struct Node76 : di::Node
+struct Node76 : arc::Node
 {
-    using Depends = di::Depends<trait::Trait75>;
-    using Traits = di::Traits<Node76, trait::Trait76>;
+    using Depends = arc::Depends<trait::Trait75>;
+    using Traits = arc::Traits<Node76, trait::Trait76>;
 
     int impl(this auto const& self, trait::Trait76::get)
     {

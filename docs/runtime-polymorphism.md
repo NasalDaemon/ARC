@@ -2,7 +2,7 @@
 
 In large-scale C++ systems, balancing static structure with runtime flexibility is crucial—especially when migrating from a modular monolith toward microservices, or when you need to swap implementations on the fly (for testing, mocking, or hot-reloading). Traditional C++ dependency injection is either fully static (compile-time) or fully dynamic (runtime), but rarely both in a controlled, type-safe way.
 
-`di::Union` and `di::Virtual` exist to bridge this gap. They let you introduce runtime polymorphism *only where you need it*, keeping the rest of your dependency graph static and efficient. With these tools, you can:
+`arc::Union` and `arc::Virtual` exist to bridge this gap. They let you introduce runtime polymorphism *only where you need it*, keeping the rest of your dependency graph static and efficient. With these tools, you can:
 
 - **Select implementations at runtime** (e.g., for plugins, mocks, or feature toggles)
 - **Hot-swap nodes** without restarting your application
@@ -10,15 +10,15 @@ In large-scale C++ systems, balancing static structure with runtime flexibility 
 
 This selective approach enables you to build systems that are both robust and adaptable—well-suited for architectures that need to scale from monoliths to microservices, or that require live reconfiguration and testing without sacrificing type safety or performance.
 
-## `di::Union`
+## `arc::Union`
 
-`di::Union<Node, Nodes...>` (see [union.hpp](../lib/include/di/union.hpp)) is to be used if the full set of possible nodes implementing an intersection of traits is known at compile-time. When the graph is constructed, a single implementation is constructed. This remains active until an alternative implementation from the list is emplaced during runtime, or the graph is destructed.
+`arc::Union<Node, Nodes...>` (see [union.hpp](../lib/include/arc/union.hpp)) is to be used if the full set of possible nodes implementing an intersection of traits is known at compile-time. When the graph is constructed, a single implementation is constructed. This remains active until an alternative implementation from the list is emplaced during runtime, or the graph is destructed.
 
-Nodes hosted in a `di::Union` can swap themselves with another alternative from the list by calling `auto deferredExchange = exchangeImpl<NewImpl>(constructorArgs...)` in the active node (arguments are taken by value). When `deferredExchange` is destroyed, it replaces the current option with `NewImpl`, invalidating the current node state. You can also swap from outside the graph using `graph.node->emplace<Index>(...)` or `graph.node->emplace<Type>(...)`. **NOTE:** Unlike `di::Virtual`, `di::Union` does not provide a detached handover; the lifetimes of the old and new alternative do not overlap.
+Nodes hosted in a `arc::Union` can swap themselves with another alternative from the list by calling `auto deferredExchange = exchangeImpl<NewImpl>(constructorArgs...)` in the active node (arguments are taken by value). When `deferredExchange` is destroyed, it replaces the current option with `NewImpl`, invalidating the current node state. You can also swap from outside the graph using `graph.node->emplace<Index>(...)` or `graph.node->emplace<Type>(...)`. **NOTE:** Unlike `arc::Virtual`, `arc::Union` does not provide a detached handover; the lifetimes of the old and new alternative do not overlap.
 
-The memory layout of `di::Union<Nodes...>` is much like `std::variant<Ts...>`, where the state of the active alternative is stored on the stack alongside its respective index. Since only one node alternative is active at any one time, a `union` is effectively used to host the state. When a trait method is invoked, the only extra runtime cost is a branch to pick the active node's implementation given the active index. Due to the list of alternatives being known at compile-time, it presents opportunities for the compiler to optimise invocations, including inlining. Nodes in a `di::Union` are also able to retain compile-time thread-affinity protection where it is employed.
+The memory layout of `arc::Union<Nodes...>` is much like `std::variant<Ts...>`, where the state of the active alternative is stored on the stack alongside its respective index. Since only one node alternative is active at any one time, a `union` is effectively used to host the state. When a trait method is invoked, the only extra runtime cost is a branch to pick the active node's implementation given the active index. Due to the list of alternatives being known at compile-time, it presents opportunities for the compiler to optimise invocations, including inlining. Nodes in a `arc::Union` are also able to retain compile-time thread-affinity protection where it is employed.
 
-Only method calls from external nodes into the `di::Union` incur the extra runtime cost. Any methods invoked from within the nodes hosted by the `di::Union` incur no extra runtime cost, including calls to methods external to the `di::Union`.
+Only method calls from external nodes into the `arc::Union` incur the extra runtime cost. Any methods invoked from within the nodes hosted by the `arc::Union` incur no extra runtime cost, including calls to methods external to the `arc::Union`.
 
 ### Examples
 
@@ -33,7 +33,7 @@ export import app.sheep;
 cluster app::Cluster
 {
     farmer = Farmer
-    animal = di::Union<Cow, Sheep>
+    animal = arc::Union<Cow, Sheep>
 
     [trait::Animal]
     farmer --> animal
@@ -53,13 +53,13 @@ trait app::trait::Animal
 export module app.cow;
 
 import app.traits;
-import di;
+import arc;
 
 namespace app {
 
-struct Cow : di::Node
+struct Cow : arc::Node
 {
-    using Traits = di::Traits<Cow, trait::Animal>;
+    using Traits = arc::Traits<Cow, trait::Animal>;
 
     std::string impl(trait::Animal::speak) const { return happy ? "moo" : "mmmooooo!"; }
 
@@ -73,13 +73,13 @@ struct Cow : di::Node
 export module app.sheep;
 
 import app.traits;
-import di;
+import arc;
 
 namespace app {
 
-struct Sheep : di::Node
+struct Sheep : arc::Node
 {
-    using Traits = di::Traits<Sheep, trait::Animal>;
+    using Traits = arc::Traits<Sheep, trait::Animal>;
 
     std::string impl(trait::Animal::speak) const { return "baa!"; }
 };
@@ -107,8 +107,8 @@ int main(int argc, char** argv)
 {
     Args args = parseArgs(argc, argv);
 
-    di::Graph<app::Cluster> graph{
-        .animal{di::withFactory,
+    arc::Graph<app::Cluster> graph{
+        .animal{arc::withFactory,
             [&](auto construct) {
                 if (args.animal == Animal::Cow)
                     return construct(std::in_place_type<Cow>, true);
@@ -129,23 +129,23 @@ int main(int argc, char** argv)
 }
 ```
 
-## `di::Virtual`
+## `arc::Virtual`
 
-`di::Virtual<Interfaces...>` (see [virtual.hpp](../lib/include/di/virtual.hpp)) is to be used to host an open-set of node implementations of the given `Interfaces` (which derive from `di::INode`). This is the most flexible option, as any implementation of the interfaces can be used, even if it is not known when compiling the graph. As with `di::Union` when the graph is constructed, a single implementation is constructed. This remains active until an alternative implementation of the interface is emplaced during runtime, or the graph is destructed.
+`arc::Virtual<Interfaces...>` (see [virtual.hpp](../lib/include/arc/virtual.hpp)) is to be used to host an open-set of node implementations of the given `Interfaces` (which derive from `arc::INode`). This is the most flexible option, as any implementation of the interfaces can be used, even if it is not known when compiling the graph. As with `arc::Union` when the graph is constructed, a single implementation is constructed. This remains active until an alternative implementation of the interface is emplaced during runtime, or the graph is destructed.
 
-Nodes deriving from `di::INode` have the ability to swap themselves out with another implementation and handover interactively as they see fit by using `auto handle = exchangeImpl<NewImpl>(constructorArgs...)`. The `handle` obtains ownership over the calling node's detached state—which can reach the rest of the graph, but cannot itself be reached from other nodes. It also holds a non-owning reference to the new implementation which has been attached to the graph in its stead, allowing for an interactive handover.
+Nodes deriving from `arc::INode` have the ability to swap themselves out with another implementation and handover interactively as they see fit by using `auto handle = exchangeImpl<NewImpl>(constructorArgs...)`. The `handle` obtains ownership over the calling node's detached state—which can reach the rest of the graph, but cannot itself be reached from other nodes. It also holds a non-owning reference to the new implementation which has been attached to the graph in its stead, allowing for an interactive handover.
 
-The memory layout of `di::Virtual<Interfaces...>` is much like `std::tuple<Interfaces*...>`, where the `Interfaces*` are pointers to the heap-allocated implementation. When a trait method is invoked, the interface that satisfies the trait is found from the list (as long as there is no ambiguity) and the method is called on that interface. Since the trait methods are typically implemented as virtual overrides of the interface methods, one vtable lookup is to be expected per method call, much like a standard abstract class. In the case of a virtual override, it is harder for the compiler to optimise the call or inline it, although with judicious use of the `final` keyword and with whole-program or link-time-optimisation it may be possible for the compiler to devirtualise the call. Nodes hosted in a `di::Virtual` are not able to retain compile-time thread-affinity protection where it is employed, as the types needed to enforce this are erased.
+The memory layout of `arc::Virtual<Interfaces...>` is much like `std::tuple<Interfaces*...>`, where the `Interfaces*` are pointers to the heap-allocated implementation. When a trait method is invoked, the interface that satisfies the trait is found from the list (as long as there is no ambiguity) and the method is called on that interface. Since the trait methods are typically implemented as virtual overrides of the interface methods, one vtable lookup is to be expected per method call, much like a standard abstract class. In the case of a virtual override, it is harder for the compiler to optimise the call or inline it, although with judicious use of the `final` keyword and with whole-program or link-time-optimisation it may be possible for the compiler to devirtualise the call. Nodes hosted in a `arc::Virtual` are not able to retain compile-time thread-affinity protection where it is employed, as the types needed to enforce this are erased.
 
-Only method calls from external nodes into nodes hosted by `di::Virtual` incur the extra runtime cost. Any methods invoked from within the nodes hosted by the `di::Virtual` incur no extra runtime cost, including calls to methods external to the `di::Virtual`.
+Only method calls from external nodes into nodes hosted by `arc::Virtual` incur the extra runtime cost. Any methods invoked from within the nodes hosted by the `arc::Virtual` incur no extra runtime cost, including calls to methods external to the `arc::Virtual`.
 
-**NOTE:** It is possible to make a `di::Virtual` one of the alternatives in a `di::Union`, offering the best of both worlds. One can specify the static nodes that are most well-known or requiring the highest performance as alternatives in the `di::Union`, and the `di::Virtual` alternative can be used as a fallback for everything else. Invoking a method on the fallback `di::Virtual` would then of course require both a branch (`di::Union` active node selection) as well as a vtable lookup (`di::Virtual` method dispatch).
+**NOTE:** It is possible to make a `arc::Virtual` one of the alternatives in a `arc::Union`, offering the best of both worlds. One can specify the static nodes that are most well-known or requiring the highest performance as alternatives in the `arc::Union`, and the `arc::Virtual` alternative can be used as a fallback for everything else. Invoking a method on the fallback `arc::Virtual` would then of course require both a branch (`arc::Union` active node selection) as well as a vtable lookup (`arc::Virtual` method dispatch).
 
-### `di::Adapt` and `di::Box`: hosting static nodes in a `di::Virtual`
+### `arc::Adapt` and `arc::Box`: hosting static nodes in a `arc::Virtual`
 
-By using `di::Adapt<StaticNode, InterfaceFacade>`, it is possible to adapt a static node that doesn't derive from `di::INode` or use virtual overrides, so that it can be hosted by a `di::Virtual`. The second template parameter is a facade, implementing the `Interface` required by the hosting `di::Virtual<Interface>`, which invokes the respective trait methods on the static node like a proxy. The static node, being static and having no knowledge of being dynamic, is not capable of swapping itself out, but the facade can swap the implementation of the `di::Virtual`, as it is a dynamic node. The static node can still call methods external to `di::Virtual` as per usual with no extra vtable lookup.
+By using `arc::Adapt<StaticNode, InterfaceFacade>`, it is possible to adapt a static node that doesn't derive from `arc::INode` or use virtual overrides, so that it can be hosted by a `arc::Virtual`. The second template parameter is a facade, implementing the `Interface` required by the hosting `arc::Virtual<Interface>`, which invokes the respective trait methods on the static node like a proxy. The static node, being static and having no knowledge of being dynamic, is not capable of swapping itself out, but the facade can swap the implementation of the `arc::Virtual`, as it is a dynamic node. The static node can still call methods external to `arc::Virtual` as per usual with no extra vtable lookup.
 
-With `di::Box<StaticNode, InFacade, OutFacade = void, OutInterfaces...>`, one adapts the given static node but also adapts all external dependencies behind another `OutFacade`, implementing `OutInterfaces...`. This means that the static node must pay a virtual dispatch also in all its calls to its dependencies, which are entirely abstracted behind the `OutFacade`. Using `di::Box`, one can instantiate a completely isolated implementation of the interfaces from which `InFacade` derives, completely agnostic to the context of the hosting `di::Virtual`.
+With `arc::Box<StaticNode, InFacade, OutFacade = void, OutInterfaces...>`, one adapts the given static node but also adapts all external dependencies behind another `OutFacade`, implementing `OutInterfaces...`. This means that the static node must pay a virtual dispatch also in all its calls to its dependencies, which are entirely abstracted behind the `OutFacade`. Using `arc::Box`, one can instantiate a completely isolated implementation of the interfaces from which `InFacade` derives, completely agnostic to the context of the hosting `arc::Virtual`.
 
 ### Examples
 
@@ -159,7 +159,7 @@ export import app.animal;
 cluster app::Cluster
 {
     farmer = Farmer
-    animal = di::Virtual<IAnimal>
+    animal = arc::Virtual<IAnimal>
 
     [trait::Animal]
     farmer --> animal
@@ -180,14 +180,14 @@ trait app::trait::Animal
 export module app.animal;
 
 import app.traits;
-import di;
+import arc;
 import std;
 
 namespace app {
 
-struct IAnimal : di::INode
+struct IAnimal : arc::INode
 {
-    using Traits = di::Traits<IAnimal, trait::Animal>;
+    using Traits = arc::Traits<IAnimal, trait::Animal>;
 
     virtual std::string impl(trait::Animal::speak) const = 0;
     virtual void impl(trait::Animal::evolve) const = 0;
@@ -200,7 +200,7 @@ export module app.cow;
 
 import app.animal;
 import app.traits;
-import di;
+import arc;
 
 namespace app {
 
@@ -228,7 +228,7 @@ export module app.sheep;
 import app.animal;
 import app.traits;
 import app.goat;
-import di;
+import arc;
 
 namespace app {
 
@@ -268,7 +268,7 @@ export module app.goat;
 import app.animal;
 import app.traits;
 import app.cow;
-import di;
+import arc;
 
 namespace app {
 
@@ -297,20 +297,20 @@ struct Goat final : IAnimal
 export module app.fox;
 
 import app.traits;
-import di;
+import arc;
 
 namespace app {
 
-// Fox is a static node which we can adapt to IAnimal using di::Adapt<Fox, IAnimalFacade>
-struct Fox : di::Node
+// Fox is a static node which we can adapt to IAnimal using arc::Adapt<Fox, IAnimalFacade>
+struct Fox : arc::Node
 {
-    using Traits = di::Traits<Fox, trait::Animal>;
+    using Traits = arc::Traits<Fox, trait::Animal>;
 
     std::string impl(trait::Animal::speak) const override { return "yip"; }
 
     void impl(trait::Animal::evolve)
     {
-        // static node cannot swap itself out inside a di::Virtual (alas, `evolve` shouldn't really be a method in the trait)
+        // static node cannot swap itself out inside a arc::Virtual (alas, `evolve` shouldn't really be a method in the trait)
     }
 };
 
@@ -331,7 +331,7 @@ struct IAnimalFacade final : IAnimal
         return getNode(trait::animal).speak();
     }
 
-    // As a dynamic node, this facade can swap the implementation hosted by di::Virtual
+    // As a dynamic node, this facade can swap the implementation hosted by arc::Virtual
     void impl(trait::Animal::evolve) override
     {
         auto handle = exchangeImpl<Cow>(true);
@@ -375,8 +375,8 @@ int main(int argc, char** argv)
 {
     Args args = parseArgs(argc, argv);
 
-    di::Graph<app::Cluster> graph{
-        .animal{di::withFactory,
+    arc::Graph<app::Cluster> graph{
+        .animal{arc::withFactory,
             [&](auto construct) {
                 if (args.animal == Animal::Cow)
                     return construct(std::in_place_type<Cow>, true);
@@ -399,10 +399,10 @@ int main(int argc, char** argv)
     std::println("Sad cow says {}", animal.speak());
 
     // Farmer's view of animal is always up-to-date
-    // The `animal` variable is just a non-owning trait view of the di::Virtual node in the graph
+    // The `animal` variable is just a non-owning trait view of the arc::Virtual node in the graph
     std::println("Sad cow says {}", graph.farmer.getNode(trait::animal).speak());
 
-    graph.animal->emplace<di::Adapt<Fox, IAnimalFacade>>();
+    graph.animal->emplace<arc::Adapt<Fox, IAnimalFacade>>();
     std::println("Fox says {}", animal.speak());
     // IAnimalFacade hot-swaps with happy cow
     animal.evolve();

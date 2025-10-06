@@ -2,18 +2,18 @@ add_subdirectory(abc)
 
 find_package(doctest REQUIRED)
 
-add_library(di_tests test_main.cpp)
-add_library(di::tests ALIAS di_tests)
-target_compile_definitions(di_tests PUBLIC DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1)
+add_library(arc_tests test_main.cpp)
+add_library(arc::tests ALIAS arc_tests)
+target_compile_definitions(arc_tests PUBLIC DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1)
 
-target_link_libraries(di_tests PUBLIC doctest::doctest)
+target_link_libraries(arc_tests PUBLIC doctest::doctest)
 
-add_executable(di_tests_headers
+add_executable(arc_tests_headers
     test_abc_headers.cpp
     test_embedded_headers.cpp
     test_mem_ptr.cpp
 )
-add_executable(di_tests_module
+add_executable(arc_tests_module
     test_abc_module.cpp
     test_collection.cpp
     test_embedded_modules.cpp
@@ -24,24 +24,24 @@ add_executable(di_tests_module
     test_virtual.cpp
     test_repeater/main.cpp
 )
-add_executable(di_tests_mock
+add_executable(arc_tests_mock
     test_combine.cpp
     test_lazy.cpp
     test_mock.cpp
 )
 
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.1.0")
-    add_executable(di_tests_thread
+    add_executable(arc_tests_thread
         test_thread/test_collection.cpp
         test_thread/test_thread.cpp
         test_thread/test_union.cpp
     )
-    target_generate_di_modules(di_tests_thread
+    target_generate_arc_modules(arc_tests_thread
         GLOB test_thread
         EMBED test_thread/test_collection.cpp
         EMBED test_thread/test_union.cpp
     )
-    target_sources(di_tests_thread
+    target_sources(arc_tests_thread
         PUBLIC FILE_SET CXX_MODULES FILES
             test_thread/global_scheduler.ixx
             test_thread/poster.ixx
@@ -49,31 +49,31 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION
         PRIVATE
             test_thread/poster.cpp
     )
-    target_link_libraries(di_tests_thread PUBLIC
-        di::module
-        di::tests
+    target_link_libraries(arc_tests_thread PUBLIC
+        arc::module
+        arc::tests
     )
-    add_test(di_tests_thread di_tests_thread)
+    add_test(arc_tests_thread arc_tests_thread)
 endif()
 
-if(DI_BUILD_LTO)
-    set_property(TARGET di_tests_headers di_tests_module
+if(ARC_BUILD_LTO)
+    set_property(TARGET arc_tests_headers arc_tests_module
         PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 
     # Some things can't link with GCC-14+LTO
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.1.0")
-        set_property(TARGET di_tests_mock
+        set_property(TARGET arc_tests_mock
             PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-        set_property(TARGET di_tests_thread
+        set_property(TARGET arc_tests_thread
             PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
 endif()
 
-target_generate_di_headers(di_tests_headers
-    EMBED test_embedded_headers.cpp di/tests/test_embedded_headers.hxx
+target_generate_arc_headers(arc_tests_headers
+    EMBED test_embedded_headers.cpp arc/tests/test_embedded_headers.hxx
 )
 
-target_generate_di_modules(di_tests_module
+target_generate_arc_modules(arc_tests_module
     GLOB
         test_domain
         test_repeater
@@ -86,38 +86,38 @@ target_generate_di_modules(di_tests_module
         test_virtual.cpp
 )
 
-target_generate_di_modules(di_tests_mock
+target_generate_arc_modules(arc_tests_mock
     EMBED
         test_mock.cpp
 )
 
-target_sources(di_tests_module
+target_sources(arc_tests_module
     PUBLIC FILE_SET CXX_MODULES FILES
         test_repeater/test_node.ixx
 )
 
-target_generate_di_src(di_tests_module
+target_generate_arc_src(arc_tests_module
     GRAPH_MODULE abc.graph
-    GRAPH_TYPE   di::Graph<abc::AliceBob>
+    GRAPH_TYPE   arc::Graph<abc::AliceBob>
     NODES
         alice    abc.alice
 )
 
-target_link_libraries(di_tests_headers PUBLIC
-    di::tests::abc::lib
-    di::di
-    di::tests
+target_link_libraries(arc_tests_headers PUBLIC
+    arc::tests::abc::lib
+    arc::headers
+    arc::tests
 )
-target_link_libraries(di_tests_module PUBLIC
-    di::tests::abc::module
-    di::module
-    di::tests
+target_link_libraries(arc_tests_module PUBLIC
+    arc::tests::abc::module
+    arc::module
+    arc::tests
 )
-target_link_libraries(di_tests_mock PUBLIC
-    di::module
-    di::tests
+target_link_libraries(arc_tests_mock PUBLIC
+    arc::module
+    arc::tests
 )
 
-add_test(di_tests_headers di_tests_headers)
-add_test(di_tests_module di_tests_module)
-add_test(di_tests_mock di_tests_mock)
+add_test(arc_tests_headers arc_tests_headers)
+add_test(arc_tests_module arc_tests_module)
+add_test(arc_tests_mock arc_tests_mock)

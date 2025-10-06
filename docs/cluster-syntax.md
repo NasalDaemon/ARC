@@ -1,16 +1,16 @@
 # Cluster syntax
 
-Clusters are the backbone of Static-DI: without them, nodes cannot have their dependencies satisfied. They are classes that hold the state of a set of nodes and describe their dependencies on each other. A cluster forms a greater "node" or component, composed of its constituent nodes.
+Clusters are the backbone of ARC: without them, nodes cannot have their dependencies satisfied. They are classes that hold the state of a set of nodes and describe their dependencies on each other. A cluster forms a greater "node" or component, composed of its constituent nodes.
 
-With Static-DI, you can use a special DSL (Domain Specific Language) called "dig" to define clusters (and [traits](trait-syntax.md)). Dig helps visualize the graph of dependencies between nodes better than a purely textual code-based description. Clusters are defined in separate files next to your other source files with the extension `.ixx.dig` (module) or `.hxx.dig` (header).
+With ARC, you can use a special DSL (Domain Specific Language) called "arc" to define clusters (and [traits](trait-syntax.md)). The DSL helps visualize the graph of dependencies between nodes better than a purely textual code-based description. Clusters are defined in separate files next to your other source files with the extension `.ixx.arc` (module) or `.hxx.arc` (header).
 
-The provided CMake functions `target_generate_di_modules()` and `target_generate_di_headers()` automatically generate `.ixx` or `.hxx` files from the `.ixx.dig` and `.hxx.dig` files found recursively in the source directory, and add them to the target. For generated `.hxx` files, each resulting include path matches the include path of the respective `.hxx.dig` file.
+The provided CMake functions `target_generate_arc_modules()` and `target_generate_arc_headers()` automatically generate `.ixx` or `.hxx` files from the `.ixx.arc` and `.hxx.arc` files found recursively in the source directory, and add them to the target. For generated `.hxx` files, each resulting include path matches the include path of the respective `.hxx.arc` file.
 
-## Cluster `.dig` file template
+## Cluster `.arc` file template
 
 ### Header includes and module imports
 
-Header includes and module imports should be listed at the top of the file. [See here](dig-files.md) for further information.
+Header includes and module imports should be listed at the top of the file. [See here](arc-files.md) for further information.
 
 ### Defining a cluster
 
@@ -137,17 +137,17 @@ cluster FruitSalad
     .. --> date
     .. --> sourCherry
     // which implicitly generates a special intermediate node
-    // `_parentRepeater0 = di::Repeater<trait::ChopFruit, 5>` with the connections:
+    // `_parentRepeater0 = arc::Repeater<trait::ChopFruit, 5>` with the connections:
     // [trait::ChopFruit]
-    // .. --> _parentRepeater0 (di::RepeaterTrait<0>) --> apple
-    //        _parentRepeater0 (di::RepeaterTrait<1>) --> banana
-    //        _parentRepeater0 (di::RepeaterTrait<2>) --> cherry
-    //        _parentRepeater0 (di::RepeaterTrait<3>) --> date
-    //        _parentRepeater0 (di::RepeaterTrait<4>) --> sourCherry
+    // .. --> _parentRepeater0 (arc::RepeaterTrait<0>) --> apple
+    //        _parentRepeater0 (arc::RepeaterTrait<1>) --> banana
+    //        _parentRepeater0 (arc::RepeaterTrait<2>) --> cherry
+    //        _parentRepeater0 (arc::RepeaterTrait<3>) --> date
+    //        _parentRepeater0 (arc::RepeaterTrait<4>) --> sourCherry
     // where any trait::ChopFruit::method call is repeated by the repeater node
     // to apple, then banana, then cherry, then date, then sourCherry
     // as if calling for Is 0..4:
-    // _parentRepeater0.getNode(di::RepeaterTrait<Is>{}).method(args...)
+    // _parentRepeater0.getNode(arc::RepeaterTrait<Is>{}).method(args...)
 
     // Note: when FruitSalad is used as a node in a parent cluster,
     // trait::ChopFruit transparently connects to _parentRepeater0
@@ -158,7 +158,7 @@ cluster FruitSalad
     // which resolves trait::Log to the respective global node
     // Equivalent to:
     // [trait::Log]
-    // apple --> (di::Global<trait::Log>) ..
+    // apple --> (arc::Global<trait::Log>) ..
     // This is only necessary if `trait::Log` must be resolved using `getNode` instead of `getGlobal`
 }
 
@@ -202,7 +202,7 @@ Without their respective annotations, the Context, Root, and Info type names are
 
 ## No-trait connections [~]
 
-Use the no-trait marker `~` when you do not need a named trait/interface for a link. It models a traitless connection that stays type-safe via `di::NoTrait<NodeHandle>` at codegen time. The client will have access to all of the provider's public data and member functions without any interface constraints.
+Use the no-trait marker `~` when you do not need a named trait/interface for a link. It models a traitless connection that stays type-safe via `arc::NoTrait<NodeHandle>` at codegen time. The client will have access to all of the provider's public data and member functions without any interface constraints.
 
 ### When to use
 - Internal wiring where the consumer needs the provider as-is (no interface to constrain)
@@ -226,7 +226,7 @@ cluster MyCluster
     // No-trait connection to a node
     [~] client --> provider
     // Equivalent to:
-    // [di::NoTrait<Provider>]
+    // [arc::NoTrait<Provider>]
     // client --> provider
 }
 ```
@@ -242,9 +242,9 @@ cluster MyCluster
 ```
 #### No trait node
 ```cpp
-struct Provider : di::Node
+struct Provider : arc::Node
 {
-    using Traits = di::NoTraits<Provider>;
+    using Traits = arc::NoTraits<Provider>;
     // No traits, just public members
     void memberFunction() { /* ... */ }
 };
@@ -252,13 +252,13 @@ struct Provider : di::Node
 #### Consumption
 ```cpp
 // From client node
-auto provider = getNode(di::noTrait<Provider>);
+auto provider = getNode(arc::noTrait<Provider>);
 provider->memberFunction(); // Calls `Provider`'s member function directly
 ```
 
 ### Caveats:
 - Cannot not mix no-trait and a named trait for the same target node in one graph; pick one.
-- No-trait shorthand `~` with the global node (`*`) or parent node (`..`) is not supported; must explicitly use `di::NoTrait<NodeHandle>` or a named trait.
+- No-trait shorthand `~` with the global node (`*`) or parent node (`..`) is not supported; must explicitly use `arc::NoTrait<NodeHandle>` or a named trait.
 
 Migration tip
-- If you later need a stable interface, replace `[~]` with a named trait (e.g., `[trait::X]`) and update call sites from `getNode(di::noTrait<T>)` to `getNode(trait::x)`.
+- If you later need a stable interface, replace `[~]` with a named trait (e.g., `[trait::X]`) and update call sites from `getNode(arc::noTrait<T>)` to `getNode(trait::x)`.

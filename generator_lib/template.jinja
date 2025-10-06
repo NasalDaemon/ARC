@@ -3,13 +3,13 @@
 namespace {{ namespace.name }} {
 {% for trait in namespace.traits %}
 
-{{ export }}struct {{ trait.name }} : di::Trait
+{{ export }}struct {{ trait.name }} : arc::Trait
 {
     {% for method_name in trait.method_names %}
-    DI_METHOD_TAG({{ method_name }})
+    ARC_METHOD_TAG({{ method_name }})
     {% endfor %}
 
-    template<di::IsMethodOf<{{ trait.name }}> Tag>
+    template<arc::IsMethodOf<{{ trait.name }}> Tag>
     friend constexpr {{ trait.name }} traitOf(Tag) { return {}; }
 
     struct Meta
@@ -17,17 +17,17 @@ namespace {{ namespace.name }} {
         struct Applicable
         {
             {% for method_name in trait.method_names %}
-            DI_METHOD_TAG_APPLICABLE({{ method_name }})
+            ARC_METHOD_TAG_APPLICABLE({{ method_name }})
             {% endfor %}
         };
         struct Methods
         {
             {% for method_name in trait.method_names %}
-            DI_AS_FUNCTOR_METHOD({{ method_name }})
+            ARC_AS_FUNCTOR_METHOD({{ method_name }})
             {% endfor %}
 
             {% for method in trait.methods %}
-            template<di::IsTraitView Self
+            template<arc::IsTraitView Self
                 {%- for prefix, name in method.templates -%}
                 , {{ prefix }}{{ prefix.pack }} {{ name }}
                 {%- endfor -%}
@@ -35,16 +35,16 @@ namespace {{ namespace.name }} {
                 , class {{ trait.types_name }} = std::remove_cvref_t<Self>::Types
                 {%- endif -%}
                 {%- if trait.root_name -%}
-                , class {{ trait.root_name }} = di::ResolveRoot<di::ContextOf<std::remove_cvref_t<Self>>>
+                , class {{ trait.root_name }} = arc::ResolveRoot<arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
                 {%- if trait.info_name -%}
-                , class {{ trait.info_name }} = di::ResolveInfo<di::ContextOf<std::remove_cvref_t<Self>>>
+                , class {{ trait.info_name }} = arc::ResolveInfo<arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
                 {%- if trait.impl_named -%}
                 , class {{ trait.impl_name }} = std::remove_cvref_t<Self>::Traits::Node
                 {%- endif -%}
             >
-            DI_INLINE constexpr auto {{ method.name }}(this Self{{ " const&" if method.is_const else "&&" }} self
+            ARC_INLINE constexpr auto {{ method.name }}(this Self{{ " const&" if method.is_const else "&&" }} self
                 {%- for type, name in method.params -%}
                 , {{ type }}{{ type.pack }} {{ name }}
                 {%- endfor -%}
@@ -52,7 +52,7 @@ namespace {{ namespace.name }} {
             {
                 return self.impl({{ method.name }}_c
                     {%- for type, name in method.params -%}
-                    , DI_FWD({{ name }}){{ type.pack }}
+                    , ARC_FWD({{ name }}){{ type.pack }}
                     {%- endfor -%}
                 );
             }
@@ -61,17 +61,17 @@ namespace {{ namespace.name }} {
         struct DuckMethods
         {
             {% for method_name in trait.method_names %}
-            DI_DUCK_METHOD({{ method_name }})
+            ARC_DUCK_METHOD({{ method_name }})
             {% endfor %}
         };
     };
 
     template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "" }}
     {%- if trait.root_name -%}
-        , class {{ trait.root_name }} = di::ResolveRoot<di::ContextOf<{{ trait.impl_name }}>>
+        , class {{ trait.root_name }} = arc::ResolveRoot<arc::ContextOf<{{ trait.impl_name }}>>
     {%- endif -%}
     {%- if trait.info_name -%}
-        , class {{ trait.info_name }} = di::ResolveInfo<di::ContextOf<{{ trait.impl_name }}>>
+        , class {{ trait.info_name }} = arc::ResolveInfo<arc::ContextOf<{{ trait.impl_name }}>>
     {%- endif -%}
     >
     requires requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_)
@@ -85,7 +85,7 @@ namespace {{ namespace.name }} {
         {% macro require_invoke() -%}
             {{ "const_" if method.is_const else "impl_" }}.impl({{ method.name }}_c
                 {%- for type, name in method.params -%}
-                , DI_FWD({{ name }})
+                , ARC_FWD({{ name }})
                 {%- endfor -%}
             )
         {%- endmacro %}
@@ -114,9 +114,9 @@ namespace {{ namespace.name }} {
 {% for alias in namespace.trait_aliases %}
 
 {% if alias | count == 2 %}
-{{ export }}using {{ alias[0] }} = di::AltTrait<{{ alias[1] }}, struct {{ alias[0] }}_Tag>;
+{{ export }}using {{ alias[0] }} = arc::AltTrait<{{ alias[1] }}, struct {{ alias[0] }}_Tag>;
 {% else %}
-{{ export }}using {{ alias[0] }} = di::JoinedTrait<{{ alias[1:] | join(", ") }}>;
+{{ export }}using {{ alias[0] }} = arc::JoinedTrait<{{ alias[1:] | join(", ") }}>;
 {% endif %}
 {{ export }}inline constexpr {{ alias[0] }} {{ alias[0][0].lower() + alias[0][1:] }}{};
 {% endfor %}
@@ -125,7 +125,7 @@ namespace {{ namespace.name }} {
 {% if not cluster.templates %}
 template<class Context>
 struct {{ cluster.node_name() }};
-{{ export }}using {{ cluster.name }} = di::InlineNode<{{ cluster.node_name() }}>;
+{{ export }}using {{ cluster.name }} = arc::InlineNode<{{ cluster.node_name() }}>;
 {% else %}
 {{ export }}template<
     {%- set comma = joiner(", ") -%}
@@ -167,7 +167,7 @@ template<class {{ cluster.context_name }}>
 struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
 {% endif %}
 {
-    using Depends = di::Depends<{{ cluster.dependencies | join(", ") }}>;
+    using Depends = arc::Depends<{{ cluster.dependencies | join(", ") }}>;
 
     {% if 1 == cluster.nodes | length %}
     static constexpr bool isUnary()
@@ -177,10 +177,10 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
 
     {% endif %}
     {% if cluster.root_name %}
-    using {{ cluster.root_name }} = di::ResolveRoot<{{ cluster.context_name }}>;
+    using {{ cluster.root_name }} = arc::ResolveRoot<{{ cluster.context_name }}>;
     {% endif %}
     {% if cluster.info_name %}
-    using {{ cluster.info_name }} = di::ResolveInfo<{{ cluster.context_name }}>;
+    using {{ cluster.info_name }} = arc::ResolveInfo<{{ cluster.context_name }}>;
     {% endif %}
     {% for node in cluster.nodes %}
     struct {{ node.context }};
@@ -196,34 +196,34 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
 
     {% for connection in cluster.parent_node.connections %}
     {% if connection.is_renaming() %}
-    DI_LINK(({{ connection.trait }}), {{ connection.context }}, ({{ connection.to_trait }}))
+    ARC_LINK(({{ connection.trait }}), {{ connection.context }}, ({{ connection.to_trait }}))
     {% else %}
-    DI_LINK(({{ connection.trait }}), {{ connection.context }})
+    ARC_LINK(({{ connection.trait }}), {{ connection.context }})
     {% endif %}
     {% endfor %}
     {% endif %}
 
     {% for node in cluster.nodes %}
-    struct {{ node.context }} : di::Context<{{ cluster.node_name() }}, {{ node.context }}Node_>
+    struct {{ node.context }} : arc::Context<{{ cluster.node_name() }}, {{ node.context }}Node_>
     {
         {% for connection in node.connections %}
         {% if connection.is_renaming() %}
-        DI_LINK(({{ connection.trait }}), {{ connection.context }}, ({{ connection.to_trait }}))
+        ARC_LINK(({{ connection.trait }}), {{ connection.context }}, ({{ connection.to_trait }}))
         {% else %}
-        DI_LINK(({{ connection.trait }}), {{ connection.context }})
+        ARC_LINK(({{ connection.trait }}), {{ connection.context }})
         {% endif %}
         {% endfor %}
     };
     {% endfor %}
 
     {% for node in cluster.nodes %}
-    DI_NODE({{ node.context }}, {{ node.name }}{{ cluster.predicates_str(node) }})
+    ARC_NODE({{ node.context }}, {{ node.name }}{{ cluster.predicates_str(node) }})
     {% endfor %}
 
     constexpr void visit(this auto& self, auto&& visitor)
     {
         {% if 1 == cluster.user_nodes | length %}
-        self.{{ cluster.user_nodes.0.name }}.visit(DI_FWD(visitor));
+        self.{{ cluster.user_nodes.0.name }}.visit(ARC_FWD(visitor));
         {% else %}
         {% for node in cluster.user_nodes %}
         self.{{ node.name }}.visit(visitor);

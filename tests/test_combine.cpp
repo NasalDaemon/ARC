@@ -1,45 +1,45 @@
 #include <doctest/doctest.h>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <typeinfo>
 #include <vector>
 #endif
 
-import di;
+import arc;
 
-namespace di::tests::combine {
+namespace arc::tests::combine {
 
 namespace trait {
 
-    struct A : di::UnconstrainedTrait
+    struct A : arc::UnconstrainedTrait
     {
-        #define DI_METHODS_A(TAG) \
+        #define ARC_METHODS_A(TAG) \
             TAG(a) \
             TAG(c)
-        DI_METHODS(A)
+        ARC_METHODS(A)
     } inline constexpr a{};
 
-    struct B : di::UnconstrainedTrait
+    struct B : arc::UnconstrainedTrait
     {
-        #define DI_METHODS_B(TAG) \
+        #define ARC_METHODS_B(TAG) \
             TAG(b) \
             TAG(c)
-        DI_METHODS(B)
+        ARC_METHODS(B)
     } inline constexpr b{};
 
-    struct C : di::UnconstrainedTrait
+    struct C : arc::UnconstrainedTrait
     {
-        #define DI_METHODS_C(TAG) \
+        #define ARC_METHODS_C(TAG) \
             TAG(c)
-        DI_METHODS(C)
+        ARC_METHODS(C)
     } inline constexpr c{};
 
 } // namespace trait
 
-struct A : di::Node
+struct A : arc::Node
 {
-    using Traits = di::Traits<A, trait::A>;
+    using Traits = arc::Traits<A, trait::A>;
 
     int impl(trait::A::a) { return val; }
 
@@ -51,9 +51,9 @@ struct A : di::Node
     int val = 42;
 };
 
-struct B : di::Node
+struct B : arc::Node
 {
-    using Traits = di::Traits<B, trait::B>;
+    using Traits = arc::Traits<B, trait::B>;
 
     int impl(trait::B::b) { return val; }
 
@@ -65,16 +65,16 @@ struct B : di::Node
     int val = 314;
 };
 
-struct C : di::Node
+struct C : arc::Node
 {
-    using Traits = di::Traits<C, trait::C>;
+    using Traits = arc::Traits<C, trait::C>;
 
     int impl(trait::C::c) { return val; }
 
     int val = 99;
 };
 
-TEST_CASE("di::Combine test doubles")
+TEST_CASE("arc::Combine test doubles")
 {
     test::Graph<C, Combine<A, B>> g;
     static_assert(sizeof(g) == 3 * sizeof(int));
@@ -86,7 +86,7 @@ TEST_CASE("di::Combine test doubles")
     CHECK(99 == g.node.getNode(trait::b).c());
 }
 
-TEST_CASE_TEMPLATE("di::Combine with Mock", Mock, test::Mock<EmptyTypes, trait::B>, Narrow<test::Mock<>, trait::B>)
+TEST_CASE_TEMPLATE("arc::Combine with Mock", Mock, test::Mock<EmptyTypes, trait::B>, Narrow<test::Mock<>, trait::B>)
 {
     test::Graph<C, Combine<A, Mock>> g;
 
@@ -107,4 +107,4 @@ TEST_CASE_TEMPLATE("di::Combine with Mock", Mock, test::Mock<EmptyTypes, trait::
     CHECK(99 == int(g.node.getNode(trait::b).c()));
 }
 
-} // namespace di::tests::combine
+} // namespace arc::tests::combine

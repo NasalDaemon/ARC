@@ -1,16 +1,16 @@
 # Trait syntax
 
-A trait is an interface presented by one node to another to satisfy a dependency. In a [cluster](cluster-syntax.md), all node dependencies are satisfied by connecting to the appropriate providing nodes by the name of the trait they implement. As a result, on each dependent node, a `my::TraitName::method` on the providing node can be invoked via `getNode(my::traitName).method(args...)`, and a `TypeName` can be resolved via `di::ResolveTypes<Node, my::TraitName>::TypeName`. See the example [here](modules-example.md#sessionsixx).
+A trait is an interface presented by one node to another to satisfy a dependency. In a [cluster](cluster-syntax.md), all node dependencies are satisfied by connecting to the appropriate providing nodes by the name of the trait they implement. As a result, on each dependent node, a `my::TraitName::method` on the providing node can be invoked via `getNode(my::traitName).method(args...)`, and a `TypeName` can be resolved via `arc::ResolveTypes<Node, my::TraitName>::TypeName`. See the example [here](modules-example.md#sessionsixx).
 
-With Static-DI, you can use a special DSL (Domain Specific Language) called "dig" to define traits (and [clusters](cluster-syntax.md)). Dig is designed to specify and constrain the methods that can be called from the result of `getNode(my::traitName)`, and also to list any further type requirements of each implementation. Traits are defined in separate files next to your other source files with the extension `.ixx.dig` (module) or `.hxx.dig` (header).
+With ARC, you can use a special DSL (Domain Specific Language) called "arc" to define traits (and [clusters](cluster-syntax.md)). The DSL is designed to specify and constrain the methods that can be called from the result of `getNode(my::traitName)`, and also to list any further type requirements of each implementation. Traits are defined in separate files next to your other source files with the extension `.ixx.arc` (module) or `.hxx.arc` (header).
 
-The provided CMake functions `target_generate_di_modules()` and `target_generate_di_headers()` automatically generate `.ixx` or `.hxx` files from the `.ixx.dig` and `.hxx.dig` files found recursively in the source directory, and add them to the target. For generated `.hxx` files, each resulting include path matches the include path of the respective `.hxx.dig` file.
+The provided CMake functions `target_generate_arc_modules()` and `target_generate_arc_headers()` automatically generate `.ixx` or `.hxx` files from the `.ixx.arc` and `.hxx.arc` files found recursively in the source directory, and add them to the target. For generated `.hxx` files, each resulting include path matches the include path of the respective `.hxx.arc` file.
 
-## Trait `.dig` file template
+## Trait `.arc` file template
 
 ### Header includes and module imports
 
-Header includes and module imports should be listed at the top of the file. [See here](dig-files.md) for further information.
+Header includes and module imports should be listed at the top of the file. [See here](arc-files.md) for further information.
 
 ### Defining a trait
 
@@ -19,7 +19,7 @@ Header includes and module imports should be listed at the top of the file. [See
 ```cpp
 namespace my {
 
-// Non-template methods are added to the `di::Implements<Impl, my::Trait>` concept,
+// Non-template methods are added to the `arc::Implements<Impl, my::Trait>` concept,
 // which is enforced in the call to `getNode` and `asTrait`.
 trait Trait
 {
@@ -34,7 +34,7 @@ trait Trait
     method(double d) -> double
 }
 
-// Template methods are supported, but are not added to the `di::Implements<Impl, my::Complex>` concept,
+// Template methods are supported, but are not added to the `arc::Implements<Impl, my::Complex>` concept,
 // so their existance is *not* enforced in the call to `getNode` or `asTrait`.
 // Instead, compilation only fails when the method is called and it is not implemented or conforming.
 trait Complex
@@ -84,13 +84,13 @@ trait Trait4 [Types, Root]
     // Can add arbitrary concept constraints, including:
     // `impl_` for mutable implementation, `const_` for const implementation
 
-    // Added to di::Implements<Impl, Trait4>:
+    // Added to arc::Implements<Impl, Trait4>:
     // mutable implementation have have mutableMethod(std::string)
     requires (std::string s) {
         impl_.mutableMethod(s)
     }
 
-    // Added to di::Implements<Impl, Trait4>
+    // Added to arc::Implements<Impl, Trait4>
     // const implementation have have constMethod(int)
     requires const_.constMethod(0)
 }

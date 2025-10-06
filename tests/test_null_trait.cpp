@@ -1,17 +1,17 @@
 #include <doctest/doctest.h>
 
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
 
-import di.tests.null_trait;
-import di;
+import arc.tests.null_trait;
+import arc;
 
-namespace di::tests::null_trait {
+namespace arc::tests::null_trait {
 
-/* di-embed-begin
-export module di.tests.null_trait;
+/* arc-embed-begin
+export module arc.tests.null_trait;
 
-namespace di::tests::null_trait {
+namespace arc::tests::null_trait {
 
 cluster Cluster [R = Root]
 {
@@ -23,28 +23,28 @@ cluster Cluster [R = Root]
 
 }
 
-di-embed-end */
+arc-embed-end */
 
 struct Root
 {
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Traits = di::NoTraits<Node>;
+        using Traits = arc::NoTraits<Node>;
 
         int doSomething(this auto const& self)
         {
-            return self.getNode(di::noTrait<Node>)->i;
+            return self.getNode(arc::noTrait<Node>)->i;
         }
 
         int i;
     };
 };
 
-TEST_CASE("di::NullTrait")
+TEST_CASE("arc::NullTrait")
 {
-    di::Graph<Cluster, Root> graph{
-        .node1{DI_EMPLACE(.i = 1)},
-        .node2{DI_EMPLACE(.i = 42)},
+    arc::Graph<Cluster, Root> graph{
+        .node1{ARC_EMPLACE(.i = 1)},
+        .node2{ARC_EMPLACE(.i = 42)},
     };
 
     CHECK(graph.node1->doSomething() == 42);

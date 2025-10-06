@@ -14,8 +14,8 @@ from pathlib import Path
 dir_path = Path(__file__).resolve().parent
 
 arg_parser = argparse.ArgumentParser(
-                    prog='Static-DI generator',
-                    description='Generates cpp source files from Static-DI DSL called dig')
+                    prog='ARC generator',
+                    description='Generates cpp source files from ARC DSL called arc')
 
 arg_parser.add_argument('-i', '--input')
 arg_parser.add_argument('-o', '--output')
@@ -27,12 +27,12 @@ input_file: str = args.input
 input_path = Path(input_file).resolve()
 output_file: str = args.output
 is_module: bool = args.module
-is_embedded: bool = input_path.suffixes[-1] != '.dig'
+is_embedded: bool = input_path.suffixes[-1] != '.arc'
 
-grammar_file = dir_path.joinpath(dir_path, 'dig_module.lark' if is_module else 'dig_header.lark')
-dig_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True)
+grammar_file = dir_path.joinpath(dir_path, 'arc_module.lark' if is_module else 'arc_header.lark')
+arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True)
 
-reconstructor = Reconstructor(dig_parser)
+reconstructor = Reconstructor(arc_parser)
 section_lines: list[tuple[int, int, int]] = []
 
 
@@ -44,7 +44,7 @@ def get_line(line: int, col: int) -> tuple[int, int]:
 
     if line == section_lines[index][0] or line == 1:
         col += section_lines[index][2]
-        col += len("di-embed-begin") - 1
+        col += len("arc-embed-begin") - 1
     line = line - section_lines[index][0] + section_lines[index][1]
 
     return line, col
@@ -56,8 +56,8 @@ with open(input_file, 'r') as file:
         sections = []
         outer_line_count = 0
         inner_line_count = 0
-        begin = 'di-embed-begin'
-        end = 'di-embed-end'
+        begin = 'arc-embed-begin'
+        end = 'arc-embed-end'
         while True:
             begin_pos = text.find(begin)
             outer_line_count += text[:begin_pos].count("\n")
@@ -84,11 +84,11 @@ with open(input_file, 'r') as file:
         print(f"{input_path}:{line}:{col} parse error:\n{e.get_context(text)}")
         return False
 
-    parsed = dig_parser.parse(text, on_error=on_parse_error)
+    parsed = arc_parser.parse(text, on_error=on_parse_error)
 
 
 def imported(lark_rule: str):
-    return f'dig__{lark_rule}'
+    return f'arc__{lark_rule}'
 
 
 def get_pos(t: Tree | Token | None) -> str:
@@ -104,7 +104,7 @@ def get_pos(t: Tree | Token | None) -> str:
 
 
 class AddColonToRequiresStatements(Visitor_Recursive):
-    def dig__cpp_requires_statement(self, tree):
+    def arc__cpp_requires_statement(self, tree):
         if not isinstance(tree.children[-1], Token) or tree.children[-1].type != imported('SEMICOLON'):
             tree.children.append(Token(imported('SEMICOLON'), ';'))
 
@@ -115,7 +115,7 @@ NO_TRAIT = "~"
 def is_no_trait(trait: str | None) -> bool:
     if trait is None:
         return False
-    return trait == NO_TRAIT or "di::NoTrait<" in trait
+    return trait == NO_TRAIT or "arc::NoTrait<" in trait
 
 
 class CppType:
@@ -171,11 +171,11 @@ class Repeater:
 
     @property
     def impl(self):
-        return f'di::Repeater<{self.trait}, {len(self.connections)}>'
+        return f'arc::Repeater<{self.trait}, {len(self.connections)}>'
 
     def add_connection(self, connection: 'Connection'):
         assert connection.trait == self.trait, (connection.trait, self.trait)
-        connection.trait = f"di::RepeaterTrait<{len(self.connections)}>"
+        connection.trait = f"arc::RepeaterTrait<{len(self.connections)}>"
         self.connections.append(connection)
 
 
@@ -184,7 +184,7 @@ class Connection:
         self.to_node: Node | Repeater = to_node
         self.trait: str = trait
         if self.trait == NO_TRAIT:
-            self.trait = f"di::NoTrait<{to_node.node_alias}>"
+            self.trait = f"arc::NoTrait<{to_node.node_alias}>"
             self.to_trait = self.trait
         else:
             self.to_trait: str = to_trait or trait
@@ -258,9 +258,9 @@ class Node:
         if effective_to_trait == NO_TRAIT:
             if to_node.is_global or to_node.is_parent:
                 raise SyntaxError(f"{pos} Cannot use no-trait shorthand '~' to connect to global '*' or parent '..' node in {self.cluster.cluster_class} '{self.cluster.full_name}'. "
-                                  "Use a named trait like 'di::NoTrait<TargetNode>' instead.")
+                                  "Use a named trait like 'arc::NoTrait<TargetNode>' instead.")
         if to_node.is_global:
-            to_trait = f"di::Global<{effective_to_trait}>"
+            to_trait = f"arc::Global<{effective_to_trait}>"
         to_node.add_client(pos, self, effective_to_trait)
         connection = Connection(to_node, trait=trait, to_trait=to_trait)
         if existing := next((c for c in self.connections if c.trait == connection.trait), None):
@@ -314,7 +314,7 @@ class Cluster:
 
     @property
     def cluster_type(self) -> str:
-        return "di::Cluster"
+        return "arc::Cluster"
 
     @property
     def cluster_class(self) -> str:
@@ -536,7 +536,7 @@ class Domain(Cluster):
 
     @property
     def cluster_type(self) -> str:
-        return "di::Domain<di::DomainParams{.MaxDepth=3}>"
+        return "arc::Domain<arc::DomainParams{.MaxDepth=3}>"
 
     @property
     def cluster_class(self) -> str:
@@ -545,13 +545,13 @@ class Domain(Cluster):
     def predicates(self, node: Node | Repeater) -> list[str]:
         if isinstance(node, Repeater):
             return []
-        preds = ["di::pred::HasDepends"]
+        preds = ["arc::pred::HasDepends"]
         if not node.is_unary:
-            preds.append("di::pred::NonUnary")
+            preds.append("arc::pred::NonUnary")
             return preds
-        preds.append("di::pred::Unary")
+        preds.append("arc::pred::Unary")
         if not node.has_state:
-            preds.append("di::pred::Stateless")
+            preds.append("arc::pred::Stateless")
         return preds
 
     def validate_arrow(self, arrow: Tree) -> bool:
@@ -661,7 +661,7 @@ class Method:
                 self.optional = c.children[0].type == imported('OPTIONAL_METHOD')
                 self.name = c.children[-1].value
                 if self.name in self.__reserved_names__:
-                    raise SyntaxError(f"{get_pos(c)} '{self.name}' cannot be the name of a method, it is reserved for di::TraitView")
+                    raise SyntaxError(f"{get_pos(c)} '{self.name}' cannot be the name of a method, it is reserved for arc::TraitView")
             elif c.data == imported('cpp_func_params'):
                 for c in c.children:
                     type_ = CppType.from_tree(c.children[0])
@@ -890,12 +890,12 @@ class Repr:
 template_loader = jinja2.FileSystemLoader(searchpath=dir_path)
 template_env = jinja2.Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
 jinja_template = template_env.get_template(f"template.{'ixx' if is_module else 'hxx'}.jinja")
-output_text = jinja_template.render(repr=Repr(parsed), export="export " if is_module else "DI_MODULE_EXPORT\n")
+output_text = jinja_template.render(repr=Repr(parsed), export="export " if is_module else "ARC_MODULE_EXPORT\n")
 
 with open(output_file, 'a+') as file:
     file.seek(0)
     currentText = file.read()
     if currentText != output_text:
-        print(f"DIG {"created" if currentText == "" else "changed"}: {output_file}")
+        print(f"ARC {"created" if currentText == "" else "changed"}: {output_file}")
         file.truncate(0)
         file.write(output_text)

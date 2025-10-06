@@ -2,18 +2,18 @@
 #include <doctest/doctest.h>
 #include <typeindex>
 #include <utility>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-import di.tests.thread.union_;
-import di.tests.thread.global_scheduler;
-import di.tests.thread.poster;
-import di;
+import arc.tests.thread.union_;
+import arc.tests.thread.global_scheduler;
+import arc.tests.thread.poster;
+import arc;
 
-/* di-embed-begin
+/* arc-embed-begin
 
-export module di.tests.thread.union_;
+export module arc.tests.thread.union_;
 
-namespace di::tests::thread::union_ {
+namespace arc::tests::thread::union_ {
 
 trait trait::Query
 {
@@ -27,21 +27,21 @@ trait trait::Swap
 
 cluster Cluster [R = Root]
 {
-    on0 = di::Union<typename R::Node1, typename R::Node2> : di::OnDynThread
-    on1 = di::Union<typename R::Node1, typename R::Node2> : di::OnDynThread
-    on2 = di::Union<di::OnDynThread<typename R::Node1>, di::OnDynThread<typename R::Node2>>
+    on0 = arc::Union<typename R::Node1, typename R::Node2> : arc::OnDynThread
+    on1 = arc::Union<typename R::Node1, typename R::Node2> : arc::OnDynThread
+    on2 = arc::Union<arc::OnDynThread<typename R::Node1>, arc::OnDynThread<typename R::Node2>>
 }
 
 }
 
-di-embed-end */
+arc-embed-end */
 
-namespace di::tests::thread::union_ {
+namespace arc::tests::thread::union_ {
 
 struct Node2;
-struct Node1 : di::Node
+struct Node1 : arc::Node
 {
-    using Traits = di::Traits<Node1, trait::Query, trait::Swap, di::trait::DynamicNode>;
+    using Traits = arc::Traits<Node1, trait::Query, trait::Swap, arc::trait::DynamicNode>;
 
     int impl(trait::Query::query) const
     {
@@ -56,9 +56,9 @@ struct Node1 : di::Node
     }
 
     template<class Self>
-    void impl(this Self& self, di::trait::DynamicNode::exchangeImpl)
+    void impl(this Self& self, arc::trait::DynamicNode::exchangeImpl)
     {
-        CHECK(self.getGlobal(di::trait::scheduler).inExclusiveMode());
+        CHECK(self.getGlobal(arc::trait::scheduler).inExclusiveMode());
         auto defer = self.template exchangeImpl<Node2>();
         CHECK(not defer.empty());
     }
@@ -73,9 +73,9 @@ struct Node1 : di::Node
     int const i = 1;
     bool onConstructed = false;
 };
-struct Node2 : di::Node
+struct Node2 : arc::Node
 {
-    using Traits = di::Traits<Node2, trait::Query, trait::Swap, di::trait::DynamicNode>;
+    using Traits = arc::Traits<Node2, trait::Query, trait::Swap, arc::trait::DynamicNode>;
 
     int impl(trait::Query::query) const
     {
@@ -90,9 +90,9 @@ struct Node2 : di::Node
     }
 
     template<class Self>
-    void impl(this Self& self, di::trait::DynamicNode::exchangeImpl)
+    void impl(this Self& self, arc::trait::DynamicNode::exchangeImpl)
     {
-        CHECK(self.getGlobal(di::trait::scheduler).inExclusiveMode());
+        CHECK(self.getGlobal(arc::trait::scheduler).inExclusiveMode());
         auto defer = self.template exchangeImpl<Node1>();
         CHECK(not defer.empty());
     }
@@ -116,7 +116,7 @@ TEST_CASE("Union")
         using Node2 = union_::Node2;
     };
 
-    di::GraphWithGlobal<Cluster, GlobalScheduler, Root> g{
+    arc::GraphWithGlobal<Cluster, GlobalScheduler, Root> g{
         .global{
             [](auto& scheduler)
             {
@@ -132,9 +132,9 @@ TEST_CASE("Union")
     };
     g.onConstructed();
 
-    CHECK_THROWS_WITH(g->on0.get()->emplace<Node2>(), "di::Union::emplace can only be called when the scheduler is in exclusive mode");
+    CHECK_THROWS_WITH(g->on0.get()->emplace<Node2>(), "arc::Union::emplace can only be called when the scheduler is in exclusive mode");
 
-    auto scheduler = g.global.asTrait(di::trait::scheduler);
+    auto scheduler = g.global.asTrait(arc::trait::scheduler);
 
     std::atomic_uint64_t taskCount = 0;
 
@@ -164,7 +164,7 @@ TEST_CASE("Union")
                         CHECK(2 == g->on0->asTrait(trait::query, future).query().get());
                         g->on0.get()->template emplace<Node1>();
                         CHECK(1 == g->on0->asTrait(trait::query).query());
-                        g.global.asTrait(di::trait::scheduler).stop();
+                        g.global.asTrait(arc::trait::scheduler).stop();
                     });
             });
         });

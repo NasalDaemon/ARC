@@ -4,12 +4,12 @@ Example called `my_app` which shows a simple user session manager and authentica
 
 The nodes also have two dependencies on data types:
 1. `Session` derives its `PassHash` type from the one provided at the root of the graph via `Context::Root`.
-2. `Session` derives its `Token` type from the one provided by `AuthService` via `di::ResolveTypes` static trait resolution.
+2. `Session` derives its `Token` type from the one provided by `AuthService` via `arc::ResolveTypes` static trait resolution.
 
 <details>
 <summary>:warning: NOTE: the data type dependencies are simply showing off features! Don't resolve data types inside nodes just because you can!</summary>
 
-> It is generally recommended for simplicity that well-known data types used by multiple nodes are defined _independently_ of and _externally_ to nodes. Humans tend to find types much more easily through a well organised file structure, rather than traversing clusters of interdependent nodes. If a data type does need to be configurable using `Context::Root` or `ResolveTypes`, the concrete type itself still should be indepedently defined in a well-named class that is easy to find. It can then be simply aliased in the custom root or the node's trait types.
+> It is generally recommended for simplicity that well-known data types used by multiple nodes are defined _independently_ of and _externally_ to nodes. Humans tend to find types much more easily through a well organised file structure, rather than traversing clusters of interdependent nodes. If a data type does need to be configurable using `Context::Root` or `ResolveTypes`, the concrete type itself still should be independently defined in a well-named class that is easy to find. It can then be simply aliased in the custom root or the node's trait types.
 >
 > Order of preference for dependencies on data types:
 > 1. Type defined externally and used directly by nodes
@@ -26,21 +26,21 @@ The nodes also have two dependencies on data types:
 
 ## File structure
 - [my/CMakeLists.txt](#cmakeliststxt)
-- [my/traits.ixx.dig](#traitsixxdig): `my::trait::AuthService`, `my::trait::TokenStore`, `my::trait::SessionManager`: traits for nodes to implement
-- [my/cluster.ixx.dig](#clusterixxdig): `my::Cluster`: A cluster of interconnected nodes implementing the traits
+- [my/traits.ixx.arc](#traitsixxarc): `my::trait::AuthService`, `my::trait::TokenStore`, `my::trait::SessionManager`: traits for nodes to implement
+- [my/cluster.ixx.arc](#clusterixxarc): `my::Cluster`: A cluster of interconnected nodes implementing the traits
 - [my/token.ixx](#tokenixx): `my::Token` data type stores the proof of identity for a user, issued by the AuthService with an expiry
 - [my/pass_hash.ixx](#pass_hashixx): `my::PassHash` data type stores the hash of passwords
 - [my/auth_service.ixx](#auth_serviceixx): `my::AuthService` node implements the trait `my::trait::AuthService`
 - [my/sessions.ixx](#sessionsixx): `my::Sessions` node implements the traits `my::trait::TokenStore` and `my::trait::SessionManager`
 - [my/logger.ixx](#loggerixx): `my::Logger` node implements the trait `my::trait::Logger`
 - [my/main.cpp](#maincpp): Constructs and uses the full graph of nodes which satisfies all requirements of the nodes within `my::Cluster`
-- [Unit tests](#unittests): Unit test `my::trait::SessionManager` trait of `my::Sessions` using a `AuthServiceTestDouble` test double, and also the `di::test::Mock` mocking node
+- [Unit tests](#unittests): Unit test `my::trait::SessionManager` trait of `my::Sessions` using a `AuthServiceTestDouble` test double, and also the `arc::test::Mock` mocking node
 
 ## CMakeLists.txt
 ```CMake
 add_executable(my_app main.cpp)
 
-target_link_libraries(my_app PUBLIC di::module)
+target_link_libraries(my_app PUBLIC arc::module)
 
 # Add module interface units and implementation units
 target_sources(my_app
@@ -57,12 +57,12 @@ target_sources(my_app
         pass_hash.cpp # not shown
 )
 
-# Adds traits.ixx (from traits.ixx.dig) and cluster.ixx (from cluster.ixx.dig)
-# by searching recursively for *.ixx.dig in the current directory
-target_generate_di_modules(my_app)
+# Adds traits.ixx (from traits.ixx.arc) and cluster.ixx (from cluster.ixx.arc)
+# by searching recursively for *.ixx.arc in the current directory
+target_generate_arc_modules(my_app)
 ```
 
-## traits.ixx.dig
+## traits.ixx.arc
 `my::trait::AuthService`, `my::trait::TokenStore`, `my::trait::SessionManager`: traits for nodes to implement. See full trait syntax [documentation](trait-syntax.md).
 ```cpp
 export module my.traits;
@@ -117,7 +117,7 @@ trait Logger
 }
 ```
 
-## cluster.ixx.dig
+## cluster.ixx.arc
 `my::Cluster`: A cluster of interconnected nodes implementing the traits. See full cluster syntax [documentation](cluster-syntax.md).
 ```cpp
 export module my.cluster;
@@ -187,23 +187,23 @@ import my.traits;
 import my.db; // not shown in example
 import my.task; // not shown in example
 
-import di;
+import arc;
 import std;
 
 namespace my {
 
 // Note: non-template functions in non-template class can be easily implemented
 // in separate .cpp files for faster compilation.
-export struct AuthService : di::Node
+export struct AuthService : arc::Node
 {
     // `AuthService` uses `trait::TokenStore` via `getNode`, and `trait::Logger` via `getGlobal`
     // Both are checked when compiling the graph that hosts `AuthService`
-    using Depends = di::Depends<trait::TokenStore, di::Global<trait::Logger>>;
+    using Depends = arc::Depends<trait::TokenStore, arc::Global<trait::Logger>>;
 
     // `AuthService` implements the trait `my::trait::AuthService`
-    using Traits = di::Traits<AuthService, trait::AuthService>;
+    using Traits = arc::Traits<AuthService, trait::AuthService>;
     // shorthand for:
-    //      di::Traits<AuthService
+    //      arc::Traits<AuthService
     //          , trait::AuthService(AuthService, AuthService::Types)
     //      >
 
@@ -227,7 +227,7 @@ export struct AuthService : di::Node
         if (success)
         {
             // Resolves to `my::PassHash` in this example
-            using PassHash = di::ContextOf<Self>::Root::PassHash;
+            using PassHash = arc::ContextOf<Self>::Root::PassHash;
             // Since the type and memory offset of `Sessions` with respect to `AuthService` is known
             // statically via the context of `Self`, this entire call can/will be inlined by the compiler:
             self.getNode(trait::tokenStore).store(user, PassHash(pass), Token(self.tokenSecret, user, self.expiry));
@@ -281,7 +281,7 @@ export module my.sessions;
 
 import my.traits;
 
-import di;
+import arc;
 import std;
 
 namespace my {
@@ -291,15 +291,15 @@ export struct Sessions
     // If implementing a node with data type dependencies in its state, a nested
     // Node<Context> template class is needed to query the types in the graph
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
         // Since `sessions` is explicitly redirected to the global node `*` in the graph,
-        // we can simply depend on `trait::Logger` instead of `di::Global<trait::Logger>`
-        using Depends = di::Depends<trait::AuthService, trait::Logger>;
+        // we can simply depend on `trait::Logger` instead of `arc::Global<trait::Logger>`
+        using Depends = arc::Depends<trait::AuthService, trait::Logger>;
 
-        using Traits = di::Traits<Node, trait::TokenStore, trait::SessionManager>;
+        using Traits = arc::Traits<Node, trait::TokenStore, trait::SessionManager>;
         // shorthand for:
-        //      di::Traits<Node
+        //      arc::Traits<Node
         //          , trait::TokenStore(Node, Node::Types)
         //          , trait::SessionManager(Node, Node::Types)
         //      >
@@ -308,7 +308,7 @@ export struct Sessions
         {
             // Exposes Token type to satisfy `trait::TokenStore` and `trait::SessionManager`
             // by deferring to the type provided by `trait::AuthService`
-            using Token = di::ResolveTypes<Node, trait::AuthService>::Token;
+            using Token = arc::ResolveTypes<Node, trait::AuthService>::Token;
             // Resolves to `my::AuthService::Types::Token` in this example
         };
 
@@ -325,8 +325,8 @@ export struct Sessions
             auto const [it, inserted] = userDetailsMap.try_emplace(user, std::move(passHash), std::move(token));
             if (not inserted)
             {
-                it->passHash = std::move(passHash);
-                it->token = std::move(token);
+                it->second.passHash = std::move(passHash);
+                it->second.token = std::move(token);
             }
         }
 
@@ -396,14 +396,14 @@ export struct Sessions
 export module my.logger;
 
 import my.traits;
-import di;
+import arc;
 import std;
 
 namespace my {
 
-export struct Logger : di::Node
+export struct Logger : arc::Node
 {
-    using Traits = di::Traits<Logger, trait::Logger>;
+    using Traits = arc::Traits<Logger, trait::Logger>;
 
     template<class... Args>
     void impl(trait::Logger::log, Args&&... args) const
@@ -421,7 +421,7 @@ import my.cluster;
 import my.logger;
 import my.pass_hash;
 import my.traits;
-import di;
+import arc;
 
 using namespace my;
 
@@ -429,23 +429,23 @@ int main()
 {
     struct Root
     {
-        using PassHash = my::PassHash
+        using PassHash = my::PassHash;
     };
 
-    di::GraphWithGlobal<my::Cluster, my::Logger, Root> graph{
+    arc::GraphWithGlobal<my::Cluster, my::Logger, Root> graph{
         .global{}, // my::Logger is the global node
         .main{ // my::Cluster is the main cluster
             .authService{"super token secret", std::chrono::seconds{600}},
         },
     };
-    // `di::Graph<my::Cluster, Root>` is an alias to `my::Cluster<di::RootContext<Root>>`, which is roughly:
+    // `arc::Graph<my::Cluster, Root>` is an alias to `my::Cluster<arc::RootContext<Root>>`, which is roughly:
     //  struct my::PseudoGeneratedCluster
     //  {
     //      struct SessionsContext { ... };
     //      struct AuthServiceContext { ... };
     //
     //      using SessionsNode    = Sessions::template Node<SessionsContext>;
-    //      using AuthServiceNode = di::WrapNode<AuthService>::template Node<AuthServiceContext>;
+    //      using AuthServiceNode = arc::WrapNode<AuthService>::template Node<AuthServiceContext>;
     //
     //      SessionsNode    sessions{};
     //      AuthServiceNode authService{};
@@ -482,7 +482,7 @@ int main()
         // change password should be successful
         assert(authService.changePass("user1", "user1Pass", "newUser1Pass").value());
         // token has been revoked
-        assert(not sessionManager.hasToken("user1"))
+        assert(not sessionManager.hasToken("user1"));
         // can get token with new password
         assert(sessionManager.getToken("user1", "newUser1Pass").value().has_value());
     }
@@ -495,7 +495,7 @@ int main()
 
 import my.sessions;
 import my.traits;
-import di;
+import arc;
 import std;
 
 namespace my::tests::session_manager {
@@ -525,9 +525,9 @@ struct MockTypes
     };
 };
 
-struct MockLogger : di::Node
+struct MockLogger : arc::Node
 {
-    using Traits = di::Traits<MockLogger, trait::Logger>;
+    using Traits = arc::Traits<MockLogger, trait::Logger>;
 
     void impl(trait::Logger::log, auto&&...) const
     {
@@ -540,7 +540,7 @@ inline constexpr std::string_view thePass = "pass";
 inline constexpr std::string_view wrongPass = "wrongPass";
 
 static void testSessionManager(
-    di::IsTraitViewOf<trait::SessionManager> auto sessionManager,
+    arc::IsTraitViewOf<trait::SessionManager> auto sessionManager,
     std::invocable<std::size_t> auto increaseTime)
 {
     using Token = MockTypes::Token;
@@ -574,9 +574,9 @@ static void testSessionManager(
 }
 
 // Test doubles are reusable across tests in the whole project
-struct AuthServiceTestDouble : di::Node
+struct AuthServiceTestDouble : arc::Node
 {
-    using Traits = di::Traits<AuthServiceTestDouble, my::trait::AuthService>;
+    using Traits = arc::Traits<AuthServiceTestDouble, my::trait::AuthService>;
 
     using Types = MockTypes;
 
@@ -612,9 +612,9 @@ TEST_SUITE("my::Sessions as trait::SessionManager")
 {
     TEST_CASE("Using AuthServiceTestDouble")
     {
-        di::test::Graph<my::Sessions, di::Combine<MockLogger, AuthServiceTestDouble>, MockRoot> graph;
-        // With `di::test::Graph`, any and all `getNode` calls in `my::Sessions` resolve to
-        // `di::Combine<MockLogger, AuthServiceTestDouble>`, which selects the node which implements the required trait
+        arc::test::Graph<my::Sessions, arc::Combine<MockLogger, AuthServiceTestDouble>, MockRoot> graph;
+        // With `arc::test::Graph`, any and all `getNode` calls in `my::Sessions` resolve to
+        // `arc::Combine<MockLogger, AuthServiceTestDouble>`, which selects the node which implements the required trait
 
         graph.mocks->addUser(theUser, thePass);
         auto sessionManager = graph.node.asTrait(trait::sessionManager);
@@ -622,11 +622,11 @@ TEST_SUITE("my::Sessions as trait::SessionManager")
         testSessionManager(sessionManager, incrementTime);
     }
 
-    TEST_CASE("Using di::test::Mock")
+    TEST_CASE("Using arc::test::Mock")
     {
-        using Mocks = di::test::Mock<MockTypes>;
-        di::test::Graph<my::Sessions, Mocks, MockRoot> graph;
-        // With `di::test::Graph`, any and all `getNode` calls in `my::Sessions` resolve to `Mocks`
+        using Mocks = arc::test::Mock<MockTypes>;
+        arc::test::Graph<my::Sessions, Mocks, MockRoot> graph;
+        // With `arc::test::Graph`, any and all `getNode` calls in `my::Sessions` resolve to `Mocks`
 
         std::size_t time = 0;
         std::size_t tokenId = 0;

@@ -1,22 +1,22 @@
 module;
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <type_traits>
 #endif
-export module di.tests.thread.test_node;
+export module arc.tests.thread.test_node;
 
-import di.tests.thread.poster;
-import di.tests.thread.traits;
-import di;
-#if DI_IMPORT_STD
+import arc.tests.thread.poster;
+import arc.tests.thread.traits;
+import arc;
+#if ARC_IMPORT_STD
 import std;
 #endif
 
-export namespace di::tests::thread {
+export namespace arc::tests::thread {
 
 template<class Trait>
-struct TestNode : di::Node
+struct TestNode : arc::Node
 {
-    struct Interface : di::DetachedInterface
+    struct Interface : arc::DetachedInterface
     {
         int impl(this auto const& self, trait::Trait::getA)
         {
@@ -41,11 +41,11 @@ struct TestNode : di::Node
         }
     };
 
-    using Traits = di::Traits<TestNode(Interface), trait::A, trait::B, trait::C>;
+    using Traits = arc::Traits<TestNode(Interface), trait::A, trait::B, trait::C>;
 
     TestNode(int i) : i(i) {}
 
     int i;
 };
 
-} // namespace di::tests::thread
+} // namespace arc::tests::thread

@@ -1,21 +1,21 @@
 #include <doctest/doctest.h>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
 // TODO: Why do we need to include ranges again with GCC?
-#if !DI_IMPORT_STD or DI_COMPILER_GCC
+#if !ARC_IMPORT_STD or ARC_COMPILER_GCC
 #include <ranges>
 #endif
 
-import di.tests.thread.collection;
-import di.tests.thread.global_scheduler;
-import di.tests.thread.poster;
-import di;
+import arc.tests.thread.collection;
+import arc.tests.thread.global_scheduler;
+import arc.tests.thread.poster;
+import arc;
 
-/* di-embed-begin
+/* arc-embed-begin
 
-export module di.tests.thread.collection;
+export module arc.tests.thread.collection;
 
-namespace di::tests::thread::trait {
+namespace arc::tests::thread::trait {
 
 trait Inner
 {
@@ -31,7 +31,7 @@ trait Outer
 
 }
 
-namespace di::tests::thread {
+namespace arc::tests::thread {
 
 cluster Inner [R = Root]
 {
@@ -45,8 +45,8 @@ cluster Inner [R = Root]
 
 cluster CollectionCluster [R = Root]
 {
-    collection = di::Collection<int, di::OnDynThread<Inner>>
-    outer = di::OnDynThread<typename R::Outer>
+    collection = arc::Collection<int, arc::OnDynThread<Inner>>
+    outer = arc::OnDynThread<typename R::Outer>
 
     [trait::Inner <-> trait::Outer]
     collection <-> outer
@@ -54,22 +54,22 @@ cluster CollectionCluster [R = Root]
 
 }
 
-di-embed-end */
+arc-embed-end */
 
-namespace di::tests::thread {
+namespace arc::tests::thread {
 
-using namespace di::tests::thread::trait;
+using namespace arc::tests::thread::trait;
 
-struct InnerNode : di::PeerNode
+struct InnerNode : arc::PeerNode
 {
     struct OuterDetached;
     struct PeerDetached;
-    using Traits = di::Traits<InnerNode
+    using Traits = arc::Traits<InnerNode
         , trait::Inner
         , trait::Outer(OuterDetached)
-        , di::trait::Peer(di::PeerDetachedOpen)
+        , arc::trait::Peer(arc::PeerDetachedOpen)
     >;
-    using Depends = di::Depends<trait::Outer, trait::Inner*>;
+    using Depends = arc::Depends<trait::Outer, trait::Inner*>;
 
     explicit InnerNode(int i) : i(i) {}
 
@@ -98,7 +98,7 @@ struct InnerNode : di::PeerNode
         return self.getNode(trait::inner).get();
     }
 
-    struct OuterDetached : di::DetachedInterface
+    struct OuterDetached : arc::DetachedInterface
     {
         int impl(this auto const& self, trait::Outer::get)
         {
@@ -109,10 +109,10 @@ struct InnerNode : di::PeerNode
     int i;
 };
 
-struct OuterNode : di::Node
+struct OuterNode : arc::Node
 {
-    using Traits = di::Traits<OuterNode, trait::Outer>;
-    using Depends = di::Depends<trait::Inner>;
+    using Traits = arc::Traits<OuterNode, trait::Outer>;
+    using Depends = arc::Depends<trait::Inner>;
 
     explicit OuterNode(int threadId) : i(threadId) {}
 
@@ -123,13 +123,13 @@ struct OuterNode : di::Node
 
     int impl(this auto const& self, trait::Inner::get)
     {
-        return self.getNode(trait::inner, di::key::Element(0)).get();
+        return self.getNode(trait::inner, arc::key::Element(0)).get();
     }
 
     int i;
 };
 
-TEST_CASE("di::Collection using threads")
+TEST_CASE("arc::Collection using threads")
 {
     struct Root
     {
@@ -137,7 +137,7 @@ TEST_CASE("di::Collection using threads")
         using Outer = OuterNode;
     };
 
-    di::GraphWithGlobal<CollectionCluster, GlobalScheduler, Root> graph{
+    arc::GraphWithGlobal<CollectionCluster, GlobalScheduler, Root> graph{
         .global{
             [](auto& scheduler)
             {
@@ -150,15 +150,15 @@ TEST_CASE("di::Collection using threads")
             .collection{3,
                 [](auto add)
                 {
-                    add(0, 0, DI_EMPLACE(
+                    add(0, 0, ARC_EMPLACE(
                         .node1{314},
                         .node2{315},
                     ));
-                    add(1, 1, DI_EMPLACE(
+                    add(1, 1, ARC_EMPLACE(
                         .node1{42},
                         .node2{43},
                     ));
-                    add(2, 2, DI_EMPLACE(
+                    add(2, 2, ARC_EMPLACE(
                         .node1{99},
                         .node2{100},
                     ));
@@ -168,7 +168,7 @@ TEST_CASE("di::Collection using threads")
         },
     };
 
-    auto scheduler = graph.global.asTrait(di::trait::scheduler);
+    auto scheduler = graph.global.asTrait(arc::trait::scheduler);
 
     auto mainTask = [&]
     {

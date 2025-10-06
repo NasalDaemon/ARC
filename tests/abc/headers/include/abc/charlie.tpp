@@ -2,7 +2,7 @@
 
 #include "abc/charlie.hpp"
 
-#include "di/test.hpp"
+#include "arc/test.hpp"
 
 #define CHARLIE \
     template<class Context> \
@@ -10,10 +10,10 @@
 
 CHARLIE::Alice::impl(trait::Alice::get) const -> int
 {
-    static_assert(di::CanGetNode<Node, trait::AliceRead>);
+    static_assert(arc::CanGetNode<Node, trait::AliceRead>);
     auto const value = getNode(trait::aliceRead).get();
 
-    if constexpr (di::test::IsTestContext<Context>)
+    if constexpr (arc::test::IsTestContext<Context>)
         return value + 10;
     else
         return value;

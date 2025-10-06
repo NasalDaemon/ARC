@@ -1,4 +1,0 @@
-trait di::trait::DynamicNode
-{
-    ~ exchangeImpl() -> std::same_as<void> auto
-}

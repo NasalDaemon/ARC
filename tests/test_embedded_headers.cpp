@@ -1,42 +1,42 @@
-#include "di/tests/test_embedded_headers.hxx"
+#include "arc/tests/test_embedded_headers.hxx"
 
-#include "di/di.hpp"
+#include "arc/arc.hpp"
 
 #include <doctest/doctest.h>
 
 #if 0
-// di-embed-begin
-trait di::tests::trait::Embedded
+// arc-embed-begin
+trait arc::tests::trait::Embedded
 {
     get() const
 }
-// di-embed-end
+// arc-embed-end
 
 random code between two sections will be ignored
 
-// di-embed-begin
-cluster di::tests::EmbeddedCluster [R = Root]
+// arc-embed-begin
+cluster arc::tests::EmbeddedCluster [R = Root]
 {
     embedded = R::Embedded
 
     [trait::Embedded]
     .. --> embedded
 }
-// di-embed-end
+// arc-embed-end
 #endif
 
-namespace di::tests {
+namespace arc::tests {
 
-struct EmbeddedNode : di::Node
+struct EmbeddedNode : arc::Node
 {
-    using Traits = di::Traits<EmbeddedNode, trait::Embedded>;
+    using Traits = arc::Traits<EmbeddedNode, trait::Embedded>;
 
     int impl(trait::Embedded::get) const { return 42; }
 };
 
 }
 
-using namespace di::tests;
+using namespace arc::tests;
 
 TEST_CASE("embedded")
 {
@@ -44,7 +44,7 @@ TEST_CASE("embedded")
     {
         using Embedded = EmbeddedNode;
     };
-    di::Graph<EmbeddedCluster, Root> g{};
+    arc::Graph<EmbeddedCluster, Root> g{};
 
     CHECK(g.asTrait(trait::embedded).get() == 42);
 }

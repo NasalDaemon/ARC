@@ -1,21 +1,21 @@
 #include <doctest/doctest.h>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
 // TODO: Why do we need to include ranges again with GCC?
-#if !DI_IMPORT_STD or DI_COMPILER_GCC
+#if !ARC_IMPORT_STD or ARC_COMPILER_GCC
 #include <ranges>
 #endif
 
-import di;
-import di.tests.collection;
+import arc;
+import arc.tests.collection;
 
-namespace di::tests::collection {
+namespace arc::tests::collection {
 
-/* di-embed-begin
+/* arc-embed-begin
 
-export module di.tests.collection;
+export module arc.tests.collection;
 
-namespace di::tests::collection {
+namespace arc::tests::collection {
 
 trait trait::Element
 {
@@ -47,7 +47,7 @@ cluster Element [R = Root]
 cluster Collection [R = Root]
 {
     outside = R::Outside
-    collection = di::Collection<int, Element>
+    collection = arc::Collection<int, Element>
 
     [trait::Element]
     .., outside --> collection
@@ -58,12 +58,12 @@ cluster Collection [R = Root]
 
 }
 
-di-embed-end */
+arc-embed-end */
 
-struct ElementNode : di::PeerNode
+struct ElementNode : arc::PeerNode
 {
-    using Depends = di::Depends<trait::Outside>;
-    using Traits = di::Traits<ElementNode, trait::Element, di::trait::Peer>;
+    using Depends = arc::Depends<trait::Outside>;
+    using Traits = arc::Traits<ElementNode, trait::Element, arc::trait::Peer>;
 
     template<class Self>
     int impl(this Self const& self, trait::Element::get)
@@ -84,13 +84,13 @@ struct ElementNode : di::PeerNode
     }
 
     template<class Self>
-    bool impl(this Self const& self, di::trait::Peer::isPeerId, auto id)
+    bool impl(this Self const& self, arc::trait::Peer::isPeerId, auto id)
     {
         CHECK(id != self.getElementId());
         return true;
     }
 
-    bool impl(this auto const& self, di::trait::Peer::isPeerInstance, auto const& other)
+    bool impl(this auto const& self, arc::trait::Peer::isPeerInstance, auto const& other)
     {
         CHECK(&self.getState() != &other.getState());
         return true;
@@ -102,10 +102,10 @@ struct ElementNode : di::PeerNode
 struct OutsideNode
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Depends = di::Depends<trait::Element>;
-        using Traits = di::Traits<Node, trait::Outside>;
+        using Depends = arc::Depends<trait::Element>;
+        using Traits = arc::Traits<Node, trait::Outside>;
 
         int impl(trait::Outside::get) const
         {
@@ -121,9 +121,9 @@ struct OutsideNode
     };
 };
 
-struct GlobalNode : di::Node
+struct GlobalNode : arc::Node
 {
-    using Traits = di::Traits<GlobalNode, trait::Global>;
+    using Traits = arc::Traits<GlobalNode, trait::Global>;
 
     int impl(trait::Global::get) const
     {
@@ -133,20 +133,20 @@ struct GlobalNode : di::Node
     int i;
 };
 
-TEST_CASE("di::Collection")
+TEST_CASE("arc::Collection")
 {
     struct Root
     {
         using Outside = OutsideNode;
         using Element = ElementNode;
     };
-    di::GraphWithGlobal<Collection, GlobalNode, Root> g{
-        .global{DI_EMPLACE(.i = 14)},
+    arc::GraphWithGlobal<Collection, GlobalNode, Root> g{
+        .global{ARC_EMPLACE(.i = 14)},
         .main{
-            .outside{DI_EMPLACE(.i = 10)},
+            .outside{ARC_EMPLACE(.i = 10)},
             .collection{2, [](auto insert) {
-                insert(0, DI_EMPLACE(.element{DI_EMPLACE(.i = 0)}));
-                insert(1, DI_EMPLACE(.element{DI_EMPLACE(.i = 1)}));
+                insert(0, ARC_EMPLACE(.element{ARC_EMPLACE(.i = 0)}));
+                insert(1, ARC_EMPLACE(.element{ARC_EMPLACE(.i = 1)}));
             }},
         },
     };

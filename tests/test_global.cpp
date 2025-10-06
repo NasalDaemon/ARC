@@ -1,19 +1,19 @@
 #include <doctest/doctest.h>
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <print>
 #include <string_view>
 #endif
 
-import di.tests.global;
-import di;
+import arc.tests.global;
+import arc;
 
-namespace di::tests::global {
+namespace arc::tests::global {
 
-/* di-embed-begin
-export module di.tests.global;
+/* arc-embed-begin
+export module arc.tests.global;
 
-namespace di::tests::global {
+namespace arc::tests::global {
 
 trait trait::Log
 {
@@ -45,18 +45,18 @@ cluster GlobalCluster [R = Root]
 
 }
 
-di-embed-end */
+arc-embed-end */
 
 struct Root
 {
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Traits = di::Traits<Node>;
-        using Depends = di::Depends<trait::Log, di::Global<trait::Log>>;
+        using Traits = arc::Traits<Node>;
+        using Depends = arc::Depends<trait::Log, arc::Global<trait::Log>>;
     };
-    struct Logger : di::Node
+    struct Logger : arc::Node
     {
-        using Traits = di::Traits<Logger, trait::Log>;
+        using Traits = arc::Traits<Logger, trait::Log>;
 
         void impl(trait::Log::log, std::string_view message)
         {
@@ -68,11 +68,11 @@ struct Root
     };
 };
 
-TEST_CASE("di::Global")
+TEST_CASE("arc::Global")
 {
-    di::Graph<GlobalCluster, Root> global;
+    arc::Graph<GlobalCluster, Root> global;
 
-    di::GraphWithGlobal<MainCluster, GlobalCluster*, Root> graph{
+    arc::GraphWithGlobal<MainCluster, GlobalCluster*, Root> graph{
         .global = &global,
         .main{
             .node{},
@@ -84,9 +84,9 @@ TEST_CASE("di::Global")
     CHECK(global.logger->count == 1);
 }
 
-TEST_CASE("di::Global hosted locally")
+TEST_CASE("arc::Global hosted locally")
 {
-    di::GraphWithGlobal<MainCluster, Root::Logger, Root> graph{
+    arc::GraphWithGlobal<MainCluster, Root::Logger, Root> graph{
         .global{},
         .main{
             .node{},
@@ -109,6 +109,6 @@ TEST_CASE("di::Global hosted locally")
     CHECK(graph.global->count == 3);
 }
 
-// TODO: Support di::Box?
+// TODO: Support arc::Box?
 
 }

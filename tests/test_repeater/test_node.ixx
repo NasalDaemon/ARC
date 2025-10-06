@@ -1,12 +1,12 @@
-export module di.tests.repeater.test_node;
+export module arc.tests.repeater.test_node;
 
-import di.tests.repeater.traits;
+import arc.tests.repeater.traits;
 
-import di;
+import arc;
 
-export namespace di::tests::repeater {
+export namespace arc::tests::repeater {
 
-struct TestNode : di::Node
+struct TestNode : arc::Node
 {
     void impl(trait::Trait::function, int& i) const
     {
@@ -17,7 +17,7 @@ struct TestNode : di::Node
         self.getNode(trait::trait).function(i);
     }
 
-    using Traits = di::Traits<TestNode, trait::Trait>;
+    using Traits = arc::Traits<TestNode, trait::Trait>;
 };
 
-} // namespace di::tests::repeater
+} // namespace arc::tests::repeater

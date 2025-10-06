@@ -6,7 +6,7 @@ using namespace abc;
 
 TEST_CASE("abc headers")
 {
-    di::Graph<AliceBob> g{.ellie{101}};
+    arc::Graph<AliceBob> g{.ellie{101}};
     g.onConstructed();
     auto aliceWrite = g.asTrait(trait::alice);
     aliceWrite.set(11);
@@ -37,7 +37,7 @@ TEST_CASE("abc headers")
 
     CHECK(99 == g.ellie.asTrait(trait::charlie2).get());
 
-    auto charlie2get = g.ellie.asTrait(trait::charlie2).get(di::asFunctor);
+    auto charlie2get = g.ellie.asTrait(trait::charlie2).get(arc::asFunctor);
     CHECK(99 == charlie2get());
 
     CHECK(101 == g.ellie->value);

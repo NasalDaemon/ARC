@@ -23,8 +23,8 @@ done
 conan install . --output-folder=build --build=missing --profile=conanprofile.txt --settings=build_type=$BUILD_TYPE
 cd build
 cmake .. --preset conan-default \
-    -DDI_BUILD_TESTS=TRUE \
-    -DDI_COMPRESS_TYPES=TRUE \
+    -DARC_BUILD_TESTS=TRUE \
+    -DARC_COMPRESS_TYPES=TRUE \
     -DCMAKE_COLOR_DIAGNOSTICS=TRUE \
     -DCMAKE_CXX_MODULE_STD=$STD_MODULE
 cmake --build . --config $BUILD_TYPE

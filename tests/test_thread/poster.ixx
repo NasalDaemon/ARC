@@ -1,7 +1,7 @@
 module;
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <atomic>
 #include <cstddef>
 #include <format>
@@ -15,11 +15,11 @@ module;
 #include <utility>
 #include <vector>
 #endif
-export module di.tests.thread.poster;
+export module arc.tests.thread.poster;
 
-import di;
+import arc;
 
-namespace di::tests::thread {
+namespace arc::tests::thread {
 
 export struct Scheduler
 {
@@ -83,7 +83,7 @@ public:
 
     ~Scheduler()
     {
-        auto g = di::Defer([] { resetMainThread(); });
+        auto g = arc::Defer([] { resetMainThread(); });
         stopAll();
         run();
     }
@@ -91,7 +91,7 @@ public:
 
 export [[nodiscard]] bool postTask(std::weak_ptr<Scheduler::ThreadContext> h, Function<void()> f);
 
-struct FireAndForget : di::key::ThreadPost<FireAndForget>
+struct FireAndForget : arc::key::ThreadPost<FireAndForget>
 {
     template<std::size_t CurrentThreadId, std::size_t RequiredThreadId, class Task>
     [[nodiscard]] static constexpr bool post(auto scheduler, std::size_t requiredThreadId, Task&& task)
@@ -102,7 +102,7 @@ struct FireAndForget : di::key::ThreadPost<FireAndForget>
         {
             if (not scheduler.isCurrentThread(requiredThreadId))
             {
-                return scheduler.postTask(requiredThreadId, DI_FWD(task));
+                return scheduler.postTask(requiredThreadId, ARC_FWD(task));
             }
         }
 
@@ -114,14 +114,14 @@ struct FireAndForget : di::key::ThreadPost<FireAndForget>
 
 export inline constexpr FireAndForget fireAndForget{};
 
-struct Future : di::key::ThreadPost<Future>
+struct Future : arc::key::ThreadPost<Future>
 {
     template<std::size_t CurrentThreadId, std::size_t RequiredThreadId, std::invocable Task>
     [[nodiscard]] static constexpr auto post(auto scheduler, std::size_t requiredThreadId, Task&& task)
         -> std::future<std::invoke_result_t<std::remove_cvref_t<Task>>>
     {
         using R = std::invoke_result_t<std::remove_cvref_t<Task>>;
-        auto package = std::packaged_task<R()>(DI_FWD(task));
+        auto package = std::packaged_task<R()>(ARC_FWD(task));
         auto future = package.get_future();
         if constexpr (CurrentThreadId == ThreadEnvironment::DynamicThreadId
                    or RequiredThreadId == ThreadEnvironment::DynamicThreadId
@@ -148,4 +148,4 @@ struct Future : di::key::ThreadPost<Future>
 
 export inline constexpr Future future{};
 
-} // namespace di::tests::thread
+} // namespace arc::tests::thread

@@ -1,35 +1,35 @@
 #include <doctest/doctest.h>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <any>
 #include <typeinfo>
 #include <vector>
 #endif
 
-import di.tests.mock;
-import di;
+import arc.tests.mock;
+import arc;
 
 /*
-di-embed-begin
+arc-embed-begin
 
-export module di.tests.mock;
+export module arc.tests.mock;
 
-trait di::tests::mock::trait::Trait
+trait arc::tests::mock::trait::Trait
 {
     takesNothing() const
     takesInt(int i)
     returnsRef() -> int&
 }
 
-di-embed-end
+arc-embed-end
 */
 
-namespace di::tests::mock {
+namespace arc::tests::mock {
 
-struct MockTestNode : di::Node
+struct MockTestNode : arc::Node
 {
-    using Traits = di::Traits<MockTestNode>;
+    using Traits = arc::Traits<MockTestNode>;
 
     int testNothing(this auto& self)
     {
@@ -45,9 +45,9 @@ struct MockTestNode : di::Node
     }
 };
 
-TEST_CASE("di::test::Mock")
+TEST_CASE("arc::test::Mock")
 {
-    di::test::Graph<MockTestNode> g;
+    arc::test::Graph<MockTestNode> g;
     int i = 101;
 
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
@@ -98,20 +98,20 @@ TEST_CASE("di::test::Mock")
 
     g.mocks->setThrowIfMissing();
 
-    switch (di::compiler.kind)
+    switch (arc::compiler.kind)
     {
-    using enum di::Compiler::Kind;
+    using enum arc::Compiler::Kind;
     case GCC:
-        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(di::tests::mock::trait::Trait@di.tests.mock::takesNothing) const");
-        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(di::tests::mock::trait::Trait@di.tests.mock::takesInt, int)");
+        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait@arc.tests.mock::takesNothing) const");
+        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait@arc.tests.mock::takesInt, int)");
         break;
     case Clang:
-        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(di::tests::mock::trait::Trait::takesNothing) const");
-        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(di::tests::mock::trait::Trait::takesInt, int)");
+        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait::takesNothing) const");
+        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait::takesInt, int)");
         break;
     case MSVC:
-        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(struct di::tests::mock::trait::Trait::takesNothing) const");
-        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(struct di::tests::mock::trait::Trait::takesInt, int)");
+        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(struct arc::tests::mock::trait::Trait::takesNothing) const");
+        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(struct arc::tests::mock::trait::Trait::takesInt, int)");
         break;
     }
 

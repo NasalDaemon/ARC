@@ -1,4 +1,4 @@
-digraph ShopDomain {
+arcraph ShopDomain {
     compound=true;
     rankdir=TB;
 

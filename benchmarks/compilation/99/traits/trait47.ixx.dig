@@ -1,6 +1,0 @@
-export module di.bench.compile99.trait.trait47;
-
-trait di::bench::compile99::trait::Trait47
-{
-    get() const
-}

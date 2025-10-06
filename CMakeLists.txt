@@ -13,36 +13,36 @@ if(CMAKE_CXX_MODULE_STD)
     endif()
 endif()
 
-project(Static-DI VERSION 1.0 LANGUAGES CXX)
+project(ARC VERSION 1.0 LANGUAGES CXX)
 
-option(DI_COMPRESS_TYPES "Compress recursive type names for Context, Impl, Type" FALSE)
-option(DI_BUILD_TESTS "Build tests for Static-DI" FALSE)
-option(DI_BUILD_BENCH "Build benchmarks for Static-DI" FALSE)
-option(DI_BUILD_LTO "Enable LTO when building tests/benchmarks" TRUE)
-option(DI_TESTS_DEBUG_SAN "Enable sanitisers when building tests in debug" TRUE)
+option(ARC_COMPRESS_TYPES "Compress recursive type names for Context, Impl, Type" FALSE)
+option(ARC_BUILD_TESTS "Build tests for ARC" FALSE)
+option(ARC_BUILD_BENCH "Build benchmarks for ARC" FALSE)
+option(ARC_BUILD_LTO "Enable LTO when building tests/benchmarks" TRUE)
+option(ARC_TESTS_DEBUG_SAN "Enable sanitisers when building tests in debug" TRUE)
 
-if(DI_BUILD_TESTS)
+if(ARC_BUILD_TESTS)
     enable_testing()
 endif()
 
-if(DI_BUILD_TESTS OR DI_BUILD_BENCH)
+if(ARC_BUILD_TESTS OR ARC_BUILD_BENCH)
     include(tests/config.cmake)
 endif()
 
 add_subdirectory(generator_lib)
 add_subdirectory(lib)
 
-if(DI_BUILD_BENCH)
+if(ARC_BUILD_BENCH)
     add_subdirectory(benchmarks/compilation)
 endif()
 
-if(DI_BUILD_TESTS)
+if(ARC_BUILD_TESTS)
     add_subdirectory(tests)
 
     # GCC PCH does not improve compile times
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_subdirectory(lib/pch)
-        target_precompile_headers(di_tests_abc_lib REUSE_FROM di::pch)
-        target_precompile_headers(di_tests_headers REUSE_FROM di::tests::abc::lib)
+        target_precompile_headers(arc_tests_abc_lib REUSE_FROM arc::pch)
+        target_precompile_headers(arc_tests_headers REUSE_FROM arc::tests::abc::lib)
     endif()
 endif()

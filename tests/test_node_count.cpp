@@ -1,12 +1,12 @@
-import di.tests.count;
-import di;
+import arc.tests.count;
+import arc;
 
 /*
-di-embed-begin
+arc-embed-begin
 
-export module di.tests.count;
+export module arc.tests.count;
 
-namespace di::tests::count {
+namespace arc::tests::count {
 
 cluster InnerUnary [R = Root]
 {
@@ -29,28 +29,28 @@ cluster OuterCluster [R = Root]
 
 }
 
-di-embed-end
+arc-embed-end
 */
 
-namespace di::tests::count {
+namespace arc::tests::count {
 
-struct Node : di::Node
+struct Node : arc::Node
 {
-    using Traits = di::Traits<Node>;
+    using Traits = arc::Traits<Node>;
 };
 struct Root
 {
     using Node = count::Node;
 };
 
-using Graph = di::Graph<OuterCluster, Root>;
+using Graph = arc::Graph<OuterCluster, Root>;
 
-static_assert(di::IsUnary<decltype(Graph::a)>);
-static_assert(di::IsUnary<decltype(Graph::innerUnary)>);
-static_assert(di::IsUnary<decltype(Graph::innerUnary.c)>);
-static_assert(di::IsUnary<decltype(Graph::innerBinary.d)>);
-static_assert(di::IsUnary<decltype(Graph::innerBinary.e)>);
-static_assert(not di::IsUnary<decltype(Graph::innerBinary)>);
-static_assert(not di::IsUnary<Graph>);
+static_assert(arc::IsUnary<decltype(Graph::a)>);
+static_assert(arc::IsUnary<decltype(Graph::innerUnary)>);
+static_assert(arc::IsUnary<decltype(Graph::innerUnary.c)>);
+static_assert(arc::IsUnary<decltype(Graph::innerBinary.d)>);
+static_assert(arc::IsUnary<decltype(Graph::innerBinary.e)>);
+static_assert(not arc::IsUnary<decltype(Graph::innerBinary)>);
+static_assert(not arc::IsUnary<Graph>);
 
 }

@@ -1,10 +1,10 @@
 #include <doctest/doctest.h>
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <type_traits>
 #endif
 
-import di;
+import arc;
 import abc.graph;
 import abc.ellie;
 
@@ -12,7 +12,7 @@ using namespace abc;
 
 TEST_CASE("abc module")
 {
-    di::Graph<AliceBob> g{.ellie{101}};
+    arc::Graph<AliceBob> g{.ellie{101}};
     g.onConstructed();
     auto aliceWrite = g.asTrait(trait::alice);
     aliceWrite.set(11);
@@ -43,7 +43,7 @@ TEST_CASE("abc module")
 
     CHECK(99 == g.ellie.asTrait(trait::charlie2).get());
 
-    auto charlie2get = g.ellie.asTrait(trait::charlie2).get(di::asFunctor);
+    auto charlie2get = g.ellie.asTrait(trait::charlie2).get(arc::asFunctor);
     CHECK(99 == charlie2get());
 
     CHECK(101 == g.ellie->value);

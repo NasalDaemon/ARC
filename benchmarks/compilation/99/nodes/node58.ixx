@@ -1,19 +1,19 @@
-export module di.bench.compile99.node58;
+export module arc.bench.compile99.node58;
 
-import di;
-export import di.bench.compile99.trait.trait57;
-export import di.bench.compile99.trait.trait58;
+import arc;
+export import arc.bench.compile99.trait.trait57;
+export import arc.bench.compile99.trait.trait58;
 
-namespace di::bench::compile99 {
+namespace arc::bench::compile99 {
 
 export
 struct Node58
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Depends = di::Depends<trait::Trait57>;
-        using Traits  = di::Traits<Node, trait::Trait58>;
+        using Depends = arc::Depends<trait::Trait57>;
+        using Traits  = arc::Traits<Node, trait::Trait58>;
 
         int impl(trait::Trait58::get) const;
 

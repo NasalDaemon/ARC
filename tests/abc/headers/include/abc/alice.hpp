@@ -2,17 +2,17 @@
 
 #include "abc/traits.hpp"
 
-#include "di/context.hpp"
-#include "di/depends.hpp"
-#include "di/node.hpp"
-#include "di/resolve.hpp"
-#include "di/traits.hpp"
+#include "arc/context.hpp"
+#include "arc/depends.hpp"
+#include "arc/node.hpp"
+#include "arc/resolve.hpp"
+#include "arc/traits.hpp"
 
 namespace abc {
 
 struct Alice
 {
-    struct NodeBase : di::Node
+    struct NodeBase : arc::Node
     {
         void onGraphConstructed();
 
@@ -27,11 +27,11 @@ struct Alice
     template<class Context>
     struct Node : NodeBase
     {
-        using Depends = di::Depends<trait::Bob, trait::Charlie>;
+        using Depends = arc::Depends<trait::Bob, trait::Charlie>;
 
         struct Types;
 
-        using Traits = di::Traits<Node
+        using Traits = arc::Traits<Node
             , trait::Alice*(Types)
             , trait::Bob
             , trait::Charlie
@@ -41,8 +41,8 @@ struct Alice
         struct Types
         {
             using AliceType = int;
-            using BobType = di::ResolveTypes<Node, trait::Bob>::BobType;
-            using CharlieType = di::ResolveTypes<Node, trait::Bob>::CharlieType;
+            using BobType = arc::ResolveTypes<Node, trait::Bob>::BobType;
+            using CharlieType = arc::ResolveTypes<Node, trait::Bob>::CharlieType;
         };
 
         using AliceType = Types::AliceType;
@@ -56,8 +56,8 @@ struct Alice
         int impl(trait::Charlie::get method) const;
 
         static_assert(std::is_same_v<decltype(NodeBase::alice), BobType>);
-        static_assert(std::is_same_v<di::NullContext::Root, di::ResolveRoot<Context>>);
-        static_assert(std::is_same_v<di::NullContext::Info, di::ResolveInfo<Context>>);
+        static_assert(std::is_same_v<arc::NullContext::Root, arc::ResolveRoot<Context>>);
+        static_assert(std::is_same_v<arc::NullContext::Info, arc::ResolveInfo<Context>>);
     };
 };
 

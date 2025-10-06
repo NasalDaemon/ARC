@@ -1,7 +1,7 @@
 # Question 1: When to use clusters vs domains
 > When should one use clusters vs domains? At what point while using clusters should one move to domains and vice versa?
 
-**Clusters** and **domains** in Static-DI are both mechanisms for organizing dependency graphs, but they serve different architectural needs and provide different levels of structure and enforcement. Here’s how to decide when to use each, and when it makes sense to migrate from one to the other.
+**Clusters** and **domains** in ARC are both mechanisms for organizing dependency graphs, but they serve different architectural needs and provide different levels of structure and enforcement. Here’s how to decide when to use each, and when it makes sense to migrate from one to the other.
 
 ---
 
@@ -52,7 +52,7 @@
 **Migration steps:**
 1. Identify the node that should become the nexus (the main orchestrator).
 2. Refactor direct sub-node-to-sub-node connections to go through the nexus.
-3. Apply Static-DI’s domain rules to enforce boundaries and naming.
+3. Apply ARC’s domain rules to enforce boundaries and naming.
 
 ---
 
@@ -92,7 +92,7 @@ If you have a specific example or scenario, I can help you decide which fits bes
 # Question 2: Warning signs suggesting refactoring cluster to domain
 > Regarding "Refactor clusters into domains before they become hard to maintain.": in general, how can one know the point at which they are about to become too complex, so one does not have to refactor into a domain when it's too late
 
-This is a great and very practical question. The transition point from a cluster to a domain in Static-DI—or in any modular system—can be subtle, but there are clear signs and heuristics that indicate when complexity is about to become unmanageable.
+This is a great and very practical question. The transition point from a cluster to a domain in ARC—or in any modular system—can be subtle, but there are clear signs and heuristics that indicate when complexity is about to become unmanageable.
 
 ---
 
@@ -162,4 +162,4 @@ This is a great and very practical question. The transition point from a cluster
 
 **Review clusters regularly** as part of code review or design sessions. If you see the warning signs above, start planning a refactor into a domain—well before you feel actual pain.
 
-If you want, I can suggest some lightweight metrics or review checklists tailored to your existing Static-DI codebase!
+If you want, I can suggest some lightweight metrics or review checklists tailored to your existing ARC codebase!

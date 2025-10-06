@@ -1,21 +1,21 @@
 #include <doctest/doctest.h>
-#include "di/macros.hpp"
+#include "arc/macros.hpp"
 
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <memory>
 #include <type_traits>
 #include <utility>
 #endif
 
-import di.tests.virtual_;
-import di;
+import arc.tests.virtual_;
+import arc;
 
 
-/* di-embed-begin
+/* arc-embed-begin
 
-export module di.tests.virtual_;
+export module arc.tests.virtual_;
 
-namespace di::tests::virtual_ {
+namespace arc::tests::virtual_ {
 
 trait trait::Apple
 {
@@ -38,16 +38,16 @@ trait trait::Global
     get() const -> int
 }
 
-di-embed-end */
+arc-embed-end */
 
-namespace di::tests::virtual_ {
+namespace arc::tests::virtual_ {
 
 struct AppleType;
 struct BreadType;
 
-struct IApple : di::INode
+struct IApple : arc::INode
 {
-    using Traits = di::Traits<IApple, trait::Apple>;
+    using Traits = arc::Traits<IApple, trait::Apple>;
     struct Types
     {
         using AppleType = virtual_::AppleType;
@@ -55,18 +55,18 @@ struct IApple : di::INode
     virtual int impl(trait::Apple::seeds) const = 0;
     virtual bool impl(trait::Apple::testExchange) = 0;
 };
-struct IBread : di::INode
+struct IBread : arc::INode
 {
-    using Traits = di::Traits<IBread, trait::Bread>;
+    using Traits = arc::Traits<IBread, trait::Bread>;
     struct Types
     {
         using BreadType = virtual_::BreadType;
     };
     virtual int impl(trait::Bread::slices) const = 0;
 };
-struct IEgg : di::INode
+struct IEgg : arc::INode
 {
-    using Traits = di::Traits<IEgg, trait::Egg>;
+    using Traits = arc::Traits<IEgg, trait::Egg>;
     virtual int impl(trait::Egg::yolks) const = 0;
 };
 
@@ -75,9 +75,9 @@ struct AppleEgg
     template<class Context>
     struct Node : IApple, IEgg
     {
-        using Traits = di::Traits<Node, trait::Apple, trait::Egg>;
+        using Traits = arc::Traits<Node, trait::Apple, trait::Egg>;
 
-        static_assert(std::is_same_v<BreadType, typename di::ResolveTypes<Node, trait::Bread>::BreadType>);
+        static_assert(std::is_same_v<BreadType, typename arc::ResolveTypes<Node, trait::Bread>::BreadType>);
 
         int impl(trait::Apple::seeds) const final
         {
@@ -91,9 +91,9 @@ struct AppleEgg
 
         bool impl(trait::Apple::testExchange) final
         {
-            if constexpr (di::IsVirtualContext<Context>)
+            if constexpr (arc::IsVirtualContext<Context>)
             {
-                di::KeepAlive keepAlive;
+                arc::KeepAlive keepAlive;
                 {
                     CHECK(asTrait(trait::apple).seeds() == 34);
                     auto handle = exchangeImpl<AppleEgg>(11, 3);
@@ -132,14 +132,14 @@ struct Bread
     template<class Context>
     struct Node : IBread
     {
-        using Traits = di::Traits<Node, trait::Bread>;
+        using Traits = arc::Traits<Node, trait::Bread>;
 
         // Prove that withFactory works with copy/move elision
         Node() = default;
         Node(Node const&) = delete;
         Node(Node&&) = delete;
 
-        static_assert(std::is_same_v<AppleType, typename di::ResolveTypes<Node, trait::Apple>::AppleType>);
+        static_assert(std::is_same_v<AppleType, typename arc::ResolveTypes<Node, trait::Apple>::AppleType>);
 
         int impl(trait::Bread::slices) const final
         {
@@ -157,9 +157,9 @@ struct Bread
     };
 };
 
-struct GlobalNode : di::Node
+struct GlobalNode : arc::Node
 {
-    using Traits = di::Traits<GlobalNode, trait::Global>;
+    using Traits = arc::Traits<GlobalNode, trait::Global>;
 
     int impl(trait::Global::get) const
     {
@@ -198,20 +198,20 @@ void testExchange(auto& g)
     CHECK(g2.asTrait(trait::apple).testExchange());
 }
 
-TEST_CASE("di::Virtual")
+TEST_CASE("arc::Virtual")
 {
-    using Virtual = di::test::GraphWithGlobal<di::Virtual<IApple, IEgg>, GlobalNode, di::Virtual<IBread>>;
+    using Virtual = arc::test::GraphWithGlobal<arc::Virtual<IApple, IEgg>, GlobalNode, arc::Virtual<IBread>>;
     Virtual virt{
-        .global{DI_EMPLACE(.i = 9)},
+        .global{ARC_EMPLACE(.i = 9)},
         .main{
             .node{std::in_place_type<AppleEgg>},
-            .mocks{di::withFactory, []<class C>(C) -> C::type { return std::in_place_type<Bread>; }},
+            .mocks{arc::withFactory, []<class C>(C) -> C::type { return std::in_place_type<Bread>; }},
         },
     };
     test(virt);
     testExchange(virt);
 
-    using Static = di::test::GraphWithGlobal<AppleEgg, GlobalNode, Bread>;
+    using Static = arc::test::GraphWithGlobal<AppleEgg, GlobalNode, Bread>;
     Static stat;
     test(stat);
 }
@@ -241,9 +241,9 @@ struct VirtualOnly
     using Node = Leaf;
 };
 
-TEST_CASE("di::Virtual: Virtual-only node may be final without traits and simple leaf")
+TEST_CASE("arc::Virtual: Virtual-only node may be final without traits and simple leaf")
 {
-    di::test::Graph<di::Virtual<IBread, IEgg>> g{.node{std::in_place_type<VirtualOnly::Leaf>}};
+    arc::test::Graph<arc::Virtual<IBread, IEgg>> g{.node{std::in_place_type<VirtualOnly::Leaf>}};
 
     CHECK(g.asTrait(trait::egg).yolks() == 999);
     CHECK(g.asTrait(trait::bread).slices() == 88);
@@ -257,9 +257,9 @@ TEST_CASE("di::Virtual: Virtual-only node may be final without traits and simple
 struct StaticBread
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Traits = di::Traits<Node, trait::Bread>;
+        using Traits = arc::Traits<Node, trait::Bread>;
 
         int impl(trait::Bread::slices) const
         {
@@ -277,7 +277,7 @@ struct BreadFacade
     template<class Context>
     struct Node final : IApple, IBread
     {
-        using Traits = di::Traits<Node
+        using Traits = arc::Traits<Node
             , trait::Apple*(IApple::Types)
             , trait::Bread*(IBread::Types)
         >;
@@ -285,9 +285,9 @@ struct BreadFacade
         int impl(trait::Apple::seeds) const { return 0; }
         bool impl(trait::Apple::testExchange)
         {
-            if constexpr (di::IsVirtualContext<Context>)
+            if constexpr (arc::IsVirtualContext<Context>)
             {
-                auto handle = exchangeImpl<di::Adapt<StaticBread, BreadFacade>>();
+                auto handle = exchangeImpl<arc::Adapt<StaticBread, BreadFacade>>();
                 int expected = 99 + 42 + 1;
                 CHECK(asTrait(trait::bread).slices() == expected);
                 CHECK(handle.getNext()->asTrait(trait::bread).slices() == expected);
@@ -310,9 +310,9 @@ struct BreadFacade
 struct EggDouble
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Traits = di::Traits<Node, trait::Egg>;
+        using Traits = arc::Traits<Node, trait::Egg>;
 
         int impl(trait::Egg::yolks) const { return yolks; }
 
@@ -321,10 +321,10 @@ struct EggDouble
     };
 };
 
-TEST_CASE("di::Virtual with di::Adapt")
+TEST_CASE("arc::Virtual with arc::Adapt")
 {
-    di::test::Graph<di::Virtual<IApple, IBread>, EggDouble> g{
-        .node{di::adapt<StaticBread, BreadFacade>}
+    arc::test::Graph<arc::Virtual<IApple, IBread>, EggDouble> g{
+        .node{arc::adapt<StaticBread, BreadFacade>}
     };
 
     int expected = 99 + 42 + 1;
@@ -337,7 +337,7 @@ struct EggFacade
     template<class Context>
     struct Node final : IEgg
     {
-        using Traits = di::Traits<Node, trait::Egg>;
+        using Traits = arc::Traits<Node, trait::Egg>;
 
         int impl(trait::Egg::yolks) const
         {
@@ -346,7 +346,7 @@ struct EggFacade
     };
 };
 
-/* di-embed-begin
+/* arc-embed-begin
 
 cluster EggBread [R = Root]
 {
@@ -357,20 +357,20 @@ cluster EggBread [R = Root]
     egg <-> bread
 }
 
-di-embed-end */
+arc-embed-end */
 
-DI_INSTANTIATE_BOX(StaticBread, BreadFacade, EggFacade, IEgg)
+ARC_INSTANTIATE_BOX(StaticBread, BreadFacade, EggFacade, IEgg)
 
-TEST_CASE("di::Box")
+TEST_CASE("arc::Box")
 {
     struct Root
     {
         using StaticEgg = virtual_::EggDouble;
-        using VirtualBread = di::Virtual<IBread>;
+        using VirtualBread = arc::Virtual<IBread>;
     };
 
-    di::Graph<EggBread, Root> g{
-        .bread{di::box<StaticBread, BreadFacade, EggFacade, IEgg>, di::args<StaticBread>(41), di::args<BreadFacade>(98)}
+    arc::Graph<EggBread, Root> g{
+        .bread{arc::box<StaticBread, BreadFacade, EggFacade, IEgg>, arc::args<StaticBread>(41), arc::args<BreadFacade>(98)}
     };
 
     CHECK(g.bread.asTrait(trait::bread).slices() == 140);
@@ -379,12 +379,12 @@ TEST_CASE("di::Box")
     CHECK(g2.bread.asTrait(trait::bread).slices() == 140);
 }
 
-DI_INSTANTIATE_BOX(EggDouble, EggFacade)
+ARC_INSTANTIATE_BOX(EggDouble, EggFacade)
 
-TEST_CASE("di::Box with no outnode")
+TEST_CASE("arc::Box with no outnode")
 {
-    di::test::Graph<di::Virtual<IEgg>> g{
-        .node{di::box<EggDouble, EggFacade>, 4}
+    arc::test::Graph<arc::Virtual<IEgg>> g{
+        .node{arc::box<EggDouble, EggFacade>, 4}
     };
 
     CHECK(g.node.asTrait(trait::egg).yolks() == 4);
@@ -393,8 +393,8 @@ TEST_CASE("di::Box with no outnode")
     CHECK(g2.node.asTrait(trait::egg).yolks() == 4);
 }
 
-// di-embed-begin
+// arc-embed-begin
 
-} // namespace di::tests::virtual_
+} // namespace arc::tests::virtual_
 
-// di-embed-end
+// arc-embed-end

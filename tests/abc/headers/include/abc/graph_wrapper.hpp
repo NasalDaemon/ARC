@@ -2,13 +2,13 @@
 
 #include "abc/graph.hxx"
 
-#include "di/graph.hpp"
+#include "arc/graph.hpp"
 
 namespace abc {
 
 struct GraphWrapper
 {
-    di::Graph<abc::AliceBob> graph;
+    arc::Graph<abc::AliceBob> graph;
 };
 
 }

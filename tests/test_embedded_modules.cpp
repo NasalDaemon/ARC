@@ -1,43 +1,43 @@
 #include <doctest/doctest.h>
 
-import di.tests.embedded;
-import di;
+import arc.tests.embedded;
+import arc;
 
 #if 0
-// di-embed-begin
-export module di.tests.embedded;
+// arc-embed-begin
+export module arc.tests.embedded;
 
-trait di::tests::trait::Embedded
+trait arc::tests::trait::Embedded
 {
     get() const
 }
-// di-embed-end
+// arc-embed-end
 
 random code between two sections will be ignored
 
-// di-embed-begin
-cluster di::tests::EmbeddedCluster [R = Root]
+// arc-embed-begin
+cluster arc::tests::EmbeddedCluster [R = Root]
 {
     embedded = R::Embedded
 
     [trait::Embedded]
     .. --> embedded
 }
-// di-embed-end
+// arc-embed-end
 #endif
 
-namespace di::tests {
+namespace arc::tests {
 
-struct EmbeddedNode : di::Node
+struct EmbeddedNode : arc::Node
 {
-    using Traits = di::Traits<EmbeddedNode, trait::Embedded>;
+    using Traits = arc::Traits<EmbeddedNode, trait::Embedded>;
 
     int impl(trait::Embedded::get) const { return 42; }
 };
 
 }
 
-using namespace di::tests;
+using namespace arc::tests;
 
 TEST_CASE("embedded")
 {
@@ -45,7 +45,7 @@ TEST_CASE("embedded")
     {
         using Embedded = EmbeddedNode;
     };
-    di::Graph<EmbeddedCluster, Root> g{};
+    arc::Graph<EmbeddedCluster, Root> g{};
 
     CHECK(g.asTrait(trait::embedded).get() == 42);
 }

@@ -2,25 +2,25 @@
 
 #include "abc/traits.hpp"
 
-#include "di/depends.hpp"
-#include "di/node.hpp"
-#include "di/resolve.hpp"
-#include "di/traits.hpp"
+#include "arc/depends.hpp"
+#include "arc/node.hpp"
+#include "arc/resolve.hpp"
+#include "arc/traits.hpp"
 
 namespace abc {
 
 struct EllieType{};
 struct EllieType3{};
 
-struct Ellie : di::Node
+struct Ellie : arc::Node
 {
-    using Depends = di::Depends<trait::Charlie>;
+    using Depends = arc::Depends<trait::Charlie>;
 
     struct Charlie;
     struct Charlie2;
     struct Ellie3Types;
 
-    using Traits = di::Traits<Ellie
+    using Traits = arc::Traits<Ellie
         , trait::Ellie
         , trait::Ellie3*(Ellie3Types)
         , trait::Charlie(Charlie)
@@ -28,12 +28,12 @@ struct Ellie : di::Node
     >;
 
     // Degenerate case, but just to prove that it works...
-    struct Charlie2 : di::DetachedInterface
+    struct Charlie2 : arc::DetachedInterface
     {
         template<class Self>
         int impl(this Self const& self, trait::Charlie::get)
         {
-            using CharlieType = di::ResolveTypes<Self, trait::Charlie>::CharlieType;
+            using CharlieType = arc::ResolveTypes<Self, trait::Charlie>::CharlieType;
             static_assert(std::is_same_v<int, CharlieType>);
             return self.getNode(trait::charlie).get();
         }
@@ -63,7 +63,7 @@ struct Ellie::Charlie : Ellie
     template<class Self>
     int impl(this Self const& self, trait::Charlie::get)
     {
-        using CharlieType = di::ResolveTypes<Self, trait::Charlie>::CharlieType;
+        using CharlieType = arc::ResolveTypes<Self, trait::Charlie>::CharlieType;
         static_assert(std::is_same_v<int, CharlieType>);
         return self.getNode(trait::charlie).get();
     }

@@ -1,13 +1,13 @@
 module;
-#if !DI_IMPORT_STD
+#if !ARC_IMPORT_STD
 #include <cstdio>
 #include <type_traits>
 #endif
 export module abc.charlie;
 
 import abc.traits;
-import di;
-#if DI_IMPORT_STD
+import arc;
+#if ARC_IMPORT_STD
 import std;
 #endif
 
@@ -16,9 +16,9 @@ export namespace abc {
 struct Charlie
 {
     template<class Context>
-    struct Node : di::Node
+    struct Node : arc::Node
     {
-        using Depends = di::Depends<trait::Alice>;
+        using Depends = arc::Depends<trait::Alice>;
 
         struct Alice;
         struct Charlie;
@@ -28,7 +28,7 @@ struct Charlie
         struct AliceTypes;
         struct CharlieTypes;
 
-        using Traits = di::Traits<Node
+        using Traits = arc::Traits<Node
             , trait::AliceRead(Alice, AliceTypes)
             , trait::Charlie(Charlie, CharlieTypes)
             , trait::Charlie2(Charlie2, CharlieTypes)
@@ -38,25 +38,25 @@ struct Charlie
 
         struct AliceTypes
         {
-            using AliceType = di::ResolveTypes<Node, trait::AliceRead>::AliceType;
+            using AliceType = arc::ResolveTypes<Node, trait::AliceRead>::AliceType;
         };
         struct CharlieTypes
         {
             using CharlieType = int;
         };
 
-        struct Charlie : di::DetachedInterface
+        struct Charlie : arc::DetachedInterface
         {
             template<class Self>
             int impl(this Self const& self, trait::Charlie::get)
             {
-                using AliceType = di::ResolveTypes<Self, trait::Alice>::AliceType;
+                using AliceType = arc::ResolveTypes<Self, trait::Alice>::AliceType;
                 static_assert(std::is_same_v<int, AliceType>);
                 return self->charlie;
             }
         };
 
-        struct Charlie2 : di::DetachedInterface
+        struct Charlie2 : arc::DetachedInterface
         {
             int impl(this auto const& self, trait::Charlie::get)
             {
@@ -64,7 +64,7 @@ struct Charlie
             }
         };
 
-        struct Charlie3 : di::DetachedInterface
+        struct Charlie3 : arc::DetachedInterface
         {
             static int impl(trait::Charlie::get)
             {
@@ -95,10 +95,10 @@ struct Charlie::Node<Context>::Alice : Node
 {
     int impl(trait::Alice::get) const
     {
-        static_assert(di::CanGetNode<Node, trait::AliceRead>);
+        static_assert(arc::CanGetNode<Node, trait::AliceRead>);
         auto const value = getNode(trait::aliceRead).get();
 
-        if constexpr (di::test::IsTestContext<Context>)
+        if constexpr (arc::test::IsTestContext<Context>)
             return value + 10;
         else
             return value;
