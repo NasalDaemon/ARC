@@ -101,11 +101,11 @@ jobs:
       run: >
         cmake ..
         --preset conan-default
-        -DDI_BUILD_TESTS=TRUE
-        -DDI_BUILD_BENCH=TRUE
-        -DDI_COMPRESS_TYPES=TRUE
+        -DARC_BUILD_TESTS=TRUE
+        -DARC_BUILD_BENCH=TRUE
+        -DARC_COMPRESS_TYPES=TRUE
         -DCMAKE_COLOR_DIAGNOSTICS=TRUE
-        -DDI_BUILD_LTO=${{ matrix.build_type == 'Release' && 'TRUE' || 'FALSE' }}
+        -DARC_BUILD_LTO=${{ matrix.build_type == 'Release' && 'TRUE' || 'FALSE' }}
         -DCMAKE_CXX_MODULE_STD=${{ matrix.compiler.std_module && 'TRUE' || 'FALSE' }}
 
     - name: Build
@@ -117,7 +117,7 @@ jobs:
       run: >
         cmake --build .
         --config ${{ matrix.build_type }}
-        ${{ matrix.compiler.header_only && '-t di_tests_headers' || '' }}
+        ${{ matrix.compiler.header_only && '-t arc_tests_headers' || '' }}
 
     # - uses: mainmatter/continue-on-error-comment@v1
     #   if: matrix.compiler.allow_build_failure
@@ -133,4 +133,4 @@ jobs:
         ctest
         --verbose
         --build-config ${{ matrix.build_type }}
-        ${{ matrix.compiler.header_only && '-R di_tests_headers' || '' }}
+        ${{ matrix.compiler.header_only && '-R arc_tests_headers' || '' }}

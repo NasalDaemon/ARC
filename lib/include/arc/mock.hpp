@@ -4,6 +4,7 @@
 #include "arc/context_fwd.hpp"
 #include "arc/detail/type_name.hpp"
 #include "arc/empty_types.hpp"
+#include "arc/function.hpp"
 #include "arc/macros.hpp"
 #include "arc/mock_fwd.hpp"
 #include "arc/node.hpp"
@@ -14,17 +15,13 @@
 
 #if !ARC_IMPORT_STD
 #include <any>
-#include <functional>
-#include <map>
-#include <span>
 #include <string>
-#include <string_view>
 #include <stdexcept>
 #include <typeindex>
 #include <typeinfo>
 #include <type_traits>
+#include <unordered_map>
 #include <variant>
-#include <vector>
 #endif
 
 namespace arc::test {
@@ -111,7 +108,7 @@ namespace detail {
         std::variant<std::monostate, std::any, Ref> value;
     };
 
-    using MockDef = std::function<void(MockReturn& result, void** args)>;
+    using MockDef = arc::Function<void(MockReturn& result, void** args), arc::FunctionPolicy{.copyable = true, .mutableCall = true, .constCall = false}>;
     struct MockDefs
     {
         MockDef con, mut;
@@ -123,14 +120,18 @@ namespace detail {
         ThrowIfMissing,
     };
 
+    template<class Method, class... Args>
+    constexpr std::type_index argTypes()
+    {
+        return typeid(void(std::remove_cvref_t<Method>, Args...));
+    }
+
 } // namespace detail
 
 ARC_MODULE_EXPORT
 template<class DefaultTypes/* = EmptyTypes*/, class... MockedTraits>
 struct Mock
 {
-    using ArgTypes = std::vector<std::type_index>;
-
     template<class Context>
     struct Node : arc::test::TestOnlyNode
     {
@@ -152,6 +153,10 @@ struct Mock
         constexpr void setReturnDefault() { defaultBehaviour = detail::MockDefaultBehaviour::ReturnDefault; }
         constexpr void setThrowIfMissing() { defaultBehaviour = detail::MockDefaultBehaviour::ThrowIfMissing; }
 
+        constexpr void enableCounting() { countingEnabledFlag = true; }
+        constexpr void disableCounting() { countingEnabledFlag = false; }
+        constexpr bool countingEnabled() const { return countingEnabledFlag; }
+
         template<class Tag>
         constexpr std::size_t methodCallCount(Tag) const
         {
@@ -167,24 +172,21 @@ struct Mock
         template<class Tag, class... Args>
         constexpr std::size_t definitionCallCount() const
         {
-            ArgTypes argTypes{
-                std::type_index{typeid(Tag)},
-                std::type_index{typeid(Args)}...};
-
-            auto const it = definitionCountMap.find(argTypes);
+            auto const it = definitionCountMap.find(detail::argTypes<Tag, Args...>());
             return it != definitionCountMap.end() ? it->second : 0ul;
         }
 
         template<class Self, class Method, class... Args>
         constexpr detail::MockReturn impl(this Self& self, Method, Args&&... args)
         {
-            ArgTypes argTypes{
-                std::type_index{typeid(Method)},
-                std::type_index{typeid(Args)}...};
+            auto const argTypes = detail::argTypes<Method, Args...>();
 
-            self.methodCountMap[std::type_index{typeid(Method)}]++;
-            self.traitCountMap[std::type_index{typeid(arc::TraitOf<Method>)}]++;
-            self.definitionCountMap[argTypes]++;
+            if (self.countingEnabled())
+            {
+                self.methodCountMap[std::type_index{typeid(Method)}]++;
+                self.traitCountMap[std::type_index{typeid(arc::TraitOf<Method>)}]++;
+                self.definitionCountMap[argTypes]++;
+            }
 
             detail::MockDef* impl = nullptr;
             if (auto const it = self.definitions.find(argTypes); it != self.definitions.end())
@@ -257,12 +259,9 @@ struct Mock
         template<class R, class Tag, class... Args>
         constexpr void defineImpl(R(*)(Tag, Args...), bool isConst, auto&& f)
         {
-            ArgTypes argTypes{
-                std::type_index{typeid(std::remove_cvref_t<Tag>)},
-                std::type_index{typeid(Args)}...};
-            auto& defs = definitions[argTypes];
+            auto& defs = definitions[detail::argTypes<Tag, Args...>()];
             (isConst ? defs.con : defs.mut) =
-                [f = ARC_FWD(f)](ARC_IF_NOT_MSVC(this auto&,) detail::MockReturn& result, void** args) -> void
+                [f = ARC_FWD(f)](detail::MockReturn& result, void** args) mutable -> void
                 {
                     [&]<std::size_t... I>(std::index_sequence<I...>) -> void
                     {
@@ -294,10 +293,11 @@ struct Mock
         }
 
         detail::MockDefaultBehaviour defaultBehaviour = detail::MockDefaultBehaviour::ReturnDefault;
-        mutable std::map<ArgTypes, detail::MockDefs> definitions;
-        mutable std::map<ArgTypes, std::size_t> definitionCountMap;
-        mutable std::map<std::type_index, std::size_t> traitCountMap;
-        mutable std::map<std::type_index, std::size_t> methodCountMap;
+        bool countingEnabledFlag = false;
+        mutable std::unordered_map<std::type_index, detail::MockDefs> definitions;
+        mutable std::unordered_map<std::type_index, std::size_t> definitionCountMap;
+        mutable std::unordered_map<std::type_index, std::size_t> traitCountMap;
+        mutable std::unordered_map<std::type_index, std::size_t> methodCountMap;
     };
 };
 

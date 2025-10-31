@@ -50,10 +50,13 @@ TEST_CASE("arc::test::Mock")
     arc::test::Graph<MockTestNode> g;
     int i = 101;
 
+    CHECK(not g.mocks->countingEnabled());
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
 
     g.mocks->setThrowIfMissing();
+    g.mocks->enableCounting();
+    CHECK(g.mocks->countingEnabled());
 
     g.mocks->define(
         [](trait::Trait::takesNothing)
@@ -83,6 +86,9 @@ TEST_CASE("arc::test::Mock")
     CHECK(1 == g.mocks->methodCallCount(trait::Trait::returnsRef{}));
 
     g.mocks->reset();
+    CHECK(not g.mocks->countingEnabled());
+    g.mocks->enableCounting();
+    CHECK(g.mocks->countingEnabled());
 
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));

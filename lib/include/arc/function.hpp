@@ -72,7 +72,7 @@ struct Function<R(Args...), Policy_>
         return callable->immutableFunction(callable.get(), ARC_FWD(args)...);
     }
 
-    constexpr operator bool() const { return callable != nullptr; }
+    constexpr operator bool() const { return callable.get() != nullptr; }
 
     constexpr void reset() { callable.reset(); }
 
