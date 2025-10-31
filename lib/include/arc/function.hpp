@@ -49,11 +49,11 @@ struct Function<R(Args...), Policy_>
     Function& operator=(Function&&) = default;
 
     Function(Function const& other) requires (Policy.copyable)
-        : callable{other.callable ? other.callable->copy(other.callable.get()) : nullptr}
+        : callable{other ? other.callable->copy(other.callable.get()) : nullptr}
     {}
     Function& operator=(Function const& other) requires (Policy.copyable)
     {
-        callable.reset(other.callable ? other.callable->copy(other.callable.get()) : nullptr);
+        callable.reset(other ? other.callable->copy(other.callable.get()) : nullptr);
         return *this;
     }
 
@@ -72,7 +72,7 @@ struct Function<R(Args...), Policy_>
         return callable->immutableFunction(callable.get(), ARC_FWD(args)...);
     }
 
-    constexpr operator bool() const { return callable != nullptr; }
+    constexpr operator bool() const { return callable.get() != nullptr; }
 
     constexpr void reset() { callable.reset(); }
 

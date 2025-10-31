@@ -3,7 +3,7 @@
 
 #if !ARC_IMPORT_STD
 #include <any>
-#include <typeinfo>
+#include <span>
 #include <variant>
 #include <vector>
 #endif

@@ -525,7 +525,8 @@ struct MockTypes
     };
 };
 
-struct MockLogger : arc::Node
+// TestOnlyNode is a node that can only be used inside a test context
+struct MockLogger : arc::TestOnlyNode
 {
     using Traits = arc::Traits<MockLogger, trait::Logger>;
 
@@ -574,7 +575,7 @@ static void testSessionManager(
 }
 
 // Test doubles are reusable across tests in the whole project
-struct AuthServiceTestDouble : arc::Node
+struct AuthServiceTestDouble : arc::TestOnlyNode
 {
     using Traits = arc::Traits<AuthServiceTestDouble, my::trait::AuthService>;
 

@@ -4,7 +4,7 @@
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
-#include <cstdint>
+#include <cstddef>
 #include <source_location>
 #include <string_view>
 #include <type_traits>

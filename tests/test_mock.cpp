@@ -3,6 +3,7 @@
 
 #if !ARC_IMPORT_STD
 #include <any>
+#include <span>
 #include <typeinfo>
 #include <vector>
 #endif
@@ -47,13 +48,23 @@ struct MockTestNode : arc::Node
 
 TEST_CASE("arc::test::Mock")
 {
+    REQUIRE(TypeId::of<int&>() != TypeId::of<int&&>());
+    REQUIRE(TypeId::of<int&>() != TypeId::of<const int&>());
+
     arc::test::Graph<MockTestNode> g;
     int i = 101;
 
-    CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
-    CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
+    CHECK(not g.mocks->callTrackingEnabled());
+    REQUIRE_THROWS(g.mocks->methodCallCount(trait::Trait::takesNothing{}));
+    REQUIRE_THROWS(g.mocks->traitCallCount(trait::trait));
+    REQUIRE_THROWS(g.mocks->definitionCallCount<trait::Trait::takesNothing>());
 
     g.mocks->setThrowIfMissing();
+    g.mocks->enableCallTracking();
+    REQUIRE(g.mocks->callTrackingEnabled());
+    REQUIRE(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
+    REQUIRE(0 == g.mocks->traitCallCount(trait::trait));
+    REQUIRE(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
 
     g.mocks->define(
         [](trait::Trait::takesNothing)
@@ -81,20 +92,29 @@ TEST_CASE("arc::test::Mock")
     CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
     CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
     CHECK(1 == g.mocks->methodCallCount(trait::Trait::returnsRef{}));
+    CHECK(3 == g.mocks->traitCallCount(trait::trait));
 
-    g.mocks->reset();
+    g.mocks->resetTrackingAndDefinitions();
+    // Mode is preserved
+    REQUIRE(g.mocks->callTrackingEnabled());
+    REQUIRE(g.mocks->throwsIfMissing());
+    REQUIRE(not g.mocks->returnsDefault());
+
+    g.mocks->setReturnDefault();
+    REQUIRE(not g.mocks->throwsIfMissing());
+    REQUIRE(g.mocks->returnsDefault());
 
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
     CHECK(0 == g.mocks->methodCallCount(trait::Trait::returnsRef{}));
-
-    // Default behaviour is to return default value
+    CHECK(0 == g.mocks->traitCallCount(trait::trait));
 
     CHECK(0 == g.node->testNothing());
     CHECK(0 == g.node->testInt(8));
 
     CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
     CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
+    CHECK(2 == g.mocks->traitCallCount(trait::trait));
 
     g.mocks->setThrowIfMissing();
 

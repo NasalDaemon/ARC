@@ -161,6 +161,8 @@ export namespace arc {
     using arc::MapInfo;
     // mock.hpp
     namespace test {
+        using test::MockDefault;
+        using test::MockParams;
         using test::Mock;
     }
     // narrow.hpp
@@ -257,6 +259,8 @@ export namespace arc {
     using arc::Traits;
     using arc::TraitsOpen;
     using arc::TraitsTemplate;
+    // type_id.hpp
+    using arc::TypeId;
     // union.hpp
     using arc::Union;
     using arc::withIndex;

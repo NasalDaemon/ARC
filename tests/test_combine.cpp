@@ -2,6 +2,7 @@
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
+#include <span>
 #include <typeinfo>
 #include <vector>
 #endif
