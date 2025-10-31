@@ -118,7 +118,7 @@ concept NodeHasDepends = Node::Depends::isSpecified;
 
 ARC_MODULE_EXPORT
 template<class Node, class Trait>
-concept NodeDependencyAllowed = Node::Depends::template dependencyAllowed<Node, Trait>;
+concept NodeDependencyListed = Node::Depends::template dependencyListed<Node, Trait>;
 
 ARC_MODULE_EXPORT
 template<class Node, bool Transitive = false>

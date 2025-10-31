@@ -55,7 +55,7 @@ struct Union
             {
                 static_assert(not std::is_const_v<Option>, "Cannot exchange implementation of a node in a const context");
                 static_assert((... or std::is_same_v<T, Options>), "Cannot exchange with a node that is not listed as an option in the hosting arc::Union");
-                auto const nodePtr = arc::detail::memberPtr<Node>(std::bit_cast<Option Node::*>(&Node::bytes));
+                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<Option Node::*>(&Node::bytes));
                 Node& node = nodePtr.getClassFromMember(option);
                 if constexpr (ContextHasGlobalTrait<Context, Global<trait::Scheduler>>)
                 {

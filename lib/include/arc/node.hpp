@@ -49,7 +49,7 @@ struct Node
     {
         Self::template assertNodeContext<Self>();
         if constexpr (not detail::IsNodeState<Self>)
-            static_assert(NodeDependencyAllowed<Self, Trait>, "Requested trait missing from node's arc::Depends list");
+            static_assert(NodeDependencyListed<Self, Trait>, "Requested trait missing from node's arc::Depends list");
         using ThisNode = Self::Traits::Node;
         auto& node = detail::upCast<ThisNode>(self);
         if constexpr (not IsGlobalTrait<Trait>)

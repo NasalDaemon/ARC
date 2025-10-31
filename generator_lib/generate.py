@@ -202,7 +202,7 @@ class Connection:
 
 
 class Node:
-    def __init__(self, name: str, tree: Tree | None, impl: str, cluster: 'Cluster | Domain', is_first: bool):
+    def __init__(self, name: str, tree: Tree | None, impl: str, cluster: 'Cluster | Domain', is_first: bool, intermediate_aliases: list[tuple[str, str]] = []):
         self.repeaters: list[Repeater] = []
         self.connections: list[Connection] = []
         self.clients: list[tuple[str, 'Node', str]] = [] # [(position, client_node, trait)]
@@ -210,6 +210,7 @@ class Node:
         self.impl: str = impl
         self.cluster = cluster
         self.is_nexus: bool = is_first and isinstance(cluster, Domain)
+        self.intermediate_aliases = intermediate_aliases
         self.is_parent = False
         self.is_global = False
         self.is_sink_node = False
@@ -224,6 +225,8 @@ class Node:
             self.is_unary = name.upper() != name
             self.has_state = name[0].isupper()
             self.context: str = name + '_'
+            if name[0] == '_' or name[-1] == '_':
+                raise SyntaxError(f"{get_pos(tree)} Node name '{name}' in '{cluster.full_name}' must not start or end with an underscore '_'")
             if self.is_nexus and not self.is_unary:
                 raise SyntaxError(f"{get_pos(tree)} Nexus node '{name}' in '{cluster.full_name}' must be a unary node")
 
@@ -390,17 +393,19 @@ class Cluster:
                 if name in nodes:
                     raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in cluster '{self.full_name}'")
                 impl = reconstructor.reconstruct(child.children[1])
+                intermediate_aliases: list[tuple[str, str]] = []
                 if len(child.children) > 2:
                     for wrapper in child.children[2:]:
                         cls = wrapper.children[0].value
+                        impl_alias = f"{name}_inner{len(intermediate_aliases)}_"
+                        intermediate_aliases.append((impl_alias, impl))
+                        args = [impl_alias]
                         if len(wrapper.children) > 1:
-                            args = [impl]
                             args.extend(reconstructor.reconstruct(arg) for arg in wrapper.children[1].children[1:-1:2])
-                            impl = f"{cls}<{', '.join(args)}>"
-                        else:
-                            impl = f"{cls}<{impl}>"
+                        impl = f"{cls}<{', '.join(args)}>"
+
                 is_first = len(nodes) == 2
-                nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first)
+                nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first, intermediate_aliases=intermediate_aliases)
             elif child.data == imported('connection_block'):
                 for child in child.children:
                     if child.data == imported('connection_aliases'):

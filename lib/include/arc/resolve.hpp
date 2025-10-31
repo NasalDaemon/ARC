@@ -58,7 +58,7 @@ namespace detail {
 
 ARC_MODULE_EXPORT
 template<class Node, IsTrait Trait>
-requires detail::HasLink<ContextOf<Node>, Trait> and NodeDependencyAllowed<Node, Trait>
+requires detail::HasLink<ContextOf<Node>, Trait> and NodeDependencyListed<Node, Trait>
 using ResolveTypes = detail::ResolveTrait<ContextOf<Node>, Trait>::Types;
 
 ARC_MODULE_EXPORT

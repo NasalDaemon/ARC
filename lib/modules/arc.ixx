@@ -175,7 +175,7 @@ export namespace arc {
     using arc::ToNodeWrapper;
     using arc::InlineNode;
     using arc::NodeHasDepends;
-    using arc::NodeDependencyAllowed;
+    using arc::NodeDependencyListed;
     using arc::NodeDependenciesSatisfied;
     // no_trait.hpp
     using arc::NoTrait;

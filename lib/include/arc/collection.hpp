@@ -70,7 +70,7 @@ namespace key {
 }
 
 ARC_MODULE_EXPORT
-template<class ID, IsNodeHandle NodeHandle>
+template<IsNodeHandle NodeHandle, class ID>
 struct Collection
 {
     template<class Context>
@@ -200,7 +200,7 @@ struct Collection
 
         template<class Trait>
         requires HasTrait<ElementNode, Trait>
-        using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, typename detail::ResolveTrait<ElementNode, Trait>::Types>;
+        using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, typename decltype(detail::ResolveTrait<ElementNode, Trait>())::Types>;
 
         std::vector<Element> elements;
         std::vector<ID> ids;
@@ -272,10 +272,10 @@ struct Collection
     };
 };
 
-template<class ID, IsNodeHandle NodeHandle>
+template<IsNodeHandle NodeHandle, class ID>
 template<class Context>
 template<class Trait>
-struct Collection<ID, NodeHandle>::Node<Context>::AsTrait : Node
+struct Collection<NodeHandle, ID>::Node<Context>::AsTrait : Node
 {
     constexpr auto finalise(this auto& self, auto& source, key::Element<ID> const& key, auto const&... keys)
     {

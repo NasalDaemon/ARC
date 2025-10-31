@@ -114,9 +114,9 @@ namespace {{ namespace.name }} {
 {% for alias in namespace.trait_aliases %}
 
 {% if alias | count == 2 %}
-{{ export }}using {{ alias[0] }} = arc::AltTrait<{{ alias[1] }}, struct {{ alias[0] }}_Tag>;
+{{ export }}struct {{ alias[0] }} : arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}> {};
 {% else %}
-{{ export }}using {{ alias[0] }} = arc::JoinedTrait<{{ alias[1:] | join(", ") }}>;
+{{ export }}struct {{ alias[0] }} : arc::JoinedTrait<{{ alias[1:] | join(", ") }}> {};
 {% endif %}
 {{ export }}inline constexpr {{ alias[0] }} {{ alias[0][0].lower() + alias[0][1:] }}{};
 {% endfor %}
@@ -184,6 +184,9 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
     {% endif %}
     {% for node in cluster.nodes %}
     struct {{ node.context }};
+    {% for alias, target in node.intermediate_aliases %}
+    using {{ alias }} = {{ target }};
+    {% endfor %}
     using {{ node.node_alias }} = {{ node.impl }};
     {% endfor %}
     {% if cluster.aliases %}

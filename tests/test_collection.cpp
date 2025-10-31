@@ -47,7 +47,7 @@ cluster Element [R = Root]
 cluster Collection [R = Root]
 {
     outside = R::Outside
-    collection = arc::Collection<int, Element>
+    collection = Element : arc::Collection<int>
 
     [trait::Element]
     .., outside --> collection
