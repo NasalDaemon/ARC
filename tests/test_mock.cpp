@@ -49,22 +49,22 @@ struct MockTestNode : arc::Node
 TEST_CASE("arc::test::Mock")
 {
     REQUIRE(TypeId::of<int&>() != TypeId::of<int&&>());
-    REQUIRE(TypeId::of<int&>() != TypeId::of<const int&>());
+    REQUIRE(TypeId::of<int&>() != TypeId::of<int const&>());
 
-    arc::test::Graph<MockTestNode> g;
+    arc::test::Graph<MockTestNode> g{.mocks{{.defaultBehaviour = arc::test::MockDefault::ThrowIfMissing}}};
     int i = 101;
 
-    CHECK(not g.mocks->callTrackingEnabled());
-    REQUIRE_THROWS(g.mocks->methodCallCount(trait::Trait::takesNothing{}));
-    REQUIRE_THROWS(g.mocks->traitCallCount(trait::trait));
-    REQUIRE_THROWS(g.mocks->definitionCallCount<trait::Trait::takesNothing>());
+    CHECK(not g.mocks->callLoggingEnabled());
+    REQUIRE_THROWS(g.mocks->methodCallCount<trait::Trait::takesNothing>());
+    REQUIRE_THROWS(g.mocks->traitCallCount<trait::Trait>());
+    REQUIRE_THROWS(g.mocks->implCallCount<trait::Trait::takesNothing>());
 
     g.mocks->setThrowIfMissing();
-    g.mocks->enableCallTracking();
-    REQUIRE(g.mocks->callTrackingEnabled());
-    REQUIRE(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
-    REQUIRE(0 == g.mocks->traitCallCount(trait::trait));
-    REQUIRE(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
+    g.mocks->enableCallLogging();
+    REQUIRE(g.mocks->callLoggingEnabled());
+    REQUIRE(0 == g.mocks->methodCallCount<trait::Trait::takesNothing>());
+    REQUIRE(0 == g.mocks->traitCallCount<trait::Trait>());
+    REQUIRE(0 == g.mocks->methodCallCount<trait::Trait::takesInt>());
 
     g.mocks->define(
         [](trait::Trait::takesNothing)
@@ -89,32 +89,81 @@ TEST_CASE("arc::test::Mock")
     CHECK(88 == i);
     CHECK(88 == ref);
 
-    CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
-    CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
-    CHECK(1 == g.mocks->methodCallCount(trait::Trait::returnsRef{}));
-    CHECK(3 == g.mocks->traitCallCount(trait::trait));
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::takesNothing>());
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::takesInt>());
+
+    auto takesIntCalls = g.mocks->visitCalls<trait::Trait::takesInt, int>([](int i) { return i; });
+    // Initial state
+    CHECK(not takesIntCalls.lastVisitedIndex().has_value());
+    CHECK(0 == takesIntCalls.currentIndex());
+    CHECK(1 == takesIntCalls.size());
+    CHECK(1 == takesIntCalls.nextMatchingIndex().value());
+
+    // Get first (and only) call
+    CHECK(8 == takesIntCalls.popFront().value());
+
+    CHECK(1 == takesIntCalls.lastVisitedIndex().value());
+    CHECK(2 == takesIntCalls.currentIndex());
+    CHECK(0 == takesIntCalls.size());
+    CHECK(not takesIntCalls.nextMatchingIndex().has_value());
+
+    // Visiting last call does not affect state
+    CHECK(8 == takesIntCalls.back().value());
+    CHECK(2 == takesIntCalls.currentIndex());
+    CHECK(1 == takesIntCalls.lastVisitedIndex().value());
+
+    // Iterating again yields no calls
+    CHECK(not takesIntCalls.popFront().has_value());
+    CHECK(1 == takesIntCalls.lastVisitedIndex().value());
+    CHECK(3 == takesIntCalls.currentIndex());
+    CHECK(0 == takesIntCalls.size());
+    CHECK(not takesIntCalls.nextMatchingIndex().has_value());
+
+    // Visiting last call is still possible and does not affect state
+    CHECK(8 == takesIntCalls.back().value());
+    CHECK(3 == takesIntCalls.currentIndex());
+    CHECK(1 == takesIntCalls.lastVisitedIndex().value());
+
+    // Reset visitor to initial state
+    takesIntCalls.reset();
+    CHECK(not takesIntCalls.lastVisitedIndex().has_value());
+    CHECK(0 == takesIntCalls.currentIndex());
+    CHECK(1 == takesIntCalls.size());
+    CHECK(1 == takesIntCalls.nextMatchingIndex().value());
+
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::returnsRef>());
+    CHECK(3 == g.mocks->traitCallCount<trait::Trait>());
 
     g.mocks->resetTrackingAndDefinitions();
     // Mode is preserved
-    REQUIRE(g.mocks->callTrackingEnabled());
+    REQUIRE(g.mocks->callLoggingEnabled());
     REQUIRE(g.mocks->throwsIfMissing());
     REQUIRE(not g.mocks->returnsDefault());
+
+    CHECK_THROWS_MESSAGE(takesIntCalls.validate(), "CallVisitor: Mock call counting state has been invalidated, please rebind if this is expected");
+    takesIntCalls.rebind();
+    CHECK_NOTHROW(takesIntCalls.validate());
+    CHECK(0 == takesIntCalls.currentIndex());
+    CHECK(takesIntCalls.empty());
 
     g.mocks->setReturnDefault();
     REQUIRE(not g.mocks->throwsIfMissing());
     REQUIRE(g.mocks->returnsDefault());
 
-    CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
-    CHECK(0 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
-    CHECK(0 == g.mocks->methodCallCount(trait::Trait::returnsRef{}));
-    CHECK(0 == g.mocks->traitCallCount(trait::trait));
+    CHECK(0 == g.mocks->methodCallCount<trait::Trait::takesNothing>());
+    CHECK(0 == g.mocks->methodCallCount<trait::Trait::takesInt>());
+    CHECK(0 == g.mocks->methodCallCount<trait::Trait::returnsRef>());
+    CHECK(0 == g.mocks->traitCallCount<trait::Trait>());
 
     CHECK(0 == g.node->testNothing());
     CHECK(0 == g.node->testInt(8));
 
-    CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesNothing{}));
-    CHECK(1 == g.mocks->methodCallCount(trait::Trait::takesInt{}));
-    CHECK(2 == g.mocks->traitCallCount(trait::trait));
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::takesNothing>());
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::takesInt>());
+    CHECK(2 == g.mocks->traitCallCount<trait::Trait>());
+
+    CHECK(1 == takesIntCalls.size());
+    CHECK(8 == takesIntCalls.popFront().value());
 
     g.mocks->setThrowIfMissing();
 

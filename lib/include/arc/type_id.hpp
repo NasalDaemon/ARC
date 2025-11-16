@@ -17,7 +17,7 @@ struct TypeId
     template<class... Ts>
     static TypeId of()
     {
-        return TypeId(typeId<Ts...>());
+        return TypeId(std::bit_cast<std::size_t>(&fn<Ts...>));
     }
 
     auto operator<=>(TypeId const&) const = default;
@@ -28,10 +28,7 @@ private:
     {}
 
     template<class... Ts>
-    static std::size_t typeId()
-    {
-        return std::bit_cast<std::size_t>(&typeId<Ts...>);
-    }
+    static void fn() {}
 
     friend struct std::hash<TypeId>;
     std::size_t id;
