@@ -35,6 +35,8 @@ export namespace arc {
     namespace detail {
         using detail::memberPtr;
     }
+    // circular_buffer.hpp
+    using arc::CircularBuffer;
     // cluster.hpp
     using arc::Cluster;
     using arc::IsRootCluster;
@@ -163,6 +165,8 @@ export namespace arc {
     namespace test {
         using test::MockDefault;
         using test::MockParams;
+        using test::ArgsTuple;
+        using test::argsTuple;
         using test::Mock;
     }
     // narrow.hpp

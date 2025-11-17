@@ -115,6 +115,8 @@
 #   define ARC_INLINE [[gnu::always_inline, gnu::artificial]] inline
 #endif
 
+#define ARC_COLD [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
+
 // Clang won't detail the failure in the build diagnostic when asserting the concept directly
 #if ARC_COMPILER_CLANG
 #   define ARC_ASSERT_IMPLEMENTS(Impl, Types, Trait) \

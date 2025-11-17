@@ -170,7 +170,7 @@ private:
         }
     }
 
-    [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
+    ARC_COLD
     void pauseLoop(std::unique_lock<std::mutex>& lk, State& state)
     {
         do

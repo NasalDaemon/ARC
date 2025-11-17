@@ -24,7 +24,7 @@ struct Lazy
     struct Node : arc::Node
     {
     private:
-        [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
+        ARC_COLD
         void initialise() const
         {
             auto* init = std::get_if<Initialiser>(&state);
