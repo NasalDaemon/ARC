@@ -40,6 +40,13 @@ struct CircularBuffer
 
         Iterator() = default;
 
+        template<bool OtherConst>
+        requires Const or (not OtherConst)
+        Iterator(Iterator<OtherConst> const& other)
+            : parent(other.parent)
+            , readIndex(other.readIndex)
+        {}
+
         reference operator*() const
         {
             return *parent->buffer.value_at(readIndex);
@@ -300,6 +307,11 @@ struct CircularBuffer
     bool contains_id(std::size_t id) const
     {
         return id >= readIndex and id < writeIndex;
+    }
+
+    auto& at_id_unchecked(std::size_t id)
+    {
+        return *buffer.value_at(id);
     }
 
     void clear()

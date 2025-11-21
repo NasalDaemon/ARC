@@ -95,41 +95,37 @@ TEST_CASE("arc::test::Mock")
     auto takesIntCalls = g.mocks->visitCallLogs<trait::Trait::takesInt, int>();
     // Initial state
     CHECK(not takesIntCalls.lastVisitedIndex().has_value());
-    CHECK(0 == takesIntCalls.currentIndex());
+    CHECK(1 == takesIntCalls.currentIndex().value());
     CHECK(1 == takesIntCalls.size());
-    CHECK(1 == takesIntCalls.nextMatchingIndex().value());
 
     // Get first (and only) call
     CHECK(std::tuple(8) == takesIntCalls.popFront().value());
 
     CHECK(1 == takesIntCalls.lastVisitedIndex().value());
-    CHECK(2 == takesIntCalls.currentIndex());
+    CHECK(not takesIntCalls.currentIndex().has_value());
     CHECK(0 == takesIntCalls.size());
-    CHECK(not takesIntCalls.nextMatchingIndex().has_value());
 
     // Visiting last call does not affect state
     CHECK(std::tuple(8) == takesIntCalls.back().value());
-    CHECK(2 == takesIntCalls.currentIndex());
+    CHECK(not takesIntCalls.currentIndex().has_value());
     CHECK(1 == takesIntCalls.lastVisitedIndex().value());
 
     // Iterating again yields no calls
     CHECK(not takesIntCalls.popFront().has_value());
     CHECK(1 == takesIntCalls.lastVisitedIndex().value());
-    CHECK(3 == takesIntCalls.currentIndex());
+    CHECK(not takesIntCalls.currentIndex().has_value());
     CHECK(0 == takesIntCalls.size());
-    CHECK(not takesIntCalls.nextMatchingIndex().has_value());
 
     // Visiting last call is still possible and does not affect state
     CHECK(std::tuple(8) == takesIntCalls.back().value());
-    CHECK(3 == takesIntCalls.currentIndex());
+    CHECK(not takesIntCalls.currentIndex().has_value());
     CHECK(1 == takesIntCalls.lastVisitedIndex().value());
 
     // Reset visitor to initial state
     takesIntCalls.reset();
     CHECK(not takesIntCalls.lastVisitedIndex().has_value());
-    CHECK(0 == takesIntCalls.currentIndex());
+    CHECK(1 == takesIntCalls.currentIndex().value());
     CHECK(1 == takesIntCalls.size());
-    CHECK(1 == takesIntCalls.nextMatchingIndex().value());
 
     CHECK(1 == g.mocks->methodCallCount<trait::Trait::returnsRef>());
     CHECK(3 == g.mocks->traitCallCount<trait::Trait>());
@@ -143,7 +139,7 @@ TEST_CASE("arc::test::Mock")
     CHECK_THROWS_MESSAGE(takesIntCalls.validate(), "CallVisitor: Mock call counting state has been invalidated, please rebind if this is expected");
     takesIntCalls.rebind();
     CHECK_NOTHROW(takesIntCalls.validate());
-    CHECK(0 == takesIntCalls.currentIndex());
+    CHECK(not takesIntCalls.currentIndex().has_value());
     CHECK(takesIntCalls.empty());
 
     g.mocks->setReturnDefault();
