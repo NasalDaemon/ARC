@@ -15,6 +15,7 @@ add_executable(arc_tests_headers
 )
 add_executable(arc_tests_module
     test_abc_module.cpp
+    test_circular_buffer.cpp
     test_collection.cpp
     test_embedded_modules.cpp
     test_global.cpp

@@ -698,7 +698,7 @@ namespace detail {
                 std::optional<std::size_t> foundIndex;
                 for (auto it = trackerIt; it != tracker.logIndices->cend(); ++it)
                 {
-                    auto result = mockBase.callLog.at_id_unchecked(*it).visit(visitorWrapper);
+                    decltype(auto) result = mockBase.callLog.at_id_unchecked(*it).visit(visitorWrapper);
                     if (result == value)
                     {
                         foundIndex = *it;
@@ -714,9 +714,9 @@ namespace detail {
             {
                 validate();
                 std::optional<std::size_t> foundIndex;
-                for (auto it = tracker.logIndices->cend() - 1; it != trackerIt; --it)
+                for (auto it = tracker.logIndices->cend() - 1; it > trackerIt; --it)
                 {
-                    auto result = mockBase.callLog.at_id_unchecked(*it).visit(visitorWrapper);
+                    decltype(auto) result = mockBase.callLog.at_id_unchecked(*it).visit(visitorWrapper);
                     if (result == value)
                     {
                         foundIndex = *it;

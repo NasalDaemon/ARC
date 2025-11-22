@@ -4,10 +4,20 @@
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
+#include <concepts>
 #include <type_traits>
 #endif
 
 namespace arc::detail {
+
+// Concept to check if T is constructible from an rvalue of type T.
+// Handles the case where T's move constructor is deleted but copy constructor is available
+// std::move_constructible fails in such cases
+template<class T>
+concept MoveConstructible = std::constructible_from<T, T&&>;
+
+template<class T>
+concept CopyConstructible = std::constructible_from<T, T const&>;
 
 template<template<class> class Template>
 using TakesUnaryClassTemplate = void;

@@ -2,15 +2,22 @@
 #define INCLUDE_ARC_CIRCULAR_BUFFER_HPP
 
 #include "arc/macros.hpp"
+#include "arc/detail/concepts.hpp"
 
 #if !ARC_IMPORT_STD
+#include <algorithm>
 #include <bit>
+#include <compare>
 #include <concepts>
 #include <cstddef>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
-#include <type_traits>
+#include <optional>
+#include <ranges>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 #endif
 
 namespace arc {
@@ -162,11 +169,111 @@ struct CircularBuffer
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    explicit CircularBuffer(std::size_t maxSize = 1024)
+    static constexpr std::size_t defaultMaxSize = 1024;
+
+    explicit CircularBuffer(std::size_t maxSize = defaultMaxSize)
         : maxSize(std::bit_ceil(maxSize))
     {
         if (maxSize == 0)
             throw std::invalid_argument("CircularBuffer::CircularBuffer: maxSize must be greater than 0");
+    }
+
+    template<std::ranges::input_range R>
+    requires std::ranges::sized_range<R>
+         and (not std::same_as<std::remove_cvref_t<R>, CircularBuffer>)
+         and std::constructible_from<T, decltype(std::forward_like<R>(std::declval<std::ranges::range_reference_t<R>>()))>
+    CircularBuffer(R&& range, std::optional<std::size_t> maxSize_ = std::nullopt)
+        : CircularBuffer(maxSize_ ? *maxSize_ : std::max(defaultMaxSize, std::ranges::size(range)))
+    {
+        std::size_t size = std::ranges::size(range);
+        if (maxSize_ and size > *maxSize_)
+            throw std::invalid_argument("CircularBuffer::CircularBuffer: range size exceeds provided maxSize");
+        size = std::bit_ceil(size);
+        buffer.data = std::make_unique<Storage[]>(size);
+        buffer.capacity = size;
+        T* outStorage = reinterpret_cast<T*>(buffer.data.get());
+        for (auto&& elem : ARC_FWD(range))
+        {
+            std::construct_at(outStorage + writeIndex, std::forward_like<R>(elem));
+            ++writeIndex;
+        }
+    }
+
+    CircularBuffer(std::initializer_list<T> init, std::optional<std::size_t> maxSize_ = std::nullopt) requires detail::CopyConstructible<T>
+        : CircularBuffer(std::ranges::subrange(init), maxSize_)
+    {}
+
+    CircularBuffer(CircularBuffer const& other) requires detail::CopyConstructible<T>
+        : buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex}
+        , maxSize{other.maxSize}
+        , writeIndex{other.writeIndex}
+        , readIndex{other.readIndex}
+    {}
+
+    CircularBuffer(CircularBuffer&& other)
+        : buffer(std::move(other.buffer))
+        , maxSize(other.maxSize)
+        , writeIndex(other.writeIndex)
+        , readIndex(other.readIndex)
+    {
+        other.readIndex = other.writeIndex;
+    }
+
+    CircularBuffer& operator=(CircularBuffer const& other) requires detail::CopyConstructible<T>
+    {
+        if (this != &other)
+        {
+            destroy_values();
+            buffer = Buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex};
+            clear_indices();
+            readIndex += other.readIndex & (buffer.capacity - 1);
+            writeIndex = readIndex + (other.writeIndex - other.readIndex);
+            maxSize = other.maxSize;
+        }
+        return *this;
+    }
+
+    CircularBuffer& operator=(CircularBuffer&& other)
+    {
+        if (this != &other)
+        {
+            destroy_values();
+            buffer = std::move(other.buffer);
+            clear_indices();
+            readIndex += other.readIndex & (buffer.capacity - 1);
+            writeIndex = readIndex + (other.writeIndex - other.readIndex);
+            maxSize = other.maxSize;
+            other.readIndex = other.writeIndex;
+        }
+        return *this;
+    }
+
+    template<std::ranges::range R>
+    requires std::equality_comparable_with<T, std::ranges::range_value_t<R>>
+    bool operator==(R const& other) const
+    {
+        return std::ranges::equal(*this, other);
+    }
+
+    template<std::ranges::range R>
+    requires std::three_way_comparable_with<T, std::ranges::range_value_t<R>>
+    auto operator<=>(R const& other) const
+    {
+        return std::lexicographical_compare_three_way(begin(), end(), other.begin(), other.end());
+    }
+
+    void swap(CircularBuffer& other) noexcept
+    {
+        std::swap(buffer.capacity, other.buffer.capacity);
+        std::swap(buffer.data, other.buffer.data);
+        std::swap(maxSize, other.maxSize);
+        std::swap(writeIndex, other.writeIndex);
+        std::swap(readIndex, other.readIndex);
+    }
+
+    friend void swap(CircularBuffer& lhs, CircularBuffer& rhs) noexcept
+    {
+        lhs.swap(rhs);
     }
 
     template<class Self>
@@ -203,12 +310,12 @@ struct CircularBuffer
         return std::reverse_iterator<Iterator<std::is_const_v<Self>>>{self.begin()};
     }
 
-    T& push_back(T const& value)
+    T& push_back(T const& value) requires detail::CopyConstructible<T>
     {
         return emplace_back(value);
     }
 
-    T& push_back(T&& value)
+    T& push_back(T&& value) requires detail::MoveConstructible<T>
     {
         return emplace_back(std::move(value));
     }
@@ -235,12 +342,12 @@ struct CircularBuffer
         return *dst;
     }
 
-    T pop_front_value()
+    T pop_front_value() requires detail::MoveConstructible<T>
     {
         T* p = buffer.value_at(readIndex);
         T result(std::move(*p));
+        // Discard element after moving the value in case of exceptions
         std::destroy_at(p);
-        // Increment readIndex after moving the value in case of exceptions
         ++readIndex;
         return result;
     }
@@ -317,20 +424,33 @@ struct CircularBuffer
     void clear()
     {
         destroy_values();
-        // Align readIndex to the next multiple of capacity (power of 2) after writeIndex
-        // Safe even if capacity is 0, as in that case both indices will be set to 0
-        readIndex = (writeIndex + buffer.capacity - 1) & ~(buffer.capacity - 1);
-        writeIndex = readIndex;
+        clear_indices();
     }
 
-    void reserve()
+    void shrink_to_fit() requires detail::MoveConstructible<T>
+    {
+        std::size_t currentSize = size();
+        if (currentSize == 0)
+        {
+            buffer.data.reset();
+            buffer.capacity = 0;
+        }
+        else
+        {
+            std::size_t neededCapacity = std::bit_ceil(currentSize);
+            if (neededCapacity < buffer.capacity)
+                buffer = Buffer(std::move(buffer), neededCapacity, readIndex, writeIndex);
+        }
+    }
+
+    void reserve() requires detail::MoveConstructible<T>
     {
         if (buffer.capacity < maxSize)
             grow_buffer(maxSize);
     }
 
     // Does not increase capacity beyond the maximum size set at construction or by set_max_size.
-    void reserve(std::size_t newCapacity)
+    void reserve(std::size_t newCapacity) requires detail::MoveConstructible<T>
     {
         newCapacity = std::min(newCapacity, maxSize);
         if (buffer.capacity < newCapacity)
@@ -338,42 +458,29 @@ struct CircularBuffer
     }
 
     // Preserves writeIndex. Preserves readIndex if it fits in the new maxSize.
-    void set_max_size(std::size_t newMaxSize)
+    void set_max_size(std::size_t newMaxSize) requires detail::MoveConstructible<T>
     {
         if (newMaxSize == 0)
             throw std::invalid_argument("CircularBuffer::set_max_size: capacity must be greater than 0");
         newMaxSize = std::bit_ceil(newMaxSize);
 
-        // When reducing maxSize, keep the most recent elements (towards the end)
-        std::size_t elementsToKeep = std::min(writeIndex - readIndex, newMaxSize);
-        std::size_t newReadIndex = writeIndex - elementsToKeep;
-
-        // Destroy oldest elements that don't fit in the new maxSize
-        while (readIndex < newReadIndex)
+        // If newMaxSize must shrink the capacity, we may need to evict some elements
+        if (buffer.capacity > newMaxSize)
         {
-            std::destroy_at(buffer.value_at(readIndex));
-            ++readIndex;
+            // When reducing maxSize, keep the most recent elements (towards the end)
+            std::size_t elementsToKeep = std::min(writeIndex - readIndex, newMaxSize);
+            std::size_t newReadIndex = writeIndex - elementsToKeep;
+
+            // Destroy oldest elements that don't fit in the new maxSize
+            while (readIndex < newReadIndex)
+            {
+                std::destroy_at(buffer.value_at(readIndex));
+                ++readIndex;
+            }
+
+            buffer = Buffer(std::move(buffer), elementsToKeep, readIndex, writeIndex);
         }
-
-        std::size_t newStartPos = readIndex & (newMaxSize - 1);
-        buffer = Buffer(std::move(buffer), std::min(newStartPos + elementsToKeep, newMaxSize), readIndex, writeIndex);
         maxSize = newMaxSize;
-    }
-
-    CircularBuffer(CircularBuffer&&) = default;
-    CircularBuffer(CircularBuffer const& other)
-        : buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex}
-        , maxSize{other.maxSize}
-        , writeIndex{other.writeIndex}
-        , readIndex{other.readIndex}
-    {}
-
-    CircularBuffer& operator=(CircularBuffer&&) = default;
-    CircularBuffer& operator=(CircularBuffer const& other)
-    {
-        if (this != &other)
-            *this = CircularBuffer(other);
-        return *this;
     }
 
     ~CircularBuffer()
@@ -386,6 +493,14 @@ private:
     {
         for (std::size_t i = readIndex; i < writeIndex; ++i)
             std::destroy_at(buffer.value_at(i));
+    }
+
+    void clear_indices()
+    {
+        // Align readIndex to the next multiple of capacity (power of 2) after writeIndex
+        // Safe even if capacity is 0, as in that case both indices will be set to 0
+        readIndex = (writeIndex + buffer.capacity - 1) & ~(buffer.capacity - 1);
+        writeIndex = readIndex;
     }
 
     ARC_COLD
@@ -411,6 +526,20 @@ private:
     {
         // No allocation when default-constructed
         Buffer() = default;
+
+        Buffer(Buffer const&) = delete;
+        Buffer(Buffer&& other) noexcept
+            : capacity(std::exchange(other.capacity, 0))
+            , data(std::move(other.data))
+        {}
+
+        Buffer& operator=(Buffer const&) = delete;
+        Buffer& operator=(Buffer&& other) noexcept
+        {
+            capacity = std::exchange(other.capacity, 0);
+            data = std::move(other.data);
+            return *this;
+        }
 
         template<class Other>
         requires std::same_as<Buffer, std::remove_cvref_t<Other>>
@@ -449,6 +578,20 @@ private:
     std::size_t writeIndex = 0;
     std::size_t readIndex = 0;
 };
+
+template<class T>
+CircularBuffer(std::initializer_list<T>) -> CircularBuffer<T>;
+
+template<class T>
+CircularBuffer(std::initializer_list<T>, std::optional<std::size_t>) -> CircularBuffer<T>;
+
+template<std::ranges::input_range R>
+requires std::ranges::sized_range<R>
+CircularBuffer(R&&) -> CircularBuffer<std::ranges::range_value_t<R>>;
+
+template<std::ranges::input_range R>
+requires std::ranges::sized_range<R>
+CircularBuffer(R&&, std::optional<std::size_t>) -> CircularBuffer<std::ranges::range_value_t<R>>;
 
 }
 
