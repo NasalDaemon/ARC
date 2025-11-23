@@ -205,18 +205,12 @@ namespace detail {
         void resetTracking()
         {
             callCount = 0;
-            auto const clearTracker = [](auto& trackerMap)
+            for (auto& [_, tracker] : trackerMap)
             {
-                for (auto& [_, tracker] : trackerMap)
-                {
-                    tracker.callCount = 0;
-                    if (tracker.logIndices)
-                        tracker.logIndices->clear();
-                }
-            };
-            clearTracker(implTrackerMap);
-            clearTracker(traitTrackerMap);
-            clearTracker(methodTrackerMap);
+                tracker.callCount = 0;
+                if (tracker.logIndices)
+                    tracker.logIndices->clear();
+            }
             callLog.clear();
             ++trackingVersion;
         }
@@ -252,24 +246,38 @@ namespace detail {
         {
             if (not counting)
                 throw std::runtime_error("traitCallCount: Call counting is not enabled for this mock");
-            auto const it = traitTrackerMap.find(TypeId::of<Trait>());
-            return it != traitTrackerMap.end() ? it->second.callCount : 0ul;
+            auto const it = trackerMap.find(traitType<Trait>());
+            return it != trackerMap.end() ? it->second.callCount : 0ul;
         }
         template<class Method>
         std::size_t methodCallCount(Method = {}) const
         {
             if (not counting)
                 throw std::runtime_error("methodCallCount: Call counting is not enabled for this mock");
-            auto const it = methodTrackerMap.find(TypeId::of<Method>());
-            return it != methodTrackerMap.end() ? it->second.callCount : 0ul;
+            auto const it = trackerMap.find(methodType<Method>());
+            return it != trackerMap.end() ? it->second.callCount : 0ul;
         }
         template<class Method, class... Args>
         std::size_t implCallCount() const
         {
             if (not counting)
                 throw std::runtime_error("implCallCount: Call counting is not enabled for this mock");
-            auto const it = implTrackerMap.find(TypeId::of<Method, Args...>());
-            return it != implTrackerMap.end() ? it->second.callCount : 0ul;
+            auto const it = trackerMap.find(implType<Method, Args...>());
+            return it != trackerMap.end() ? it->second.callCount : 0ul;
+        }
+
+        template<class Method, class T>
+        void methodReturns(T&& value)
+        {
+            auto const methodType_ = methodType<Method>();
+            returnsMap[methodType_].template emplace<T>(ARC_FWD(value));
+        }
+        template<class Method, class... Args, class T>
+        void implReturns(T&& value)
+        {
+            auto const implType_ = implType<Method, Args...>();
+            returnsMap[implType_].template emplace<T>(ARC_FWD(value));
+            impls.erase(implType_);
         }
 
         template<class Method, class... Args, std::invocable<std::remove_cvref_t<Args> const&...> F = ArgsTuple>
@@ -288,20 +296,20 @@ namespace detail {
                 throw std::runtime_error("visitCallLogs: Call logging is not enabled for this mock, please enable logging, or use subscribeCalls instead");
 
             using result_t = std::invoke_result_t<F, std::remove_cvref_t<Args> const&...>;
-            auto const argTypes = TypeId::of<Method, Args...>();
-            return CallLogVisitor<result_t>(*this, implTrackerMap[argTypes], argTypes, startIndex, CallDesc::makeVisitor<Method, Args...>(ARC_FWD(visitor)));
+            auto const implType_ = implType<Method, Args...>();
+            return CallLogVisitor<result_t>(*this, trackerMap[implType_], implType_, startIndex, CallDesc::makeVisitor<Method, Args...>(ARC_FWD(visitor)));
         }
 
         template<class Self, class Method, class... Args>
         constexpr MockReturn impl(this Self& self, Method method, Args&&... args)
         {
-            auto const argTypes = TypeId::of<Method, Args...>();
+            auto const implType_ = implType<Method, Args...>();
 
             if (self.counting) [[unlikely]]
                 self.recordCall(method, ARC_FWD(args)...);
 
             UniversalFn* impl = nullptr;
-            if (auto const it = self.impls.find(argTypes); it != self.impls.end())
+            if (auto const it = self.impls.find(implType_); it != self.impls.end())
             {
                 if constexpr (std::is_const_v<Self>)
                 {
@@ -317,9 +325,9 @@ namespace detail {
                 }
             }
 
-            MockReturn result;
             if (impl != nullptr)
             {
+                MockReturn result;
                 if constexpr (sizeof...(args) > 0)
                 {
                     void* a[] = {std::addressof(args)...};
@@ -329,19 +337,24 @@ namespace detail {
                 {
                     std::invoke(*impl, std::addressof(result), nullptr);
                 }
-            }
-            else
-            {
-                switch (self.defaultBehaviour)
-                {
-                case MockDefault::ReturnDefault:
-                    result.setReturnDefault();
-                    break;
-                case MockDefault::ThrowIfMissing:
-                    throw std::runtime_error(notDefinedError<Self, Method, Args...>());
-                }
+                return result;
             }
 
+            if (auto const retIt = self.returnsMap.find(implType_); retIt != self.returnsMap.end())
+                return std::as_const(retIt->second);
+
+            if (auto const retIt = self.returnsMap.find(methodType<Method>()); retIt != self.returnsMap.end())
+                return std::as_const(retIt->second);
+
+            MockReturn result;
+            switch (self.defaultBehaviour)
+            {
+            case MockDefault::ReturnDefault:
+                result.setReturnDefault();
+                break;
+            case MockDefault::ThrowIfMissing:
+                throw std::runtime_error(notDefinedError<Self, Method, Args...>());
+            }
             return result;
         }
 
@@ -361,18 +374,60 @@ namespace detail {
         {
             (defineImpl((decltype(getTypes(&std::remove_cvref_t<Fs>::operator()))) nullptr, false, ARC_FWD(fs)), ...);
         }
+        template<class Method, class... Args>
+        constexpr void undefine()
+        {
+            auto const implType_ = implType<Method, Args...>();
+            impls.erase(implType_);
+            returnsMap.erase(implType_);
+        }
+        template<class Method, class... Args>
+        constexpr void undefineConst()
+        {
+            auto const implType_ = implType<Method, Args...>();
+            if (auto it = impls.find(implType_); it != impls.end())
+                it->second.con.reset();
+            returnsMap.erase(implType_);
+        }
+        template<class Method, class... Args>
+        constexpr void undefineMut()
+        {
+            auto const implType_ = implType<Method, Args...>();
+            if (auto it = impls.find(implType_); it != impls.end())
+                it->second.mut.reset();
+            returnsMap.erase(implType_);
+        }
 
     private:
+        struct TraitTag;
+        struct MethodTag;
+        struct ImplTag;
+
+        template<IsTrait Trait>
+        static TypeId traitType()
+        {
+            return TypeId::of<TraitTag, Trait>();
+        }
+        template<class Method>
+        static TypeId methodType()
+        {
+            return TypeId::of<MethodTag, Method>();
+        }
+        template<class Method, class... Args>
+        static TypeId implType()
+        {
+            return TypeId::of<ImplTag, Method, Args...>();
+        }
+
         template<class Self, class Method, class... Args>
         ARC_COLD void recordCall(this Self& self, Method, Args&&... args)
         {
-            auto const argTypes = TypeId::of<Method, Args...>();
-            auto const methodType = TypeId::of<Method>();
-            auto const traitType = TypeId::of<TraitOf<Method>>();
-            auto const callIndex = self.callCount;
-            auto& implTracker = self.implTrackerMap[argTypes];
-            auto& methodTracker = self.methodTrackerMap[methodType];
-            auto& traitTracker = self.traitTrackerMap[traitType];
+            auto const implType_ = implType<Method, Args...>();
+            auto const methodType_ = methodType<Method>();
+            auto const traitType_ = traitType<TraitOf<Method>>();
+            auto& implTracker = self.trackerMap[implType_];
+            auto& methodTracker = self.trackerMap[methodType_];
+            auto& traitTracker = self.trackerMap[traitType_];
 
             ++self.callCount;
             ++implTracker.callCount;
@@ -407,15 +462,15 @@ namespace detail {
                             f(r, const_cast<void**>(a));
                         };
                 }
-                // If we will lose an entry, ensure to remove it from trackers pointing to it
+                // If we will evict an entry, ensure to remove it from trackers pointing to it
                 if (self.callLog.full()) [[unlikely]]
-                    self.callLog.front().removeFromTrackers();
+                    self.callLog.front().evictFromTrackers();
                 self.callLog.emplace_back(
-                    traitType,
-                    methodType,
-                    argTypes,
+                    traitType_,
+                    methodType_,
+                    implType_,
                     std::move(argVisitor),
-                    callIndex,
+                    self.callLog.end_id(),
                     std::array{&implTracker, &methodTracker, &traitTracker},
                     std::is_const_v<Self>);
             }
@@ -429,7 +484,7 @@ namespace detail {
         template<class R, class Tag, class... Args>
         constexpr void defineImpl(R(*)(Tag, Args...), bool isConst, auto&& f)
         {
-            auto& defs = impls[TypeId::of<Tag, Args...>()];
+            auto& defs = impls[implType<Tag, Args...>()];
             (isConst ? defs.con : defs.mut) =
                 [f = ARC_FWD(f)](void* mockReturn, void** args) mutable -> void
                 {
@@ -476,11 +531,11 @@ namespace detail {
             {
                 friend struct CallDesc;
                 using Optional = Optional_;
-                explicit Visitor(TypeId argTypes, UniversalFn f)
-                    : argTypes(argTypes)
+                explicit Visitor(TypeId implType, UniversalFn f)
+                    : implType(implType)
                     , f(std::move(f))
                 {}
-                TypeId argTypes;
+                TypeId implType;
                 UniversalFn f;
             };
 
@@ -489,37 +544,37 @@ namespace detail {
             explicit CallDesc(
                 TypeId traitType,
                 TypeId methodType,
-                TypeId argTypes,
+                TypeId implType,
                 ArgVisitor argVisitor,
-                std::size_t callIndex,
+                std::size_t callId,
                 std::array<CallTracker*, 3> trackers,
                 bool isConst
             )
                 : traitType_(traitType)
                 , methodType_(methodType)
-                , argTypes_(argTypes)
+                , implType_(implType)
                 , argVisitor(std::move(argVisitor))
-                , callIndex_(callIndex)
+                , callId_(callId)
                 , trackers_(trackers)
                 , isConst_(isConst)
             {
                 for (CallTracker* tracker : trackers_)
                     if (tracker != nullptr and tracker->logIndices)
-                        tracker->logIndices->push_back(callIndex_);
+                        tracker->logIndices->push_back(callId_);
             }
 
             constexpr TypeId traitType() const { return traitType_; }
             constexpr TypeId methodType() const { return methodType_; }
-            constexpr TypeId argTypes() const { return argTypes_; }
+            constexpr TypeId implType() const { return implType_; }
 
             template<IsTrait Trait>
-            constexpr bool isTrait() const { return traitType_ == TypeId::of<Trait>(); }
+            constexpr bool isTrait() const { return traitType_ == MockBase::traitType<Trait>(); }
             template<class Method>
-            constexpr bool isMethod() const { return methodType_ == TypeId::of<Method>(); }
+            constexpr bool isMethod() const { return methodType_ == MockBase::methodType<Method>(); }
             template<class Method, class... Args>
-            constexpr bool isImpl() const { return methodType_ == TypeId::of<Method, Args...>(); }
+            constexpr bool isImpl() const { return methodType_ == MockBase::implType<Method, Args...>(); }
 
-            constexpr std::size_t callIndex() const { return callIndex_; }
+            constexpr std::size_t callIndex() const { return callId_; }
             constexpr bool isConst() const { return isConst_; }
 
             template<class Method, class... Args, std::invocable<std::remove_cvref_t<Args> const&...> F>
@@ -534,7 +589,7 @@ namespace detail {
             template<class Optional>
             auto visit(Visitor<Optional>& visitor) const
             {
-                if (argTypes_ != visitor.argTypes) [[unlikely]]
+                if (implType_ != visitor.implType) [[unlikely]]
                     throw std::runtime_error("CallDesc::visit: visitor does not expect the argument types of this CallDesc");
                 Optional result;
                 argVisitor(std::addressof(result), visitor.f);
@@ -548,7 +603,7 @@ namespace detail {
                 using Optional = std::optional<std::conditional_t<std::is_void_v<Result>, std::monostate, Result>>;
 
                 return Visitor<Optional>(
-                    TypeId::of<Method, Args...>(),
+                    MockBase::implType<Method, Args...>(),
                     [f = ARC_FWD(f)](void* r, void** args) mutable -> void
                     {
                         [&]<std::size_t... I>(std::index_sequence<I...>) -> void
@@ -571,19 +626,19 @@ namespace detail {
         private:
             friend struct MockBase;
 
-            void removeFromTrackers()
+            void evictFromTrackers()
             {
                 for (CallTracker* tracker : trackers_)
-                    if (tracker != nullptr and tracker->logIndices and not tracker->logIndices->empty())
-                        if (tracker->logIndices->front() == callIndex_)
+                    if (tracker != nullptr and tracker->logIndices)
+                        while (not tracker->logIndices->empty() and tracker->logIndices->front() <= callId_)
                             tracker->logIndices->pop_front();
             }
 
             TypeId traitType_;
             TypeId methodType_;
-            TypeId argTypes_;
+            TypeId implType_;
             ArgVisitor argVisitor{};
-            std::size_t callIndex_{};
+            std::size_t callId_{};
             std::array<CallTracker*, 3> trackers_;
             bool isConst_{};
         };
@@ -597,12 +652,12 @@ namespace detail {
             explicit CallLogVisitor(
                 MockBase& mockBase,
                 CallTracker& tracker,
-                TypeId argTypes,
+                TypeId implType,
                 std::size_t startIndex,
                 CallDesc::Visitor<OptionalResult> visitorWrapper)
                 : mockBase(mockBase)
                 , tracker(tracker)
-                , argTypes(argTypes)
+                , implType(implType)
                 , startIndex(startIndex)
                 , trackerIt(tracker.logIndices->cbegin())
                 , trackingVersion(mockBase.trackingVersion)
@@ -729,7 +784,7 @@ namespace detail {
         private:
             MockBase& mockBase;
             CallTracker& tracker;
-            TypeId argTypes;
+            TypeId implType;
             std::size_t startIndex;
             CircularBuffer<std::size_t>::const_iterator trackerIt;
             std::size_t trackingVersion;
@@ -743,9 +798,8 @@ namespace detail {
         std::size_t trackingVersion{0};
         mutable std::size_t callCount{0};
         mutable std::unordered_map<TypeId, MockDefs> impls;
-        mutable std::unordered_map<TypeId, CallTracker> implTrackerMap;
-        mutable std::unordered_map<TypeId, CallTracker> methodTrackerMap;
-        mutable std::unordered_map<TypeId, CallTracker> traitTrackerMap;
+        mutable std::unordered_map<TypeId, MockReturn> returnsMap;
+        mutable std::unordered_map<TypeId, CallTracker> trackerMap;
         mutable CircularBuffer<CallDesc> callLog;
     };
 

@@ -194,6 +194,18 @@ TEST_CASE("arc::test::Mock")
     ref1 = 123;
     CHECK(ref1 == 123);
     CHECK(ref2 == 123);
+
+    g.mocks->methodReturns<trait::Trait::takesNothing>(101);
+    g.mocks->methodReturns<trait::Trait::takesInt>(314);
+    g.mocks->methodReturns<trait::Trait::returnsRef>(ref1);
+
+    CHECK(101 == g.node->testNothing());
+    CHECK(314 == g.node->testInt(8));
+
+    // Definition takes precedence over stored method result
+    CHECK_THROWS_AS(g.node->testRef(), std::bad_any_cast);
+    g.mocks->undefine<trait::Trait::returnsRef>();
+    CHECK(123 == g.node->testRef());
 }
 
 }

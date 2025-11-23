@@ -58,7 +58,7 @@
 #   error Unsupported compiler
 #endif
 
-//                                              CLANG          GCC            MSVC
+//                                                CLANG          GCC            MSVC
 #define ARC_IF_CLANG(...)      ARC_COMPILER_IS_X((__VA_ARGS__), (           ), (           ))
 #define ARC_IF_GCC(...)        ARC_COMPILER_IS_X((           ), (__VA_ARGS__), (           ))
 #define ARC_IF_GNU(...)        ARC_COMPILER_IS_X((__VA_ARGS__), (__VA_ARGS__), (           ))

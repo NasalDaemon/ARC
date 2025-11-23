@@ -204,17 +204,17 @@ struct CircularBuffer
     {}
 
     CircularBuffer(CircularBuffer const& other) requires detail::CopyConstructible<T>
-        : buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex}
+        : buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex, 0}
         , maxSize{other.maxSize}
-        , writeIndex{other.writeIndex}
-        , readIndex{other.readIndex}
+        , readIndex{0}
+        , writeIndex{other.writeIndex - other.readIndex}
     {}
 
     CircularBuffer(CircularBuffer&& other)
         : buffer(std::move(other.buffer))
         , maxSize(other.maxSize)
-        , writeIndex(other.writeIndex)
         , readIndex(other.readIndex)
+        , writeIndex(other.writeIndex)
     {
         other.readIndex = other.writeIndex;
     }
@@ -224,10 +224,9 @@ struct CircularBuffer
         if (this != &other)
         {
             destroy_values();
-            buffer = Buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex};
-            clear_indices();
-            readIndex += other.readIndex & (buffer.capacity - 1);
-            writeIndex = readIndex + (other.writeIndex - other.readIndex);
+            readIndex = writeIndex;
+            buffer = Buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex, readIndex};
+            writeIndex += (other.writeIndex - other.readIndex);
             maxSize = other.maxSize;
         }
         return *this;
@@ -238,12 +237,19 @@ struct CircularBuffer
         if (this != &other)
         {
             destroy_values();
+            readIndex = writeIndex;
             buffer = std::move(other.buffer);
-            clear_indices();
-            readIndex += other.readIndex & (buffer.capacity - 1);
-            writeIndex = readIndex + (other.writeIndex - other.readIndex);
-            maxSize = other.maxSize;
+            if (buffer.capacity != 0)
+            {
+                // Set readIndex to the next multiple of capacity (power of 2) after writeIndex
+                std::size_t mask = buffer.capacity - 1;
+                readIndex = (writeIndex + mask) & ~mask;
+                // Set readIndex to the same offset within the buffer as other.readIndex
+                readIndex += other.readIndex & mask;
+                writeIndex = readIndex + (other.writeIndex - other.readIndex);
+            }
             other.readIndex = other.writeIndex;
+            maxSize = other.maxSize;
         }
         return *this;
     }
@@ -267,8 +273,8 @@ struct CircularBuffer
         std::swap(buffer.capacity, other.buffer.capacity);
         std::swap(buffer.data, other.buffer.data);
         std::swap(maxSize, other.maxSize);
-        std::swap(writeIndex, other.writeIndex);
         std::swap(readIndex, other.readIndex);
+        std::swap(writeIndex, other.writeIndex);
     }
 
     friend void swap(CircularBuffer& lhs, CircularBuffer& rhs) noexcept
@@ -410,6 +416,11 @@ struct CircularBuffer
         return readIndex;
     }
 
+    std::size_t end_id() const
+    {
+        return writeIndex;
+    }
+
     // Use this with begin_id() or it->id() to see if entries have been evicted since your last access
     bool contains_id(std::size_t id) const
     {
@@ -424,7 +435,7 @@ struct CircularBuffer
     void clear()
     {
         destroy_values();
-        clear_indices();
+        readIndex = writeIndex;
     }
 
     void shrink_to_fit() requires detail::MoveConstructible<T>
@@ -439,7 +450,7 @@ struct CircularBuffer
         {
             std::size_t neededCapacity = std::bit_ceil(currentSize);
             if (neededCapacity < buffer.capacity)
-                buffer = Buffer(std::move(buffer), neededCapacity, readIndex, writeIndex);
+                buffer = Buffer(std::move(buffer), neededCapacity, readIndex, writeIndex, readIndex);
         }
     }
 
@@ -478,7 +489,7 @@ struct CircularBuffer
                 ++readIndex;
             }
 
-            buffer = Buffer(std::move(buffer), elementsToKeep, readIndex, writeIndex);
+            buffer = Buffer(std::move(buffer), elementsToKeep, readIndex, writeIndex, readIndex);
         }
         maxSize = newMaxSize;
     }
@@ -495,14 +506,6 @@ private:
             std::destroy_at(buffer.value_at(i));
     }
 
-    void clear_indices()
-    {
-        // Align readIndex to the next multiple of capacity (power of 2) after writeIndex
-        // Safe even if capacity is 0, as in that case both indices will be set to 0
-        readIndex = (writeIndex + buffer.capacity - 1) & ~(buffer.capacity - 1);
-        writeIndex = readIndex;
-    }
-
     ARC_COLD
     void grow_buffer()
     {
@@ -511,7 +514,7 @@ private:
 
     void grow_buffer(std::size_t newCapacity)
     {
-        buffer = Buffer(std::move(buffer), newCapacity, readIndex, writeIndex);
+        buffer = Buffer(std::move(buffer), newCapacity, readIndex, writeIndex, readIndex);
     }
 
     struct alignas(T) Storage
@@ -543,14 +546,14 @@ private:
 
         template<class Other>
         requires std::same_as<Buffer, std::remove_cvref_t<Other>>
-        explicit Buffer(Other&& other, std::size_t capacity_, std::size_t readIndex, std::size_t writeIndex)
+        explicit Buffer(Other&& other, std::size_t capacity_, std::size_t readIndex, std::size_t writeIndex, std::size_t newReadIndex)
             : capacity(std::bit_ceil(capacity_))
             , data(std::make_unique<Storage[]>(capacity))
         {
-            for (; readIndex < writeIndex; ++readIndex)
+            for (; readIndex < writeIndex; ++readIndex, ++newReadIndex)
             {
                 auto* src = other.value_at(readIndex);
-                T* dst = storage_at(readIndex);
+                T* dst = storage_at(newReadIndex);
                 std::construct_at(dst, std::forward_like<Other>(*src));
                 if constexpr (std::is_rvalue_reference_v<Other&&>)
                     std::destroy_at(src);
@@ -575,8 +578,8 @@ private:
 
     Buffer buffer;
     std::size_t maxSize; // always power of 2, can be greater than buffer.capacity
-    std::size_t writeIndex = 0;
     std::size_t readIndex = 0;
+    std::size_t writeIndex = 0;
 };
 
 template<class T>
