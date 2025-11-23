@@ -230,7 +230,6 @@ constexpr IsTraitViewOf<Trait, Key> auto makeTraitView(auto& source, auto target
     return TraitView(key::Trait<Key, Trait>{}, target.ptr->finalise(source, key, keys...), target.types());
 }
 
-
 } // namespace arc
 
 

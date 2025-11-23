@@ -263,6 +263,7 @@ export namespace arc {
     using arc::Traits;
     using arc::TraitsOpen;
     using arc::TraitsTemplate;
+    using arc::TraitsFrom;
     // type_id.hpp
     using arc::TypeId;
     // union.hpp

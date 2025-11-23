@@ -26,9 +26,22 @@ using TypeAt = Ts...[I];
 
 #elif ARC_TYPE_AT_VER == 2
 
-template<std::size_t I, class... Ts>
-requires (I < sizeof...(Ts))
-using TypeAt = __type_pack_element<I, Ts...>;
+#   if ARC_COMPILER_GCC
+
+    template <std::size_t I, typename... Ts>
+    auto getTypeAt() -> __type_pack_element<I, Ts...>;
+
+    template<std::size_t I, class... Ts>
+    requires (I < sizeof...(Ts))
+    using TypeAt = decltype(getTypeAt<I, Ts...>());
+
+#   else
+
+    template<std::size_t I, class... Ts>
+    requires (I < sizeof...(Ts))
+    using TypeAt = __type_pack_element<I, Ts...>;
+
+#   endif
 
 #else
 

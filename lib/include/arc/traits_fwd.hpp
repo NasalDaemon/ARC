@@ -87,6 +87,10 @@ ARC_MODULE_EXPORT
 template<class Node, template<class> class TraitTemplate, class... Traits>
 using TraitsTemplate = detail::Traits<Node, ContextParameterOf, detail::TraitsTemplateDefault<TraitTemplate>, Traits...>;
 
+ARC_MODULE_EXPORT
+template<class OtherNode, class FromNode, class... ExtraTraits>
+using TraitsFrom = FromNode::Traits::template Rebind<OtherNode, ContextParameterOf, ExtraTraits...>;
+
 } // namespace arc
 
 

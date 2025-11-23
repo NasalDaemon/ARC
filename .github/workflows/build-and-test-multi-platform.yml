@@ -17,7 +17,7 @@ jobs:
     container: ${{ matrix.compiler.container }}
 
     strategy:
-      fail-fast: true
+      fail-fast: ${{ github.ref_name != 'main' }}
       matrix:
         build_type: [Release, Debug]
         compiler:
@@ -103,6 +103,7 @@ jobs:
         --preset conan-default
         -DARC_BUILD_TESTS=TRUE
         -DARC_BUILD_BENCH=TRUE
+        -DARC_BUILD_EXAMPLES=${{ matrix.compiler.std_module && 'TRUE' || 'FALSE' }}
         -DARC_COMPRESS_TYPES=TRUE
         -DCMAKE_COLOR_DIAGNOSTICS=TRUE
         -DARC_BUILD_LTO=${{ matrix.build_type == 'Release' && 'TRUE' || 'FALSE' }}

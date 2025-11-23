@@ -140,7 +140,7 @@ target_generate_arc_src(your_headers_lib
 </details>
 </details>
 
-## Short example
+## Short example ([examples/greet](examples/greet))
 
 ```cpp
 // File: app/traits.ixx.arc
@@ -169,7 +169,7 @@ namespace app {
 
 // Alice is a short-hand node with contextless state
 // It implements Greeter and Responder
-struct Alice : arc::Node
+export struct Alice : arc::Node
 {
     // Declares dependency on the Responder trait (provided by another node)
     using Depends = arc::Depends<trait::Responder>;
@@ -177,7 +177,7 @@ struct Alice : arc::Node
     // Declares which traits this node implements
     using Traits = arc::Traits<Alice, trait::Greeter, trait::Responder>;
 
-    void impl(this auto& self, trait::Greeter::greet) const
+    void impl(this auto const& self, trait::Greeter::greet)
     {
         std::println("Hello from Alice! I am {} years old.", self.age);
         // Resolve dependency via explicit object parameter `self`, containing the node's context
@@ -207,7 +207,7 @@ import std;
 namespace app {
 
 // Bob is full node with contextful state
-struct Bob
+export struct Bob
 {
     template<class Context>
     struct Node : arc::Node

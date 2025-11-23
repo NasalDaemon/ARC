@@ -20,7 +20,7 @@ The memory layout of `arc::Union<Nodes...>` is much like `std::variant<Ts...>`, 
 
 Only method calls from external nodes into the `arc::Union` incur the extra runtime cost. Any methods invoked from within the nodes hosted by the `arc::Union` incur no extra runtime cost, including calls to methods external to the `arc::Union`.
 
-### Examples
+### Examples ([examples/animals](../examples/animals))
 
 ```cpp
 export module app.cluster;
@@ -57,7 +57,7 @@ import arc;
 
 namespace app {
 
-struct Cow : arc::Node
+export struct Cow : arc::Node
 {
     using Traits = arc::Traits<Cow, trait::Animal>;
 
@@ -77,7 +77,7 @@ import arc;
 
 namespace app {
 
-struct Sheep : arc::Node
+export struct Sheep : arc::Node
 {
     using Traits = arc::Traits<Sheep, trait::Animal>;
 
@@ -147,7 +147,7 @@ By using `arc::Adapt<StaticNode, InterfaceFacade>`, it is possible to adapt a st
 
 With `arc::Box<StaticNode, InFacade, OutFacade = void, OutInterfaces...>`, one adapts the given static node but also adapts all external dependencies behind another `OutFacade`, implementing `OutInterfaces...`. This means that the static node must pay a virtual dispatch also in all its calls to its dependencies, which are entirely abstracted behind the `OutFacade`. Using `arc::Box`, one can instantiate a completely isolated implementation of the interfaces from which `InFacade` derives, completely agnostic to the context of the hosting `arc::Virtual`.
 
-### Examples
+### Examples ([examples/animals_virtual](../examples/animals_virtual))
 
 ```cpp
 export module app.cluster;
@@ -204,20 +204,26 @@ import arc;
 
 namespace app {
 
-struct Cow final : IAnimal
+export struct Cow
 {
-    std::string impl(trait::Animal::speak) const override
+    template<class Context>
+    struct Node final : IAnimal
     {
-        return happy ? "moo" : "mmmooooo!";
-    }
+        using Traits = arc::TraitsFrom<Node, IAnimal>;
 
-    void impl(trait::Animal::evolve) override
-    {
-        // Cows do not evolve
-    }
+        std::string impl(trait::Animal::speak) const override
+        {
+            return happy ? "moo" : "mmmooooo!";
+        }
 
-    explicit Cow(bool happy) : happy(happy) {}
-    bool happy;
+        void impl(trait::Animal::evolve) override
+        {
+            // Cows do not evolve
+        }
+
+        explicit Node(bool happy) : happy(happy) {}
+        bool happy;
+    };
 };
 
 }
@@ -232,32 +238,38 @@ import arc;
 
 namespace app {
 
-struct Sheep final : IAnimal
-{
-    std::string impl(trait::Animal::speak) const override
+export struct Sheep {
+    template<class Context>
+    struct Node final : IAnimal
     {
-        return black ? "barbar" : "baa!";
-    }
+        using Traits = arc::TraitsFrom<Node, IAnimal>;
 
-    void impl(trait::Animal::evolve) override
-    {
-        auto handle = exchangeImpl<Goat>();
-        // In the context of a global scheduler, this exchange will be deferred until
-        // all scheduler tasks have been drained and the scheduler is in exclusive mode (idle).
-        // For the sake of simplicity, we assume there is no global scheduler here.
-        assert(not handle.deferred());
+        std::string impl(trait::Animal::speak) const override
+        {
+            return black ? "barbar" : "baa!";
+        }
 
-        // This node is still alive in a detached state
-        // It can call into itself and other nodes, but other nodes can't reach it
-        std::println(asTrait(trait::animal).speak());
-        // prints: barbar or baa!
+        void impl(trait::Animal::evolve) override
+        {
+            auto handle = exchangeImpl<Goat>();
+            // In the context of a global scheduler, this exchange will be deferred until
+            // all scheduler tasks have been drained and the scheduler is in exclusive mode (idle).
+            // For the sake of simplicity, we assume there is no global scheduler here.
+            if (handle.deferred())
+                throw std::runtime_error("Sheep::evolve exchangeImpl was not expected to be deferred");
 
-        std::println(handle.getNext()->asTrait(trait::animal).speak());
-        // prints: meeh!
-    }
+            // This node is still alive in a detached state
+            // It can call into itself and other nodes, but other nodes can't reach it
+            std::println("{}", asTrait(trait::animal).speak());
+            // prints: barbar or baa!
 
-    Sheep(bool black) : black(black) {}
-    bool black;
+            std::println("{}", handle.getNext()->asTrait(trait::animal).speak());
+            // prints: meeh!
+        }
+
+        Node(bool black = false) : black(black) {}
+        bool black;
+    };
 };
 
 }
@@ -272,23 +284,29 @@ import arc;
 
 namespace app {
 
-struct Goat final : IAnimal
-{
-    std::string impl(trait::Animal::speak) const override { return "meeh!"; }
-
-    void impl(trait::Animal::evolve) override
+export struct Goat {
+    template<class Context>
+    struct Node final : IAnimal
     {
-        auto handle = exchangeImpl<Cow>(false);
-        assert(not handle.deferred());
+        using Traits = arc::TraitsFrom<Node, IAnimal>;
 
-        // This node is still alive in a detached state
-        // It can call into itself and other nodes, but other nodes can't reach it
-        std::println(asTrait(trait::animal).speak());
-        // prints: meeh!
+        std::string impl(trait::Animal::speak) const override { return "meeh!"; }
 
-        std::println(handle.getNext()->asTrait(trait::animal).speak());
-        // prints: mmmooooo!
-    }
+        void impl(trait::Animal::evolve) override
+        {
+            auto handle = exchangeImpl<Cow>(false);
+            if (handle.deferred())
+                throw std::runtime_error("Goat::evolve exchangeImpl was not expected to be deferred");
+
+            // This node is still alive in a detached state
+            // It can call into itself and other nodes, but other nodes can't reach it
+            std::println("{}", asTrait(trait::animal).speak());
+            // prints: meeh!
+
+            std::println("{}", handle.getNext()->asTrait(trait::animal).speak());
+            // prints: mmmooooo!
+        }
+    };
 };
 
 }
@@ -302,7 +320,7 @@ import arc;
 namespace app {
 
 // Fox is a static node which we can adapt to IAnimal using arc::Adapt<Fox, IAnimalFacade>
-struct Fox : arc::Node
+export struct Fox : arc::Node
 {
     using Traits = arc::Traits<Fox, trait::Animal>;
 
@@ -320,31 +338,42 @@ struct Fox : arc::Node
 export module app.animal.facade;
 
 import app.animal;
+import app.cow;
+import app.traits;
+import arc;
+import std;
 
 namespace app {
 
-struct IAnimalFacade final : IAnimal
+export struct IAnimalFacade
 {
-    // Forward to adapted node
-    std::string impl(trait::Animal::speak) const override
+    template<class Context>
+    struct Node final : IAnimal
     {
-        return getNode(trait::animal).speak();
-    }
+        using Traits = arc::TraitsFrom<Node, IAnimal>;
 
-    // As a dynamic node, this facade can swap the implementation hosted by arc::Virtual
-    void impl(trait::Animal::evolve) override
-    {
-        auto handle = exchangeImpl<Cow>(true);
-        assert(not handle.deferred());
+        // Forward to adapted node
+        std::string impl(trait::Animal::speak) const override
+        {
+            return getNode(trait::animal).speak();
+        }
 
-        // This node is still alive in a detached state
-        // It can call into itself and other nodes, but other nodes can't reach it
-        std::println(asTrait(trait::animal).speak());
-        // prints: yip! (assuming it adapted Fox)
+        // As a dynamic node, this facade can swap the implementation hosted by arc::Virtual
+        void impl(trait::Animal::evolve) override
+        {
+            auto handle = exchangeImpl<Cow>(true);
+            if (handle.deferred())
+                throw std::runtime_error("IAnimalFacade::evolve exchangeImpl was not expected to be deferred");
 
-        std::println(handle.getNext()->asTrait(trait::animal).speak());
-        // prints: moo!
-    }
+            // This node is still alive in a detached state
+            // It can call into itself and other nodes, but other nodes can't reach it
+            std::println("{}", asTrait(trait::animal).speak());
+            // prints: yip! (assuming it adapted Fox)
+
+            std::println("{}", handle.getNext()->asTrait(trait::animal).speak());
+            // prints: moo!
+        }
+    };
 };
 
 }
@@ -355,9 +384,10 @@ import app.cluster;
 import app.cow;
 import app.sheep;
 import app.fox;
+import app.traits;
 import std;
 
-enum Animal
+enum class Animal
 {
     Cow, Sheep
 };

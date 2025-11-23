@@ -74,6 +74,12 @@ namespace arc::detail {
         template<class Trait>
         static constexpr bool HasTrait = TraitsHasTrait<Traits, Trait>;
 
+        template<class OtherNode, template<class> class NewGetContext, class... ExtraTraits>
+        using Rebind = Traits<OtherNode, NewGetContext, DefaultResolver, TraitTs..., ExtraTraits...>;
+
+        template<class... ExtraTraits>
+        using Extend = Traits<Node, GetContext_, TraitTs..., ExtraTraits...>;
+
     private:
         template<class Trait>
         requires TraitsHasTrait<Traits, Trait>

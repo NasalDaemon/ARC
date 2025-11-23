@@ -18,14 +18,15 @@ project(ARC VERSION 1.0 LANGUAGES CXX)
 option(ARC_COMPRESS_TYPES "Compress recursive type names for Context, Impl, Type" FALSE)
 option(ARC_BUILD_TESTS "Build tests for ARC" FALSE)
 option(ARC_BUILD_BENCH "Build benchmarks for ARC" FALSE)
-option(ARC_BUILD_LTO "Enable LTO when building tests/benchmarks" TRUE)
+option(ARC_BUILD_EXAMPLES "Build examples for ARC" FALSE)
+option(ARC_BUILD_LTO "Enable LTO when building tests/benchmarks/examples" TRUE)
 option(ARC_TESTS_DEBUG_SAN "Enable sanitisers when building tests in debug" TRUE)
 
 if(ARC_BUILD_TESTS)
     enable_testing()
 endif()
 
-if(ARC_BUILD_TESTS OR ARC_BUILD_BENCH)
+if(ARC_BUILD_TESTS OR ARC_BUILD_BENCH OR ARC_BUILD_EXAMPLES)
     include(tests/config.cmake)
 endif()
 
@@ -34,6 +35,10 @@ add_subdirectory(lib)
 
 if(ARC_BUILD_BENCH)
     add_subdirectory(benchmarks/compilation)
+endif()
+
+if(ARC_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 if(ARC_BUILD_TESTS)
