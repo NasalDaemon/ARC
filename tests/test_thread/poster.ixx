@@ -6,9 +6,9 @@ module;
 #include <cstddef>
 #include <format>
 #include <future>
+#include <limits>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <thread>
 #include <type_traits>
 #include <typeindex>
@@ -52,7 +52,7 @@ private:
     std::atomic<State> state;
     static_assert(decltype(state)::is_always_lock_free);
 
-    std::queue<Function<void()>> exclusiveTasks;
+    CircularBuffer<Function<void()>> exclusiveTasks{std::numeric_limits<std::size_t>::max()};
     std::vector<std::type_index> exclusiveTaskTags;
 
     static void resetMainThread();

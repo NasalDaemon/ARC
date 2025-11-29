@@ -12,7 +12,6 @@ module;
 #include <memory>
 #include <mutex>
 #include <print>
-#include <queue>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -96,7 +95,7 @@ struct Scheduler::ThreadContext
                 std::println("Thread {} is stopping, cannot post task", threadId);
                 return false;
             }
-            tasks.push(ARC_FWD(task));
+            tasks.push_back(ARC_FWD(task));
         }
         cv.notify_one();
         return true;
@@ -164,7 +163,7 @@ private:
                 }
 
                 task = std::move(tasks.front());
-                tasks.pop();
+                tasks.pop_front();
             }
             task();
         }
@@ -181,10 +180,7 @@ private:
 
                 // Since we are the only thread running, we can don't need to use a mutex to read exclusiveTasks
                 while (not scheduler->exclusiveTasks.empty())
-                {
-                    scheduler->exclusiveTasks.front()();
-                    scheduler->exclusiveTasks.pop();
-                }
+                    scheduler->exclusiveTasks.pop_front_value()();
 
                 state = scheduler->setIdle(threadId);
                 if (not state.isIdle()) [[unlikely]]
@@ -205,7 +201,7 @@ private:
     void* const threadIdPtr = Thread::getCurrentThreadIdPtr();
     std::mutex mtx;
     std::condition_variable cv;
-    std::queue<Function<void()>> tasks;
+    CircularBuffer<Function<void()>> tasks{std::numeric_limits<std::size_t>::max()};
     bool stopOnEmpty = false;
 };
 
@@ -398,7 +394,7 @@ bool Scheduler::postExclusiveTask(Function<void()> task)
         return true;
     }
     std::lock_guard lg(mtx);
-    exclusiveTasks.push(std::move(task));
+    exclusiveTasks.push_back(std::move(task));
     return true;
 }
 
@@ -414,7 +410,7 @@ bool Scheduler::postExclusiveTask(std::type_index ti, Function<void()> task)
     if (not std::ranges::contains(exclusiveTaskTags, ti))
     {
         exclusiveTaskTags.push_back(ti);
-        exclusiveTasks.push(
+        exclusiveTasks.emplace_back(
             [this, ti, task = std::move(task)]() mutable
             {
                 auto const clear = arc::Defer([this, ti]{ std::erase(exclusiveTaskTags, ti); });

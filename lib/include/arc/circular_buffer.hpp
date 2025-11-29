@@ -172,10 +172,10 @@ struct CircularBuffer
     static constexpr std::size_t defaultMaxSize = 1024;
 
     explicit CircularBuffer(std::size_t maxSize = defaultMaxSize)
-        : maxSize(std::bit_ceil(maxSize))
+        : maxSize(capacity_for(maxSize))
     {
-        if (maxSize == 0)
-            throw std::invalid_argument("CircularBuffer::CircularBuffer: maxSize must be greater than 0");
+        if (maxSize < 2)
+            throw std::invalid_argument("CircularBuffer::CircularBuffer: maxSize must be greater than 1");
     }
 
     template<std::ranges::input_range R>
@@ -188,9 +188,9 @@ struct CircularBuffer
         std::size_t size = std::ranges::size(range);
         if (maxSize_ and size > *maxSize_)
             throw std::invalid_argument("CircularBuffer::CircularBuffer: range size exceeds provided maxSize");
-        size = std::bit_ceil(size);
-        buffer.data = std::make_unique<Storage[]>(size);
-        buffer.capacity = size;
+        std::size_t mask = mask_for(min_capacity(size));
+        buffer.data = std::make_unique<Storage[]>(capacity_of_mask(mask));
+        buffer.mask = mask;
         T* outStorage = reinterpret_cast<T*>(buffer.data.get());
         for (auto&& elem : ARC_FWD(range))
         {
@@ -204,13 +204,13 @@ struct CircularBuffer
     {}
 
     CircularBuffer(CircularBuffer const& other) requires detail::CopyConstructible<T>
-        : buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex, 0}
+        : buffer{other.buffer, other.buffer.mask, other.readIndex, other.writeIndex, 0}
         , maxSize{other.maxSize}
         , readIndex{0}
         , writeIndex{other.writeIndex - other.readIndex}
     {}
 
-    CircularBuffer(CircularBuffer&& other)
+    CircularBuffer(CircularBuffer&& other) noexcept
         : buffer(std::move(other.buffer))
         , maxSize(other.maxSize)
         , readIndex(other.readIndex)
@@ -225,27 +225,26 @@ struct CircularBuffer
         {
             destroy_values();
             readIndex = writeIndex;
-            buffer = Buffer{other.buffer, other.buffer.capacity, other.readIndex, other.writeIndex, readIndex};
+            buffer = Buffer{other.buffer, other.buffer.mask, other.readIndex, other.writeIndex, readIndex};
             writeIndex += (other.writeIndex - other.readIndex);
             maxSize = other.maxSize;
         }
         return *this;
     }
 
-    CircularBuffer& operator=(CircularBuffer&& other)
+    CircularBuffer& operator=(CircularBuffer&& other) noexcept
     {
         if (this != &other)
         {
             destroy_values();
             readIndex = writeIndex;
             buffer = std::move(other.buffer);
-            if (buffer.capacity != 0)
+            if (buffer.mask != 0)
             {
                 // Set readIndex to the next multiple of capacity (power of 2) after writeIndex
-                std::size_t mask = buffer.capacity - 1;
-                readIndex = (writeIndex + mask) & ~mask;
+                readIndex = (writeIndex + buffer.mask) & ~buffer.mask;
                 // Set readIndex to the same offset within the buffer as other.readIndex
-                readIndex += other.readIndex & mask;
+                readIndex += other.readIndex & buffer.mask;
                 writeIndex = readIndex + (other.writeIndex - other.readIndex);
             }
             other.readIndex = other.writeIndex;
@@ -270,7 +269,7 @@ struct CircularBuffer
 
     void swap(CircularBuffer& other) noexcept
     {
-        std::swap(buffer.capacity, other.buffer.capacity);
+        std::swap(buffer.mask, other.buffer.mask);
         std::swap(buffer.data, other.buffer.data);
         std::swap(maxSize, other.maxSize);
         std::swap(readIndex, other.readIndex);
@@ -283,35 +282,35 @@ struct CircularBuffer
     }
 
     template<class Self>
-    Iterator<std::is_const_v<Self>> begin(this Self& self)
+    Iterator<std::is_const_v<Self>> begin(this Self& self) noexcept
     {
         return {std::addressof(self), self.readIndex};
     }
 
-    const_iterator cbegin() const
+    const_iterator cbegin() const noexcept
     {
         return begin();
     }
 
     template<class Self>
-    Iterator<std::is_const_v<Self>> end(this Self& self)
+    Iterator<std::is_const_v<Self>> end(this Self& self) noexcept
     {
         return {std::addressof(self), self.writeIndex};
     }
 
-    const_iterator cend() const
+    const_iterator cend() const noexcept
     {
         return end();
     }
 
     template<class Self>
-    auto rbegin(this Self& self)
+    auto rbegin(this Self& self) noexcept
     {
         return std::reverse_iterator<Iterator<std::is_const_v<Self>>>{self.end()};
     }
 
     template<class Self>
-    auto rend(this Self& self)
+    auto rend(this Self& self) noexcept
     {
         return std::reverse_iterator<Iterator<std::is_const_v<Self>>>{self.begin()};
     }
@@ -331,13 +330,13 @@ struct CircularBuffer
     T& emplace_back(Args&&... args)
     {
         std::size_t prevSize = size();
-        // If we need to grow the buffer
-        if (prevSize == buffer.capacity and buffer.capacity < maxSize) [[unlikely]]
+        // If we need to grow the buffer (also works when prevSize == 0)
+        if (auto cap = capacity(); cap == prevSize and cap < maxSize) [[unlikely]]
             grow_buffer();
 
         T* dst = buffer.storage_at(writeIndex);
         // If at maxSize and about to overwrite the front element, discard it first
-        if (prevSize == maxSize)
+        if (prevSize == maxSize) [[unlikely]]
         {
             std::destroy_at(std::launder(dst));
             ++readIndex;
@@ -352,29 +351,29 @@ struct CircularBuffer
     {
         T* p = buffer.value_at(readIndex);
         T result(std::move(*p));
-        // Discard element after moving the value in case of exceptions
         std::destroy_at(p);
+        // Discard element after moving the value in case of exceptions
         ++readIndex;
         return result;
     }
 
-    void pop_front()
+    void pop_front() noexcept
     {
         std::destroy_at(buffer.value_at(readIndex));
         ++readIndex;
     }
 
-    auto& front(this auto& self)
+    auto& front(this auto& self) noexcept
     {
         return *self.buffer.value_at(self.readIndex);
     }
 
-    auto& back(this auto& self)
+    auto& back(this auto& self) noexcept
     {
         return *self.buffer.value_at(self.writeIndex - 1);
     }
 
-    auto& operator[](this auto& self, size_type pos)
+    auto& operator[](this auto& self, size_type pos) noexcept
     {
         return *self.buffer.value_at(self.readIndex + pos);
     }
@@ -386,53 +385,60 @@ struct CircularBuffer
         return *self.buffer.value_at(self.readIndex + pos);
     }
 
-    bool empty() const
+    bool empty() const noexcept
     {
         return writeIndex == readIndex;
     }
 
-    bool full() const
+    bool full() const noexcept
     {
         return writeIndex - readIndex == maxSize;
     }
 
-    std::size_t size() const
+    std::size_t size() const noexcept
     {
         return writeIndex - readIndex;
     }
 
-    std::size_t max_size() const
+    std::size_t max_size() const noexcept
     {
         return maxSize;
     }
 
-    std::size_t capacity() const
+    std::size_t capacity() const noexcept
     {
-        return buffer.capacity;
+        return capacity_of_mask(buffer.mask);
     }
 
-    std::size_t begin_id() const
+    std::size_t begin_id() const noexcept
     {
         return readIndex;
     }
 
-    std::size_t end_id() const
+    std::size_t end_id() const noexcept
     {
         return writeIndex;
     }
 
     // Use this with begin_id() or it->id() to see if entries have been evicted since your last access
-    bool contains_id(std::size_t id) const
+    bool contains_id(std::size_t id) const noexcept
     {
         return id >= readIndex and id < writeIndex;
     }
 
-    auto& at_id_unchecked(std::size_t id)
+    auto& at_id(this auto& self, std::size_t id)
     {
-        return *buffer.value_at(id);
+        if (not self.contains_id(id))
+            throw std::out_of_range("CircularBuffer::at_id: id out of range");
+        return self.at_id_unchecked(id);
     }
 
-    void clear()
+    auto& at_id_unchecked(this auto& self, std::size_t id) noexcept
+    {
+        return *self.buffer.value_at(id);
+    }
+
+    void clear() noexcept
     {
         destroy_values();
         readIndex = writeIndex;
@@ -444,19 +450,19 @@ struct CircularBuffer
         if (currentSize == 0)
         {
             buffer.data.reset();
-            buffer.capacity = 0;
+            buffer.mask = 0;
         }
         else
         {
-            std::size_t neededCapacity = std::bit_ceil(currentSize);
-            if (neededCapacity < buffer.capacity)
-                buffer = Buffer(std::move(buffer), neededCapacity, readIndex, writeIndex, readIndex);
+            std::size_t neededMask = mask_for(currentSize);
+            if (neededMask < buffer.mask)
+                buffer = Buffer(std::move(buffer), neededMask, readIndex, writeIndex, readIndex);
         }
     }
 
     void reserve() requires detail::MoveConstructible<T>
     {
-        if (buffer.capacity < maxSize)
+        if (capacity() < maxSize)
             grow_buffer(maxSize);
     }
 
@@ -464,19 +470,19 @@ struct CircularBuffer
     void reserve(std::size_t newCapacity) requires detail::MoveConstructible<T>
     {
         newCapacity = std::min(newCapacity, maxSize);
-        if (buffer.capacity < newCapacity)
+        if (capacity() < newCapacity)
             grow_buffer(newCapacity);
     }
 
     // Preserves writeIndex. Preserves readIndex if it fits in the new maxSize.
     void set_max_size(std::size_t newMaxSize) requires detail::MoveConstructible<T>
     {
-        if (newMaxSize == 0)
-            throw std::invalid_argument("CircularBuffer::set_max_size: capacity must be greater than 0");
-        newMaxSize = std::bit_ceil(newMaxSize);
+        if (newMaxSize < 2)
+            throw std::invalid_argument("CircularBuffer::set_max_size: capacity must be greater than 1");
+        newMaxSize = capacity_for(newMaxSize);
 
         // If newMaxSize must shrink the capacity, we may need to evict some elements
-        if (buffer.capacity > newMaxSize)
+        if (capacity() > newMaxSize)
         {
             // When reducing maxSize, keep the most recent elements (towards the end)
             std::size_t elementsToKeep = std::min(writeIndex - readIndex, newMaxSize);
@@ -500,7 +506,12 @@ struct CircularBuffer
     }
 
 private:
-    void destroy_values()
+    std::size_t min_capacity(std::size_t newCapacity) const
+    {
+        return std::min(std::max(newCapacity, std::size_t{16}), maxSize);
+    }
+
+    void destroy_values() noexcept
     {
         for (std::size_t i = readIndex; i < writeIndex; ++i)
             std::destroy_at(buffer.value_at(i));
@@ -509,7 +520,7 @@ private:
     ARC_COLD
     void grow_buffer()
     {
-        grow_buffer(std::min(std::max(2 * buffer.capacity, std::size_t{16}), maxSize));
+        grow_buffer(min_capacity((buffer.mask << 1) | 1));
     }
 
     void grow_buffer(std::size_t newCapacity)
@@ -532,14 +543,14 @@ private:
 
         Buffer(Buffer const&) = delete;
         Buffer(Buffer&& other) noexcept
-            : capacity(std::exchange(other.capacity, 0))
+            : mask(std::exchange(other.mask, 0))
             , data(std::move(other.data))
         {}
 
         Buffer& operator=(Buffer const&) = delete;
         Buffer& operator=(Buffer&& other) noexcept
         {
-            capacity = std::exchange(other.capacity, 0);
+            mask = std::exchange(other.mask, 0);
             data = std::move(other.data);
             return *this;
         }
@@ -547,37 +558,80 @@ private:
         template<class Other>
         requires std::same_as<Buffer, std::remove_cvref_t<Other>>
         explicit Buffer(Other&& other, std::size_t capacity_, std::size_t readIndex, std::size_t writeIndex, std::size_t newReadIndex)
-            : capacity(std::bit_ceil(capacity_))
-            , data(std::make_unique<Storage[]>(capacity))
+            : mask(mask_for(capacity_))
+            , data(mask == 0 ? nullptr : std::make_unique<Storage[]>(capacity_of_mask(mask)))
         {
-            for (; readIndex < writeIndex; ++readIndex, ++newReadIndex)
+            std::size_t index = 0;
+            std::size_t const size = writeIndex - readIndex;
+            if (size > capacity_of_mask(mask)) [[unlikely]]
+                throw std::invalid_argument("CircularBuffer::Buffer: not enough capacity to hold all elements");
+            try
             {
-                auto* src = other.value_at(readIndex);
-                T* dst = storage_at(newReadIndex);
-                std::construct_at(dst, std::forward_like<Other>(*src));
-                if constexpr (std::is_rvalue_reference_v<Other&&>)
-                    std::destroy_at(src);
+                for (; index < size; ++index)
+                {
+                    auto* src = other.value_at(readIndex + index);
+                    T* dst = storage_at(newReadIndex + index);
+                    std::construct_at(dst, std::forward_like<Other>(*src));
+                }
+            }
+            catch(...)
+            {
+                // Destroy any elements that were already constructed in the new buffer
+                for (std::size_t i = 0; i < index; ++i)
+                {
+                    std::destroy_at(value_at(newReadIndex + i));
+                }
+                throw;
+            }
+            // Destroy moved-from elements in the old buffer if Other is an rvalue
+            // after successfully constructing *all* elements in the new buffer
+            if constexpr (std::is_rvalue_reference_v<Other&&>)
+            {
+                for (; readIndex < writeIndex; ++readIndex)
+                {
+                    std::destroy_at(other.value_at(readIndex));
+                }
             }
         }
 
-        std::size_t capacity = 0; // always power of 2
+        std::size_t mask = 0; // always {power of 2} - 1
+
         std::unique_ptr<Storage[]> data;
 
         template<class Self>
-        auto* value_at(this Self& self, std::size_t index)
+        auto* value_at(this Self& self, std::size_t index) noexcept
         {
             return std::launder(self.storage_at(index));
         }
         template<class Self>
-        auto* storage_at(this Self& self, std::size_t index)
+        auto* storage_at(this Self& self, std::size_t index) noexcept
         {
             using Ptr = std::conditional_t<std::is_const_v<Self>, T const*, T*>;
-            return reinterpret_cast<Ptr>(self.data[index & (self.capacity - 1)].bytes);
+            return reinterpret_cast<Ptr>(self.data[index & self.mask].bytes);
         }
     };
 
+    static constexpr std::size_t mask_for(std::size_t requestedCapacity) noexcept
+    {
+        if (requestedCapacity < 2)
+            return requestedCapacity; // 0 => 0 (no capacity), 1 => 1 (capacity: 2)
+        return ~std::size_t(0) >> std::countl_zero(requestedCapacity - 1);
+    }
+
+    static constexpr std::size_t capacity_of_mask(std::size_t mask) noexcept
+    {
+        if (mask == 0 or ~mask == 0)
+            return mask;
+        return mask + 1;
+    }
+
+    static constexpr std::size_t capacity_for(std::size_t requestedCapacity) noexcept
+    {
+        return capacity_of_mask(mask_for(requestedCapacity));
+    }
+
     Buffer buffer;
-    std::size_t maxSize; // always power of 2, can be greater than buffer.capacity
+    std::size_t maxSize; // always power of 2 (unless UINTMAX), can be greater than capacity()
     std::size_t readIndex = 0;
     std::size_t writeIndex = 0;
 };
