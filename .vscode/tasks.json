@@ -35,13 +35,14 @@
 			"type": "shell",
 			"group": "build",
 			"label": "CMake configure",
-			"command": "cmake .. --preset conan-default -DARC_BUILD_TESTS=TRUE -DCMAKE_COLOR_DIAGNOSTICS=TRUE -DCMAKE_CXX_MODULE_STD=${input:ImportStd} -DARC_COMPRESS_TYPES=$COMPRESS_TYPES -DARC_BUILD_LTO=$ENABLE_LTO -DARC_TESTS_DEBUG_SAN=$ENABLE_SAN -DARC_BUILD_BENCH=$BUILD_BENCH -DARC_BUILD_EXAMPLES=$BUILD_EXAMPLES -DCMAKE_BUILD_TYPE=${input:BuildType}",
+			"command": "cmake .. --preset conan-default -DARC_BUILD_TESTS=$BUILD_TESTS -DCMAKE_COLOR_DIAGNOSTICS=TRUE -DCMAKE_CXX_MODULE_STD=${input:ImportStd} -DARC_COMPRESS_TYPES=$COMPRESS_TYPES -DARC_BUILD_LTO=$ENABLE_LTO -DARC_TESTS_DEBUG_SAN=$ENABLE_SAN -DARC_BUILD_BENCH=$BUILD_BENCH -DARC_BUILD_EXAMPLES=$BUILD_EXAMPLES -DCMAKE_BUILD_TYPE=${input:BuildType}",
 			"options": {
 				"cwd": "${workspaceFolder}/build",
 				"env": {
 					"COMPRESS_TYPES": "TRUE",
 					"ENABLE_LTO": "FALSE",
 					"ENABLE_SAN": "FALSE",
+					"BUILD_TESTS": "TRUE",
 					"BUILD_BENCH": "FALSE",
 					"BUILD_EXAMPLES": "FALSE",
 				},

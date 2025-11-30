@@ -289,11 +289,17 @@ int main()
 }
 ```
 
-### Documentation and Examples
-- [Example project using modules](docs/modules-example.md)
+### Documentation
+- [Example project walkthrough using modules](docs/modules-example.md)
 - [Defining a node](docs/node-structure.md)
 - [ARC cluster: syntax](docs/cluster-syntax.md)
 - [ARC domain: scalable clusters](docs/domain-syntax.md)
 - [ARC trait: syntax](docs/trait-syntax.md)
 - [Embedding ARC DSL into source files](docs/arc-embed.md)
 - [Selective runtime polymorphism](docs/runtime-polymorphism.md)
+
+### Compilable [examples](examples/)
+- [Filesystem](examples/filesystem): In-memory filesystem with REPL interface
+- [Greet](examples/greet): A compilable copy of the [above code](#short-example-examplesgreet)
+- [Animal (union)](examples/animal): Demonstrates explicit runtime polymorphism with ARC's `arc::Union` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))
+- [Animals (virtual)](examples/animals_virtual): Traditional virtual interface version of the Animal example for comparison using `arc::Virtual` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))

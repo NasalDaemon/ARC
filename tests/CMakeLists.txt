@@ -39,8 +39,9 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION
     )
     target_generate_arc_modules(arc_tests_thread
         GLOB test_thread
-        EMBED test_thread/test_collection.cpp
-        EMBED test_thread/test_union.cpp
+        EMBED
+            test_thread/test_collection.cpp
+            test_thread/test_union.cpp
     )
     target_sources(arc_tests_thread
         PUBLIC FILE_SET CXX_MODULES FILES
@@ -71,7 +72,9 @@ if(ARC_BUILD_LTO)
 endif()
 
 target_generate_arc_headers(arc_tests_headers
-    EMBED test_embedded_headers.cpp arc/tests/test_embedded_headers.hxx
+    EMBED
+        test_embedded_headers.cpp
+        arc/tests/test_embedded_headers.hxx
 )
 
 target_generate_arc_modules(arc_tests_module

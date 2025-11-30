@@ -266,6 +266,7 @@ export namespace arc {
     using arc::TraitsFrom;
     // type_id.hpp
     using arc::TypeId;
+    using arc::typeId;
     // union.hpp
     using arc::Union;
     using arc::withIndex;

@@ -11,18 +11,13 @@
 
 namespace arc {
 
-namespace detail {
-    template<class... Ts>
-    char const uniqueId{};
-} // namespace detail
-
 ARC_MODULE_EXPORT
 struct TypeId
 {
     template<class... Ts>
-    static TypeId of()
+    static constexpr TypeId of()
     {
-        return TypeId(&detail::uniqueId<Ts...>);
+        return TypeId(&c<Ts...>);
     }
 
     auto operator<=>(TypeId const&) const = default;
@@ -34,7 +29,14 @@ private:
 
     friend struct std::hash<TypeId>;
     char const* id;
+
+    template<class... Ts>
+    inline static char const c{};
 };
+
+ARC_MODULE_EXPORT
+template<class... Ts>
+inline constexpr TypeId typeId = TypeId::of<Ts...>();
 
 } // namespace arc::detail
 

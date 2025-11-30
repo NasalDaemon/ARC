@@ -154,7 +154,7 @@ ${NODE_INSTANTIATIONS}
         string(SUBSTRING ${SRC_ID} 0 7 SRC_ID)
 
         if(IS_MODULE)
-            set(SRC_FILE "${ARC_GENERATOR_SOURCE_DIR}/m/${arg_GRAPH_MODULE}/${SRC_ID}/${SRC_NAME}.cpp")
+            set(SRC_FILE "${ARC_GENERATOR_SOURCE_DIR}/m/${arg_GRAPH_MODULE}/${SRC_ID}/${SRC_NAME}-${NODE_MODULE_PART}.cpp")
         else()
             set(SRC_FILE "${ARC_GENERATOR_SOURCE_DIR}/h/${arg_GRAPH_HEADER}/${SRC_ID}/${SRC_NAME}.cpp")
         endif()
