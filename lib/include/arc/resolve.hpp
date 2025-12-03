@@ -20,7 +20,10 @@ namespace detail {
         using Node = T;
         using Trait = Trait_;
 
-        using Types = Node::Traits::template ResolveTypes<Trait>;
+        template<std::same_as<Trait> TT = Trait>
+        using Types = Node::Traits::template ResolveTypes<TT>;
+        template<std::same_as<Trait> TT = Trait>
+        static constexpr bool HasTrait = Node::Traits::template HasTrait<TT>;
     };
 
     // GlobalTrait is a global trait that can be resolved in contexts with a global node
@@ -57,9 +60,16 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
+template<class Node, class Trait>
+concept CanResolve =
+    detail::HasLink<ContextOf<Node>, Trait> and
+    NodeDependencyListed<Node, Trait> and
+    detail::ResolveTrait<ContextOf<Node>, Trait>::template HasTrait<>;
+
+ARC_MODULE_EXPORT
 template<class Node, IsTrait Trait>
 requires detail::HasLink<ContextOf<Node>, Trait> and NodeDependencyListed<Node, Trait>
-using ResolveTypes = detail::ResolveTrait<ContextOf<Node>, Trait>::Types;
+using ResolveTypes = detail::ResolveTrait<ContextOf<Node>, Trait>::template Types<>;
 
 ARC_MODULE_EXPORT
 template<IsContext Context>

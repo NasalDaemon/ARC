@@ -44,7 +44,7 @@
 					"ENABLE_SAN": "FALSE",
 					"BUILD_TESTS": "TRUE",
 					"BUILD_BENCH": "FALSE",
-					"BUILD_EXAMPLES": "FALSE",
+					"BUILD_EXAMPLES": "TRUE",
 				},
 			},
 			"windows": {

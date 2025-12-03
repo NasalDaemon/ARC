@@ -18,12 +18,12 @@ namespace arc {
 namespace detail {
     template<class Context, class Requirement, bool Transitive>
     requires HasLink<Context, Requirement>
-        and (not Transitive or detail::ResolveTrait<Context, Requirement>::Node::Traits::template HasTrait<Requirement>)
+        and (not Transitive or detail::ResolveTrait<Context, Requirement>::template HasTrait<>)
     auto dependencySatisfied() -> void;
 
     template<class Context, IsGlobalTrait Requirement, bool Transitive>
     requires ContextHasGlobalTrait<Context, Requirement>
-        and (not Transitive or detail::ResolveTrait<Context, Requirement>::Node::Traits::template HasTrait<typename Requirement::Trait>)
+        and (not Transitive or detail::ResolveTrait<Context, Requirement>::template HasTrait<>)
     auto dependencySatisfied() -> void;
 
     // When dependency is a pointer, it is optional and not to be enforced

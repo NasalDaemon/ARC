@@ -18,16 +18,22 @@ export struct Filesystem
 
         struct Types
         {
-            using DataView = arc::ResolveTypes<Node, trait::Storage>::Entry::DataView;
+            using StorageTypes = arc::ResolveTypes<Node, trait::Storage>;
+            using GetResult = StorageTypes::GetResult;
+            using Children = StorageTypes::Children;
+            // Extract DataView from the entry type returned by get()
+            // GetResult is either T* or std::optional<T>
+            using DataView = std::remove_cvref_t<decltype(*std::declval<GetResult>())>::DataView;
         };
 
         using DataView = Types::DataView;
+        using Children = Types::Children;
 
         auto impl(trait::Filesystem::read, std::string_view path) const -> std::expected<DataView, FsError>;
         auto impl(trait::Filesystem::write, std::string_view path, std::string data) -> std::expected<void, FsError>;
         auto impl(trait::Filesystem::mkdir, std::string_view path) -> std::expected<void, FsError>;
         auto impl(trait::Filesystem::remove, std::string_view path) -> std::expected<void, FsError>;
-        auto impl(trait::Filesystem::list, std::string_view path) const -> std::expected<std::vector<std::string_view>, FsError>;
+        auto impl(trait::Filesystem::list, std::string_view path) const -> std::expected<Children, FsError>;
         auto impl(trait::Filesystem::exists, std::string_view path) const -> bool;
         auto impl(trait::Filesystem::isDir, std::string_view path) const -> bool;
     };

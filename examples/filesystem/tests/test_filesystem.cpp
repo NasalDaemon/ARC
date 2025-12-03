@@ -1,69 +1,80 @@
 #include <doctest/doctest.h>
 
+import examples.filesystem.tests.mocks;
+import examples.filesystem.filesystem;
 import examples.filesystem.entry;
-import examples.filesystem.graphs;
 import examples.filesystem.traits;
 import arc;
 import std;
 
-using namespace examples::filesystem;
+namespace examples::filesystem::tests {
 
-TEST_CASE("Filesystem")
+TEST_CASE("Filesystem node with mocks")
 {
-    InMemoryGraph graph;
-    auto fs = graph.fs.asTrait(trait::filesystem);
+    // Create test graph with Filesystem node and mocked dependencies
+    // The Mock provides Types that Storage trait needs
+    arc::test::Graph<Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+    auto fs = graph.asTrait(trait::filesystem);
 
-    SUBCASE("mkdir creates directory")
+    // Set up mock behavior
+    graph.mocks->setThrowIfMissing();
+    MockStorage storage;
+
+    // Define PathOps mock - just returns the path as-is for simplicity
+    graph.mocks->define(
+        [](trait::PathOps::normalise, std::string_view path) {
+            return std::string(path);
+        },
+        [](trait::PathOps::parent, std::string_view path) {
+            auto pos = path.rfind('/');
+            return pos == 0 || pos == std::string_view::npos
+                ? "/"
+                : std::string(path.substr(0, pos));
+        },
+        [](trait::PathOps::isRoot, std::string_view path) {
+            return path == "/";
+        }
+    );
+
+    // Define Storage mock
+    graph.mocks->define(
+        [&](trait::Storage::get, std::string_view path) {
+            return storage.get(path);
+        },
+        [&](trait::Storage::put, std::string_view path, InMemoryEntry entry) {
+            return storage.put(path, std::move(entry));
+        },
+        [&](trait::Storage::erase, std::string_view path) {
+            return storage.erase(path);
+        },
+        [&](trait::Storage::children, std::string_view path) {
+            return storage.children(path);
+        }
+    );
+
+    SUBCASE("read returns NotFound for nonexistent path")
     {
-        auto result = fs.mkdir("/docs");
-        REQUIRE(result.has_value());
-
-        CHECK(fs.exists("/docs"));
-        CHECK(fs.isDir("/docs"));
-    }
-
-    SUBCASE("mkdir fails if parent doesn't exist")
-    {
-        auto result = fs.mkdir("/nonexistent/subdir");
+        auto result = fs.read("/nonexistent");
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error() == FsError::NotFound);
     }
 
-    SUBCASE("mkdir fails if parent is a file")
+    SUBCASE("read returns IsADirectory for directory")
     {
-        REQUIRE(fs.write("/file.txt", "content").has_value());
+        storage.put("/dir", InMemoryEntry::directory());
 
-        auto result = fs.mkdir("/file.txt/subdir");
+        auto result = fs.read("/dir");
         REQUIRE_FALSE(result.has_value());
-        CHECK(result.error() == FsError::NotADirectory);
+        CHECK(result.error() == FsError::IsADirectory);
     }
 
-    SUBCASE("mkdir fails if already exists")
+    SUBCASE("read returns file content")
     {
-        REQUIRE(fs.mkdir("/docs2").has_value());
+        storage.put("/file.txt", InMemoryEntry::file("hello world"));
 
-        auto result = fs.mkdir("/docs2");
-        REQUIRE_FALSE(result.has_value());
-        CHECK(result.error() == FsError::AlreadyExists);
-    }
-
-    SUBCASE("write creates file")
-    {
-        auto result = fs.write("/test.txt", "hello world");
+        auto result = fs.read("/file.txt");
         REQUIRE(result.has_value());
-
-        CHECK(fs.exists("/test.txt"));
-        CHECK_FALSE(fs.isDir("/test.txt"));
-    }
-
-    SUBCASE("write overwrites existing file")
-    {
-        REQUIRE(fs.write("/file2.txt", "first").has_value());
-        REQUIRE(fs.write("/file2.txt", "second").has_value());
-
-        auto content = fs.read("/file2.txt");
-        REQUIRE(content.has_value());
-        CHECK(*content == "second");
+        CHECK(*result == "hello world");
     }
 
     SUBCASE("write fails if parent doesn't exist")
@@ -73,104 +84,75 @@ TEST_CASE("Filesystem")
         CHECK(result.error() == FsError::NotFound);
     }
 
-    SUBCASE("write fails if parent is a file")
+    SUBCASE("write fails if parent is not a directory")
     {
-        REQUIRE(fs.write("/file3.txt", "content").has_value());
+        storage.put("/file", InMemoryEntry::file("content"));
 
-        auto result = fs.write("/file3.txt/nested.txt", "data");
+        auto result = fs.write("/file/nested.txt", "data");
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error() == FsError::NotADirectory);
     }
 
-    SUBCASE("write fails if path is a directory")
+    SUBCASE("write fails if target is a directory")
     {
-        REQUIRE(fs.mkdir("/docs3").has_value());
+        storage.put("/dir", InMemoryEntry::directory());
 
-        auto result = fs.write("/docs3", "data");
+        auto result = fs.write("/dir", "data");
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error() == FsError::IsADirectory);
     }
 
-    SUBCASE("read returns file content")
+    SUBCASE("write creates file in valid parent")
     {
-        REQUIRE(fs.write("/test2.txt", "hello world").has_value());
+        auto result = fs.write("/newfile.txt", "content");
+        REQUIRE(result.has_value());
 
-        auto content = fs.read("/test2.txt");
-        REQUIRE(content.has_value());
-        CHECK(*content == "hello world");
+        auto* entry = storage.get("/newfile.txt");
+        REQUIRE(entry != nullptr);
+        CHECK_FALSE(entry->isDir());
+        CHECK(entry->content() == "content");
     }
 
-    SUBCASE("read fails for nonexistent file")
+    SUBCASE("mkdir fails if parent doesn't exist")
     {
-        auto result = fs.read("/nonexistent.txt");
+        auto result = fs.mkdir("/nonexistent/subdir");
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error() == FsError::NotFound);
     }
 
-    SUBCASE("read fails for directory")
+    SUBCASE("mkdir fails if parent is not a directory")
     {
-        REQUIRE(fs.mkdir("/docs4").has_value());
+        storage.put("/file", InMemoryEntry::file("content"));
 
-        auto result = fs.read("/docs4");
-        REQUIRE_FALSE(result.has_value());
-        CHECK(result.error() == FsError::IsADirectory);
-    }
-
-    SUBCASE("list returns directory contents")
-    {
-        REQUIRE(fs.mkdir("/docs5").has_value());
-        REQUIRE(fs.write("/docs5/a.txt", "a").has_value());
-        REQUIRE(fs.write("/docs5/b.txt", "b").has_value());
-
-        auto entries = fs.list("/docs5");
-        REQUIRE(entries.has_value());
-        CHECK(entries->size() == 2);
-        CHECK((*entries)[0] == "a.txt");
-        CHECK((*entries)[1] == "b.txt");
-    }
-
-    SUBCASE("list fails for nonexistent path")
-    {
-        auto result = fs.list("/nonexistent");
-        REQUIRE_FALSE(result.has_value());
-        CHECK(result.error() == FsError::NotFound);
-    }
-
-    SUBCASE("list fails for file")
-    {
-        REQUIRE(fs.write("/file4.txt", "content").has_value());
-
-        auto result = fs.list("/file4.txt");
+        auto result = fs.mkdir("/file/subdir");
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error() == FsError::NotADirectory);
     }
 
-    SUBCASE("remove deletes file")
+    SUBCASE("mkdir fails if already exists")
     {
-        REQUIRE(fs.write("/file5.txt", "content").has_value());
+        storage.put("/existing", InMemoryEntry::directory());
 
-        auto result = fs.remove("/file5.txt");
-        REQUIRE(result.has_value());
-        CHECK_FALSE(fs.exists("/file5.txt"));
-    }
-
-    SUBCASE("remove deletes empty directory")
-    {
-        REQUIRE(fs.mkdir("/empty").has_value());
-
-        auto result = fs.remove("/empty");
-        REQUIRE(result.has_value());
-        CHECK_FALSE(fs.exists("/empty"));
-    }
-
-    SUBCASE("remove fails for non-empty directory")
-    {
-        REQUIRE(fs.mkdir("/docs6").has_value());
-        REQUIRE(fs.write("/docs6/file.txt", "content").has_value());
-
-        auto result = fs.remove("/docs6");
+        auto result = fs.mkdir("/existing");
         REQUIRE_FALSE(result.has_value());
-        CHECK(result.error() == FsError::InvalidPath);
+        CHECK(result.error() == FsError::AlreadyExists);
+    }
+
+    SUBCASE("mkdir fails for root")
+    {
+        auto result = fs.mkdir("/");
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error() == FsError::AlreadyExists);
+    }
+
+    SUBCASE("mkdir creates directory in valid parent")
+    {
+        auto result = fs.mkdir("/newdir");
+        REQUIRE(result.has_value());
+
+        auto* entry = storage.get("/newdir");
+        REQUIRE(entry != nullptr);
+        CHECK(entry->isDir());
     }
 
     SUBCASE("remove fails for nonexistent path")
@@ -187,41 +169,155 @@ TEST_CASE("Filesystem")
         CHECK(result.error() == FsError::InvalidPath);
     }
 
-    SUBCASE("exists returns correct values")
+    SUBCASE("remove fails for non-empty directory")
     {
-        CHECK(fs.exists("/"));
-        CHECK_FALSE(fs.exists("/nonexistent"));
+        storage.put("/dir", InMemoryEntry::directory());
+        storage.childrenMap["/dir"] = {"child"};
 
-        REQUIRE(fs.mkdir("/docs7").has_value());
-        CHECK(fs.exists("/docs7"));
-
-        REQUIRE(fs.write("/file6.txt", "content").has_value());
-        CHECK(fs.exists("/file6.txt"));
+        auto result = fs.remove("/dir");
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error() == FsError::InvalidPath);
     }
 
-    SUBCASE("isDir returns correct values")
+    SUBCASE("remove deletes file")
     {
-        CHECK(fs.isDir("/"));
+        storage.put("/file.txt", InMemoryEntry::file("content"));
 
-        REQUIRE(fs.mkdir("/docs8").has_value());
-        CHECK(fs.isDir("/docs8"));
+        auto result = fs.remove("/file.txt");
+        REQUIRE(result.has_value());
+        CHECK(storage.get("/file.txt") == nullptr);
+    }
 
-        REQUIRE(fs.write("/file7.txt", "content").has_value());
-        CHECK_FALSE(fs.isDir("/file7.txt"));
+    SUBCASE("remove deletes empty directory")
+    {
+        storage.put("/emptydir", InMemoryEntry::directory());
+        storage.childrenMap["/emptydir"] = {};
+
+        auto result = fs.remove("/emptydir");
+        REQUIRE(result.has_value());
+        CHECK(storage.get("/emptydir") == nullptr);
+    }
+
+    SUBCASE("list fails for nonexistent path")
+    {
+        auto result = fs.list("/nonexistent");
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error() == FsError::NotFound);
+    }
+
+    SUBCASE("list fails for file")
+    {
+        storage.put("/file.txt", InMemoryEntry::file("content"));
+
+        auto result = fs.list("/file.txt");
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error() == FsError::NotADirectory);
+    }
+
+    SUBCASE("list returns directory children")
+    {
+        storage.put("/dir", InMemoryEntry::directory());
+        storage.childrenMap["/dir"] = {"a.txt", "b.txt"};
+
+        auto result = fs.list("/dir");
+        REQUIRE(result.has_value());
+        CHECK(result->size() == 2);
+    }
+
+    SUBCASE("exists returns false for nonexistent")
+    {
+        CHECK_FALSE(fs.exists("/nonexistent"));
+    }
+
+    SUBCASE("exists returns true for file")
+    {
+        storage.put("/file.txt", InMemoryEntry::file("content"));
+        CHECK(fs.exists("/file.txt"));
+    }
+
+    SUBCASE("exists returns true for directory")
+    {
+        storage.put("/dir", InMemoryEntry::directory());
+        CHECK(fs.exists("/dir"));
+    }
+
+    SUBCASE("isDir returns false for nonexistent")
+    {
         CHECK_FALSE(fs.isDir("/nonexistent"));
     }
 
-    SUBCASE("path normalization is applied")
+    SUBCASE("isDir returns false for file")
     {
-        REQUIRE(fs.mkdir("/docs9").has_value());
-        REQUIRE(fs.write("/docs9/file.txt", "content").has_value());
+        storage.put("/file.txt", InMemoryEntry::file("content"));
+        CHECK_FALSE(fs.isDir("/file.txt"));
+    }
 
-        // Various path formats should work
-        CHECK(fs.exists("/docs9/./file.txt"));
-        CHECK(fs.exists("/docs9/../docs9/file.txt"));
-
-        auto content = fs.read("/./docs9/../docs9/file.txt");
-        REQUIRE(content.has_value());
-        CHECK(*content == "content");
+    SUBCASE("isDir returns true for directory")
+    {
+        storage.put("/dir", InMemoryEntry::directory());
+        CHECK(fs.isDir("/dir"));
     }
 }
+
+TEST_CASE("Filesystem node uses PathOps for normalization")
+{
+    arc::test::Graph<Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+    auto fs = graph.asTrait(trait::filesystem);
+
+    graph.mocks->setThrowIfMissing();
+
+    MockStorage storage;
+
+    // PathOps mock that transforms paths
+    graph.mocks->define(
+        [](trait::PathOps::normalise, std::string_view path) -> std::string {
+            // Simulate normalization: /a/../b -> /b
+            if (path == "/docs/../file.txt") return "/file.txt";
+            return std::string(path);
+        },
+        [](trait::PathOps::parent, std::string_view path) -> std::string {
+            if (path == "/file.txt") return "/";
+            auto pos = path.rfind('/');
+            if (pos == 0 || pos == std::string_view::npos) return "/";
+            return std::string(path.substr(0, pos));
+        },
+        [](trait::PathOps::isRoot, std::string_view path) -> bool {
+            return path == "/";
+        }
+    );
+
+    graph.mocks->define(
+        [&](trait::Storage::get, std::string_view path) -> InMemoryEntry const* {
+            return storage.get(path);
+        },
+        [&](trait::Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError> {
+            return storage.put(path, std::move(entry));
+        },
+        [&](trait::Storage::erase, std::string_view path) -> bool {
+            return storage.erase(path);
+        },
+        [&](trait::Storage::children, std::string_view path) -> std::vector<std::string_view> {
+            return storage.children(path);
+        }
+    );
+
+    SUBCASE("write uses normalized path")
+    {
+        auto result = fs.write("/docs/../file.txt", "content");
+        REQUIRE(result.has_value());
+
+        // Storage should receive the normalized path
+        CHECK(storage.get("/file.txt") != nullptr);
+        CHECK(storage.get("/docs/../file.txt") == nullptr);
+    }
+
+    SUBCASE("PathOps::normalise is called")
+    {
+        graph.mocks->enableCallCounting();
+        CHECK(graph.mocks->methodCallCount<trait::PathOps::normalise>() == 0);
+        fs.exists("/some/path");
+        CHECK(graph.mocks->methodCallCount<trait::PathOps::normalise>() == 1);
+    }
+}
+
+} // namespace examples::filesystem::tests

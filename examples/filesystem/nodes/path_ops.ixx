@@ -9,7 +9,6 @@ namespace examples::filesystem {
 // PathOps node handles path parsing and manipulation
 export struct PathOps : arc::Node
 {
-    using Depends = arc::Depends<>;
     using Traits = arc::Traits<PathOps, trait::PathOps>;
 
     auto impl(trait::PathOps::normalise, std::string_view path) const -> std::string

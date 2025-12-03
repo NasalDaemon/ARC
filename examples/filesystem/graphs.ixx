@@ -1,23 +1,25 @@
 export module examples.filesystem.graphs;
 
-import examples.filesystem.domain;
+import examples.filesystem.clusters;
 import examples.filesystem.memory_storage;
+import examples.filesystem.disk_storage;
 
 import arc;
 
-namespace examples::filesystem {
+namespace examples::filesystem::graph {
 
-export struct InMemoryRoot
+struct InMemoryRoot
 {
-    using Storage = MemoryStorage;
+    using FilesystemStorage = MemoryStorage;
 };
-export using InMemoryGraph = arc::Graph<FilesystemDomain, InMemoryRoot>;
+export using InMemory = arc::Graph<cluster::Filesystem, InMemoryRoot>;
+export using InMemoryRepl = arc::Graph<cluster::Repl, InMemoryRoot>;
 
-// Implement your own disk-based storage
-// export struct HarddiskRoot
-// {
-//     using Storage = DiskStorage;
-// };
-// export using HarddiskGraph = arc::Graph<FilesystemDomain, HarddiskRoot>;
+struct DiskRoot
+{
+    using FilesystemStorage = DiskStorage;
+};
+export using Disk = arc::Graph<cluster::Filesystem, DiskRoot>;
+export using DiskRepl = arc::Graph<cluster::Repl, DiskRoot>;
 
 }

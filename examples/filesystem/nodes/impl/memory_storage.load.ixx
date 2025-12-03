@@ -8,7 +8,7 @@ import std;
 
 namespace examples::filesystem {
 
-auto MemoryStorage::loadFromDirectory(std::string_view dirPath) -> std::expected<void, FsError>
+auto MemoryStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_view dirPath) -> std::expected<void, FsError>
 {
     try
     {
@@ -27,12 +27,14 @@ auto MemoryStorage::loadFromDirectory(std::string_view dirPath) -> std::expected
                 for (auto const& entry : std::filesystem::directory_iterator{currentPath})
                 {
                     std::string name = entry.path().filename().string();
-                    std::string fullFsPath = fsPath + "/" + name;
+                    std::string fullFsPath = std::format("{}/{}", fsPath, name);
 
                     if (entry.is_directory())
                     {
-                        p->impl(trait::Storage::put{}, fullFsPath, Entry::directory());
-                        self(entry.path(), fullFsPath);
+                        if (auto result = p->impl(trait::Storage::put{}, fullFsPath, InMemoryEntry::directory()); !result)
+                            std::println("Warning: Could not create directory {}: {}", fullFsPath, asString(result.error()));
+                        else
+                            self(entry.path(), fullFsPath);
                     }
                     else if (entry.is_regular_file())
                     {
@@ -40,7 +42,8 @@ auto MemoryStorage::loadFromDirectory(std::string_view dirPath) -> std::expected
                         {
                             std::ifstream file(entry.path());
                             std::string content(std::istreambuf_iterator<char>{file}, {});
-                            p->impl(trait::Storage::put{}, fullFsPath, Entry::file(std::move(content)));
+                            if (auto result = p->impl(trait::Storage::put{}, fullFsPath, InMemoryEntry::file(std::move(content))); !result)
+                                std::println("Warning: Could not write file {}: {}", fullFsPath, asString(result.error()));
                         }
                         catch (std::exception const& e)
                         {
@@ -61,7 +64,7 @@ auto MemoryStorage::loadFromDirectory(std::string_view dirPath) -> std::expected
     }
 }
 
-auto MemoryStorage::dumpToDirectory(std::string_view dirPath) const -> std::expected<void, FsError>
+auto MemoryStorage::impl(trait::DirectorySync::dumpToDirectory, std::string_view dirPath) const -> std::expected<void, FsError>
 {
     try
     {
@@ -79,7 +82,7 @@ auto MemoryStorage::dumpToDirectory(std::string_view dirPath) const -> std::expe
 
             std::filesystem::path fullPath = rootPath / path.substr(1); // Remove leading /
 
-            if (entry.isDir)
+            if (entry.isDir())
             {
                 std::filesystem::create_directories(fullPath);
             }
@@ -94,7 +97,7 @@ auto MemoryStorage::dumpToDirectory(std::string_view dirPath) const -> std::expe
                     std::println("Warning: Could not write file {}", fullPath.string());
                     continue;
                 }
-                file << entry.content;
+                file << entry.content();
             }
         }
 

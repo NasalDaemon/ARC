@@ -10,7 +10,7 @@ using namespace examples::filesystem;
 
 TEST_CASE("Integration")
 {
-    InMemoryGraph graph;
+    graph::InMemory graph;
     auto fs = graph.asTrait(trait::filesystem);
 
     SUBCASE("complete workflow")

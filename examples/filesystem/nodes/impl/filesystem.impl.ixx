@@ -20,10 +20,10 @@ FILESYSTEM::impl(trait::Filesystem::read, std::string_view path) const
     if (!entry)
         return std::unexpected(FsError::NotFound);
 
-    if (entry->isDir)
+    if (entry->isDir())
         return std::unexpected(FsError::IsADirectory);
 
-    return entry->content;
+    return entry->content();
 }
 
 FILESYSTEM::impl(trait::Filesystem::write, std::string_view path, std::string data)
@@ -42,16 +42,14 @@ FILESYSTEM::impl(trait::Filesystem::write, std::string_view path, std::string da
     auto parentEntry = storage.get(parentPath);
     if (!parentEntry)
         return std::unexpected(FsError::NotFound);
-    if (!parentEntry->isDir)
+    if (!parentEntry->isDir())
         return std::unexpected(FsError::NotADirectory);
 
     // Check if target exists and is not a directory
-    auto existing = storage.get(normalised);
-    if (existing && existing->isDir)
+    if (auto existing = storage.get(normalised); existing && existing->isDir())
         return std::unexpected(FsError::IsADirectory);
 
-    storage.put(normalised, Entry::file(std::move(data)));
-    return {};
+    return storage.put(normalised, InMemoryEntry::file(std::move(data)));
 }
 
 FILESYSTEM::impl(trait::Filesystem::mkdir, std::string_view path)
@@ -66,8 +64,7 @@ FILESYSTEM::impl(trait::Filesystem::mkdir, std::string_view path)
         return std::unexpected(FsError::AlreadyExists);
 
     // Check if already exists
-    auto existing = storage.get(normalised);
-    if (existing)
+    if (storage.get(normalised))
         return std::unexpected(FsError::AlreadyExists);
 
     // Check parent exists and is a directory
@@ -75,10 +72,10 @@ FILESYSTEM::impl(trait::Filesystem::mkdir, std::string_view path)
     auto parentEntry = storage.get(parentPath);
     if (!parentEntry)
         return std::unexpected(FsError::NotFound);
-    if (!parentEntry->isDir)
+    if (!parentEntry->isDir())
         return std::unexpected(FsError::NotADirectory);
 
-    storage.put(normalised, Entry::directory());
+    storage.put(normalised, InMemoryEntry::directory());
     return {};
 }
 
@@ -98,7 +95,7 @@ FILESYSTEM::impl(trait::Filesystem::remove, std::string_view path)
         return std::unexpected(FsError::NotFound);
 
     // If directory, check if empty
-    if (entry->isDir)
+    if (entry->isDir())
     {
         auto children = storage.children(normalised);
         if (!children.empty())
@@ -110,7 +107,7 @@ FILESYSTEM::impl(trait::Filesystem::remove, std::string_view path)
 }
 
 FILESYSTEM::impl(trait::Filesystem::list, std::string_view path) const
-    -> std::expected<std::vector<std::string_view>, FsError>
+    -> std::expected<Children, FsError>
 {
     auto pathOps = getNode(trait::pathOps);
     auto storage = getNode(trait::storage);
@@ -121,7 +118,7 @@ FILESYSTEM::impl(trait::Filesystem::list, std::string_view path) const
     if (!entry)
         return std::unexpected(FsError::NotFound);
 
-    if (!entry->isDir)
+    if (!entry->isDir())
         return std::unexpected(FsError::NotADirectory);
 
     return storage.children(normalised);
@@ -133,7 +130,7 @@ FILESYSTEM::impl(trait::Filesystem::exists, std::string_view path) const -> bool
     auto storage = getNode(trait::storage);
 
     std::string normalised = pathOps.normalise(path);
-    return storage.get(normalised) != nullptr;
+    return static_cast<bool>(storage.get(normalised));
 }
 
 FILESYSTEM::impl(trait::Filesystem::isDir, std::string_view path) const -> bool
@@ -143,7 +140,7 @@ FILESYSTEM::impl(trait::Filesystem::isDir, std::string_view path) const -> bool
 
     std::string normalised = pathOps.normalise(path);
     auto entry = storage.get(normalised);
-    return entry && entry->isDir;
+    return entry && entry->isDir();
 }
 
 }

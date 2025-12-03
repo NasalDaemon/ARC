@@ -7,10 +7,10 @@ namespace examples::filesystem {
 MemoryStorage::MemoryStorage()
 {
     // Initialize with root directory
-    entries["/"] = Entry::directory();
+    entries.try_emplace("/", InMemoryEntry::directory());
 }
 
-auto MemoryStorage::impl(trait::Storage::get, std::string_view path) const -> Entry const*
+auto MemoryStorage::impl(trait::Storage::get, std::string_view path) const -> InMemoryEntry const*
 {
     auto it = entries.find(path);
     if (it == entries.end())
@@ -18,12 +18,31 @@ auto MemoryStorage::impl(trait::Storage::get, std::string_view path) const -> En
     return &it->second;
 }
 
-auto MemoryStorage::impl(trait::Storage::put, std::string_view path, Entry entry) -> void
+auto MemoryStorage::impl(trait::Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
 {
-    auto const it = entries.insert_or_assign(std::string(path), std::move(entry)).first;
-    auto parentDir = parent(path);
-    auto& c = children.try_emplace(std::string(parentDir)).first->second;
-    c.push_back(std::to_address(it));
+    auto const [it, inserted] = entries.try_emplace(std::string(path), std::move(entry));
+    if (inserted)
+    {
+        auto parentDir = parent(path);
+        auto& c = children.try_emplace(std::string(parentDir)).first->second;
+        c.push_back(std::to_address(it));
+    }
+    else
+    {
+        if (it->second.isDir())
+        {
+            // Directory can only be overwritten by another directory (no-op)
+            if (not entry.isDir()) [[unlikely]]
+            {
+                return std::unexpected(FsError::IsADirectory);
+            }
+        }
+        else
+        {
+            it->second = std::move(entry);
+        }
+    }
+    return {};
 }
 
 auto MemoryStorage::parent(std::string_view path) -> std::string_view

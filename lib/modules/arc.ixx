@@ -202,6 +202,7 @@ export namespace arc {
     using arc::Repeater;
     using arc::RepeaterTrait;
     // resolve.hpp
+    using arc::CanResolve;
     using arc::ResolveTypes;
     using arc::ResolveRoot;
     using arc::ResolveInfo;

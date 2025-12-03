@@ -1,6 +1,6 @@
 # ARC Filesystem Example
 
-This example demonstrates **good architectural patterns enabled by ARC** through an in-memory filesystem implementation. It showcases how ARC's trait-based dependency injection creates clean, testable, and maintainable code.
+This example demonstrates **good architectural patterns enabled by ARC** through a filesystem implementation with swappable storage backends. It showcases how ARC's trait-based dependency injection creates clean, testable, and maintainable code.
 
 ## Why This Example?
 
@@ -15,12 +15,6 @@ The filesystem domain is ideal for demonstrating ARC patterns because it natural
 
 ARC enables clean separation through its trait system:
 
-```
-> FilesystemDomain <
-└──── Filesystem ──┬── PathOps
-                   └── MemoryStorage
-```
-
 ### The Pattern: Interface Segregation
 
 Each trait defines a **single, focused responsibility**:
@@ -30,6 +24,7 @@ Each trait defines a **single, focused responsibility**:
 | `trait::Filesystem` | High-level operations (read, write, mkdir) | Business logic layer |
 | `trait::PathOps` | Path normalization and manipulation | Reusable across storage backends |
 | `trait::Storage` | Low-level data access (get, put, erase) | Swappable storage implementations |
+| `trait::DirectorySync` | Load/dump filesystem to host directory | Persistence operations |
 
 ### The Pattern: Dependency Inversion
 
@@ -39,12 +34,28 @@ The `Filesystem` node **depends on traits, not implementations**:
 // In filesystem.ixx - depends on abstractions
 using Depends = arc::Depends<trait::Storage, trait::PathOps>;
 
-// The domain wires concrete implementations
-[trait::PathOps] fs --> pathOps
-[trait::Storage] fs --> Storage
+// The cluster wires concrete implementations via Root type parameter
+cluster Filesystem [Root]
+{
+    fs = filesystem::Filesystem
+    pathOps = PathOps
+    storage = Root::FilesystemStorage
+
+    [trait::Filesystem] .. --> fs
+    [trait::PathOps]           fs --> pathOps
+    [trait::Storage]           fs --> storage
+}
 ```
 
-This means you can swap `MemoryStorage` for `DiskStorage` or `NetworkStorage` without changing `Filesystem`.
+This means you can swap `MemoryStorage` for `DiskStorage` by changing the Root configuration:
+
+```cpp
+struct InMemoryRoot { using FilesystemStorage = MemoryStorage; };
+struct DiskRoot { using FilesystemStorage = DiskStorage; };
+
+using InMemory = arc::Graph<cluster::Filesystem, InMemoryRoot>;
+using Disk = arc::Graph<cluster::Filesystem, DiskRoot>;
+```
 
 ## Building and Running
 
@@ -67,12 +78,19 @@ cmake --preset conan-default -DARC_BUILD_EXAMPLES=ON
 cmake --build build --config Release
 ```
 
-### Running the Example
+### Running the Examples
+
+Two REPL executables are provided with different storage backends:
 
 ```bash
-# Run the REPL
-./build/examples/filesystem/Release/arc_example_filesystem
+# In-memory filesystem (data lost on exit)
+./build/examples/filesystem/Release/arc_example_filesystem_in_memory_repl
+
+# Disk-backed filesystem (operates on real files)
+./build/examples/filesystem/Release/arc_example_filesystem_disk_repl
 ```
+
+The disk REPL operates directly on the host filesystem, while the in-memory REPL starts with an empty virtual filesystem.
 
 ## REPL Commands
 
@@ -87,16 +105,18 @@ The interactive REPL supports the following commands:
 
 ### Navigation
 - `tree [path]` - Display directory tree structure
-- `load <directory>` - Load filesystem from host directory
+- `load <directory>` - Load filesystem from host directory (in-memory only)
+- `dump <directory>` - Dump filesystem to host directory
 
 ### Utilities
 - `exists <path>` - Check if a path exists
 - `help` or `?` - Show available commands
-- `exit` or `quit` - Exit the REPL
+- `exit` or `quit` or `q` - Exit the REPL
 
 ### Interactive Features
 - **Tab Completion**: Auto-complete file and directory paths
 - **Command History**: Navigate with ↑/↓ arrow keys
+- **Cursor Movement**: Move cursor left/right with ←/→ arrow keys for editing
 - **Path Completion**: Shows common prefix and ambiguous completions
 
 ## Example Usage
@@ -104,11 +124,12 @@ The interactive REPL supports the following commands:
 ```
 In-Memory Filesystem REPL
 Commands: ls [path], cat <path>, write <path> <content>, mkdir <path>, rm <path>, tree [path], load <dir>, dump <dir>, help, exit
+Navigation: ↑/↓ history, ←/→ cursor, Backspace/Delete edit, Tab completion
 
 > mkdir /docs
 > mkdir /docs/api
-> write /docs/readme.txt "Welcome to the filesystem example"
-> write /docs/api/overview.txt "This demonstrates ARC's trait system"
+> write /docs/readme.txt Welcome to the filesystem example
+> write /docs/api/overview.txt This demonstrates ARC's trait system
 > tree
 └── docs/
     ├── api/
@@ -130,13 +151,29 @@ Every trait boundary is a **natural testing seam**:
 
 ```cpp
 // Test PathOps in isolation
-PathOps pathOps;
-CHECK(pathOps.normalise("/a/../b") == "/b");
+arc::test::Graph<PathOps> graph;
+CHECK(graph.asTrait(trait::pathOps).normalise("/a/../b") == "/b");
 
-// Test Filesystem with mock storage
-arc::test::Graph<Filesystem> graph;  // Uses mock storage/path ops
-auto fs = graph.asTrait(trait::filesystem);
-CHECK(fs.mkdir("/test").has_value());
+// Test Filesystem with mocked dependencies
+struct MockStorageTypes {
+    using GetResult = InMemoryEntry const*;
+    using Children = std::vector<std::string_view>;
+};
+
+arc::test::Graph<Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+
+// Define mock behavior for Storage and PathOps traits
+graph.mocks->define(
+    [&](trait::Storage::get, std::string_view path) -> InMemoryEntry const* {
+        return storage.get(path);
+    },
+    [&](trait::Storage::put, std::string_view path, InMemoryEntry entry) {
+        storage.put(path, std::move(entry));
+    }
+    // ... other trait methods
+);
+
+CHECK(graph.asTrait(trait::filesystem).mkdir("/test").has_value());
 ```
 
 See [`tests/`](./tests/) for comprehensive examples of testing at each layer.
@@ -155,7 +192,7 @@ auto impl(trait::Filesystem::write, std::string_view path, std::string data)
 
     std::string normalised = pathOps.normalise(path);  // Delegate to PathOps
     // ... validation logic ...
-    storage.put(normalised, Entry::file(std::move(data)));  // Delegate to Storage
+    storage.put(normalised, InMemoryEntry::file(std::move(data)));  // Delegate to Storage
     return {};
 }
 ```
@@ -176,18 +213,30 @@ This makes each component **independently evolvable**. You could replace `Memory
 
 ### Pattern 4: Declarative Wiring
 
-The domain definition in [`domain.ixx.arc`](./domain.ixx.arc) is a **complete, readable specification** of how components connect:
+The cluster definition in [`clusters.ixx.arc`](./clusters.ixx.arc) is a **complete, readable specification** of how components connect:
 
 ```arc
-domain FilesystemDomain
+cluster Filesystem [Root]
 {
-    fs = Filesystem
+    fs = filesystem::Filesystem
     pathOps = PathOps
-    Storage = MemoryStorage
+    storage = Root::FilesystemStorage
 
     [trait::Filesystem] .. --> fs
     [trait::PathOps]           fs --> pathOps
-    [trait::Storage]           fs --> Storage
+    [trait::Storage]           fs --> storage
+
+    [trait::DirectorySync]
+    .. --> storage
+}
+
+cluster Repl
+{
+    repl = filesystem::Repl
+    fs = Filesystem
+
+    [trait::Filesystem]    repl --> fs
+    [trait::DirectorySync] repl --> fs
 }
 ```
 
@@ -195,14 +244,18 @@ This makes the architecture **visible and refactorable**.
 
 ## Files
 
-- [`main.cpp`](./main.cpp) - REPL implementation with interactive features
-- [`domain.ixx.arc`](./domain.ixx.arc) - Domain definition and component wiring
+- [`in_memory_repl.cpp`](./in_memory_repl.cpp) - In-memory filesystem REPL entry point
+- [`disk_repl.cpp`](./disk_repl.cpp) - Disk-backed filesystem REPL entry point
+- [`clusters.ixx.arc`](./clusters.ixx.arc) - Cluster definitions and component wiring
+- [`graphs.ixx`](./graphs.ixx) - Graph type aliases for different storage backends
 - [`traits.ixx.arc`](./traits.ixx.arc) - Trait definitions for filesystem interfaces
-- [`entry.ixx`](./entry.ixx) - Filesystem entry types and error handling
+- [`entry.ixx`](./entry.ixx) - Filesystem entry types (`InMemoryEntry`, `DiskEntry`) and error handling
 - [`nodes/filesystem.ixx`](./nodes/filesystem.ixx) - Filesystem nexus coordinator node
 - [`nodes/memory_storage.ixx`](./nodes/memory_storage.ixx) - In-memory storage backend
+- [`nodes/disk_storage.ixx`](./nodes/disk_storage.ixx) - Disk-based storage backend
 - [`nodes/path_ops.ixx`](./nodes/path_ops.ixx) - Path manipulation utilities
-- [`tests/`](./tests/) - Unit tests for all components and the domain
+- [`nodes/repl.ixx`](./nodes/repl.ixx) - Interactive REPL node
+- [`tests/`](./tests/) - Unit tests for all components
 
 ## Testing
 
@@ -220,13 +273,13 @@ cmake --build build --target arc_example_filesystem_tests
 |---------|---------------|---------------|
 | **Trait Definition** | [`traits.ixx.arc`](./traits.ixx.arc) | How to define focused, composable interfaces |
 | **Node Implementation** | [`nodes/*.ixx`](./nodes/) | The `impl()` pattern for trait methods |
-| **Domain Wiring** | [`domain.ixx.arc`](./domain.ixx.arc) | Declarative dependency injection |
+| **Cluster Wiring** | [`clusters.ixx.arc`](./clusters.ixx.arc) | Declarative dependency injection |
+| **Swappable Backends** | [`graphs.ixx`](./graphs.ixx) | Parameterizing clusters with Root types |
 | **Layered Testing** | [`tests/`](./tests/) | Testing each layer independently |
 | **Nexus Pattern** | [`nodes/filesystem.ixx`](./nodes/filesystem.ixx) | Coordinating multiple dependencies |
 
 ## Related Documentation
 
 - [ARC Framework Overview](../../README.md)
-- [Trait System Guide](../docs/trait-syntax.md)
-- [Domain Syntax](../docs/domain-syntax.md)
-- [Filesystem Module](../docs/arc-files.md)
+- [Trait System Guide](../../docs/trait-syntax.md)
+- [Cluster Syntax](../../docs/cluster-syntax.md)

@@ -27,25 +27,27 @@ trait PathOps
 // Low-level storage operations
 trait Storage [Types]
 {
-    type Entry
+    type GetResult
+    type Children
 
-    // Get entry at path, nullptr if not found
-    get(std::string_view path) const -> Types::Entry const*
+    // Get entry at path, nullopt/nullptr if not found
+    get(std::string_view path) const -> Types::GetResult
 
     // Put entry at path (overwrites if exists)
-    put(std::string_view path, Types::Entry entry) -> void
+    put(std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
 
     // Erase entry at path, returns true if existed
     erase(std::string_view path) -> bool
 
     // List immediate children of a directory path
-    children(std::string_view path) const -> std::vector<std::string_view>
+    children(std::string_view path) const -> Types::Children
 }
 
 // High-level filesystem operations
 trait Filesystem [Types]
 {
     type DataView
+    type Children
 
     // Read file contents
     read(std::string_view path) const -> std::expected<typename Types::DataView, FsError>
@@ -60,13 +62,20 @@ trait Filesystem [Types]
     remove(std::string_view path) -> std::expected<void, FsError>
 
     // List directory contents
-    list(std::string_view path) const -> std::expected<std::vector<std::string_view>, FsError>
+    list(std::string_view path) const -> std::expected<typename Types::Children, FsError>
 
     // Check if path exists
     exists(std::string_view path) const -> bool
 
     // Check if path is a directory
     isDir(std::string_view path) const -> bool
+}
+
+// Persistence to/from disk
+trait DirectorySync
+{
+    loadFromDirectory(std::string_view path) -> std::expected<void, FsError>
+    dumpToDirectory(std::string_view path) const -> std::expected<void, FsError>
 }
 
 }

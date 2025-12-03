@@ -50,7 +50,7 @@ namespace {{ namespace.name }} {
                 {%- endfor -%}
             ){{ " -> " + method.return_type.str if method.return_type.str != "auto" else "" }}
             {
-                return self.impl({{ method.name }}_c
+                {{ "return " if method.return_type.str != "void" else "" }}self.impl({{ method.name }}_c
                     {%- for type, name in method.params -%}
                     , ARC_FWD({{ name }}){{ type.pack }}
                     {%- endfor -%}
