@@ -3,7 +3,7 @@
 
 #include "arc/circular_buffer.hpp"
 #include "arc/context_fwd.hpp"
-#include "arc/detail/type_name.hpp"
+#include "arc/type_name.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/function.hpp"
 #include "arc/macros.hpp"
@@ -143,7 +143,7 @@ namespace detail {
                 static_assert(std::is_reference_v<T>, "T must be a reference type");
                 return lref == std::is_lvalue_reference_v<T>
                    and (std::is_const_v<std::remove_reference_t<T>> or not isConst)
-                   and typeId == TypeId::of<std::remove_cvref_t<T>>() ;
+                   and typeId == arc::typeId<std::remove_cvref_t<T>>;
             }
         };
         std::variant<std::monostate, std::any, Ref> value;
@@ -404,19 +404,19 @@ namespace detail {
         struct ImplTag;
 
         template<IsTrait Trait>
-        static TypeId traitType()
+        static consteval TypeId traitType()
         {
-            return TypeId::of<TraitTag, Trait>();
+            return arc::typeId<TraitTag, Trait>;
         }
         template<class Method>
-        static TypeId methodType()
+        static consteval TypeId methodType()
         {
-            return TypeId::of<MethodTag, Method>();
+            return arc::typeId<MethodTag, Method>;
         }
         template<class Method, class... Args>
-        static TypeId implType()
+        static consteval TypeId implType()
         {
-            return TypeId::of<ImplTag, Method, Args...>();
+            return arc::typeId<ImplTag, Method, Args...>;
         }
 
         template<class Self, class Method, class... Args>
@@ -509,8 +509,8 @@ namespace detail {
         static constexpr std::string notDefinedError()
         {
             std::string error = "Mock implementation not defined for impl(";
-            error += arc::detail::typeName<Method>();
-            ((error += ", ", error += arc::detail::typeName<Args>()), ...);
+            error += arc::typeName<Method>;
+            ((error += ", ", error += arc::typeName<Args>), ...);
             if constexpr (std::is_const_v<Self>)
                 error += ") const";
             else
@@ -747,7 +747,7 @@ namespace detail {
 
             // Get the index of the next matching call after the current index with the given return value
             // Does not advance the index
-            std::optional<std::size_t> findNext(Result const& value)
+            std::optional<std::size_t> findNext(Result const& value) const
             {
                 validate(true);
                 std::optional<std::size_t> foundIndex;

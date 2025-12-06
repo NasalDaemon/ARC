@@ -7,7 +7,6 @@
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
-#include "arc/trait_view.hpp"
 
 namespace arc {
 

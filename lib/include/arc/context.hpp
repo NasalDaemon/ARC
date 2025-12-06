@@ -2,8 +2,9 @@
 #define INCLUDE_ARC_CONTEXT_HPP
 
 #include "arc/detail/as_ref.hpp"
-#include "arc/detail/cast.hpp"
 #include "arc/detail/compress.hpp"
+
+#include "arc/traits/spy.hpp"
 
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
@@ -124,7 +125,10 @@ struct NullContext : detail::ContextBase
     {
         using DefaultKey = key::Default;
 
-        static void implicitDependencyAllowed() = delete;
+        // Allow global spy trait to be omitted from Depends list of nodes
+        static void implicitDependencyAllowed(arc::Global<trait::Spy>);
+        template<class Trait>
+        static void implicitDependencyAllowed(arc::Global<trait::SpyOnly<Trait>>);
 
         template<class Source, class Target, class Key = ContextOf<Source>::Info::DefaultKey>
         ARC_INLINE static constexpr auto finalise(Source& source, Target& target, Key const& key = {}, auto const&... keys)

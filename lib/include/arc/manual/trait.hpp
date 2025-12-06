@@ -4,7 +4,7 @@
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"
-#include "arc/trait_view.hpp"
+#include "arc/trait_view_fwd.hpp"
 
 #if !ARC_IMPORT_STD
 #include <type_traits>

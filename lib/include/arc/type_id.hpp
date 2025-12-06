@@ -15,7 +15,7 @@ ARC_MODULE_EXPORT
 struct TypeId
 {
     template<class... Ts>
-    static constexpr TypeId of()
+    static consteval TypeId of()
     {
         return TypeId(&c<Ts...>);
     }
@@ -23,7 +23,7 @@ struct TypeId
     auto operator<=>(TypeId const&) const = default;
 
 private:
-    constexpr explicit TypeId(char const* id)
+    consteval explicit TypeId(char const* id)
         : id(id)
     {}
 

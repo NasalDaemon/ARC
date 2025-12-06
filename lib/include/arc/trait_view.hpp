@@ -1,15 +1,16 @@
 #ifndef INCLUDE_ARC_TRAIT_VIEW_HPP
 #define INCLUDE_ARC_TRAIT_VIEW_HPP
 
-#include "arc/detail/concepts.hpp"
+#include "arc/trait_view_fwd.hpp"
 
-#include "arc/alias.hpp"
 #include "arc/empty_types.hpp"
+#include "arc/global_context.hpp"
+#include "arc/global_trait.hpp"
 #include "arc/key.hpp"
 #include "arc/macros.hpp"
 #include "arc/no_trait.hpp"
 #include "arc/trait.hpp"
-#include "arc/traits_fwd.hpp"
+#include "arc/traits/spy.hpp"
 
 #if !ARC_IMPORT_STD
 #include <functional>
@@ -17,37 +18,6 @@
 #endif
 
 namespace arc {
-
-namespace detail {
-    template<class T>
-    inline constexpr bool isTraitView = false;
-}
-
-ARC_MODULE_EXPORT
-template<class T>
-concept IsTraitView = detail::isTraitView<std::remove_cvref_t<T>>;
-
-ARC_MODULE_EXPORT
-template<class T, class Trait, class Key = key::Default>
-concept IsTraitViewOf = IsTraitView<T> and IsTrait<Trait> and std::derived_from<T, typename key::Trait<Key, Trait>::Meta::Methods>;
-
-ARC_MODULE_EXPORT
-struct AsFunctor{} inline constexpr asFunctor;
-
-ARC_MODULE_EXPORT
-template<class Trait, IsMethodOf<Trait> Method, class AliasImpl>
-struct TraitMethodFunctor
-{
-    explicit constexpr TraitMethodFunctor(AliasImpl impl) : impl(impl) {}
-
-    ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
-    {
-        return self.impl->impl(Method{}, ARC_FWD(args)...);
-    }
-
-private:
-    AliasImpl impl;
-};
 
 namespace detail {
     struct Unknown
@@ -122,13 +92,9 @@ private:
     ImplAlias alias;
 };
 
-// Preserve constness of ImplAlias when constructing from TraitView
-template<IsTrait Trait, class ImplAlias>
-TraitNodeView(Trait, ImplAlias&) -> TraitNodeView<Trait, ImplAlias>;
-
 // Presents a view over a trait implementation, where only the trait trait functions are accessible
 ARC_MODULE_EXPORT
-template<IsTrait Trait, class ImplAlias, class Types_ = EmptyTypes>
+template<IsTrait Trait, class ImplAlias, class Types_ /*= EmptyTypes*/>
 struct TraitView final : Trait::Meta::Methods
 {
     constexpr TraitView(Trait, ImplAlias alias, std::type_identity<Types_>)
@@ -149,7 +115,7 @@ struct TraitView final : Trait::Meta::Methods
         using Node = ImplAlias::Impl;
 
         template<std::same_as<TraitView> = TraitView>
-        using GetContext = ContextOf<typename ImplAlias::Impl>;
+        using GetContext = ContextOf<Node>;
 
         template<std::same_as<Trait> T>
         using ResolveInterface = TraitView;
@@ -159,15 +125,15 @@ struct TraitView final : Trait::Meta::Methods
     };
 
     template<IsMethodOf<Trait> Method>
-    ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method trait, auto&&... args)
+    ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method method, auto&&... args)
     {
-        return self.alias->impl(trait, ARC_FWD(args)...);
+        return invoke(self.alias.get(), method, ARC_FWD(args)...);
     }
 
-    template<IsMethodOf<Trait> Method>
-    ARC_INLINE constexpr TraitMethodFunctor<Trait, Method, ImplAlias> impl(this auto&& self, Method, arc::AsFunctor)
+    template<class Self, IsMethodOf<Trait> Method>
+    ARC_INLINE constexpr auto impl(this Self&& self, Method, arc::AsFunctor)
     {
-        return TraitMethodFunctor<Trait, Method, ImplAlias>(self.alias);
+        return MethodFunctor<Method>(self.alias);
     }
 
     ARC_INLINE auto operator->(this auto&& self)
@@ -176,6 +142,36 @@ struct TraitView final : Trait::Meta::Methods
     }
 
 private:
+    template<class Method>
+    struct MethodFunctor
+    {
+        ImplAlias alias;
+
+        ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
+        {
+            return invoke(self.alias.get(), Method{}, ARC_FWD(args)...);
+        }
+    };
+
+    template<class Method, class... Args>
+    ARC_INLINE static constexpr decltype(auto) invoke(auto& node, Method method, Args&&... args)
+    {
+        using Context = Traits::template GetContext<>;
+        if constexpr (ContextHasGlobalTrait<Context, Global<trait::SpyOnly<Trait>>>)
+        {
+            auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
+            {
+                return node.impl(Method{}, static_cast<Args&&>(spyArgs)...);
+            };
+
+            return node.getGlobal(trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
+        }
+        else
+        {
+            return node.impl(method, ARC_FWD(args)...);
+        }
+    }
+
     ImplAlias alias;
 };
 
@@ -211,17 +207,6 @@ struct TraitView<Trait, ImplAlias, Types_> final : Trait::Meta::Methods
 private:
     ImplAlias alias;
 };
-
-ARC_MODULE_EXPORT
-template<IsTrait Trait, class ImplAlias, class Types>
-TraitView(Trait, ImplAlias, std::type_identity<Types>) -> TraitView<Trait, ImplAlias, Types>;
-
-namespace detail {
-    template<class Trait, class Impl, class Types>
-    constexpr bool isTraitView<TraitView<Trait, Impl, Types>> = true;
-    template<class Trait>
-    constexpr bool isTraitView<AutoCompleteTraitView<Trait>> = true;
-}
 
 ARC_MODULE_EXPORT
 template<IsTrait Trait, key::IsKey Key, key::IsKey... Keys>

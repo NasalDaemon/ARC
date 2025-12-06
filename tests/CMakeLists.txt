@@ -21,6 +21,7 @@ add_executable(arc_tests_module
     test_global.cpp
     test_node_count.cpp
     test_null_trait.cpp
+    test_spy.cpp
     test_union.cpp
     test_virtual.cpp
     test_repeater/main.cpp
@@ -87,6 +88,7 @@ target_generate_arc_modules(arc_tests_module
         test_collection.cpp
         test_node_count.cpp
         test_null_trait.cpp
+        test_spy.cpp
         test_virtual.cpp
 )
 

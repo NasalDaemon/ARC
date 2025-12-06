@@ -10,7 +10,6 @@
 #include "arc/environment.hpp"
 #include "arc/factory.hpp"
 #include "arc/global_trait.hpp"
-#include "arc/key.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"

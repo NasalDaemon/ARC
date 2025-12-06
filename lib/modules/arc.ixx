@@ -213,6 +213,13 @@ export namespace arc {
         using trait::Scheduler;
         using trait::scheduler;
     }
+    // traits/spy.hpp
+    namespace trait {
+        using arc::trait::SpyOnly;
+        using arc::trait::spyOnly;
+        using arc::trait::Spy;
+        using arc::trait::spy;
+    }
     // test.hpp
     namespace test {
         using test::IsTestContext;
@@ -240,7 +247,6 @@ export namespace arc {
     using arc::IsTraitViewOf;
     using arc::AsFunctor;
     using arc::asFunctor;
-    using arc::TraitMethodFunctor;
     using arc::AutoCompleteTraitView;
     using arc::TraitView;
     using arc::makeTraitView;
@@ -268,6 +274,8 @@ export namespace arc {
     // type_id.hpp
     using arc::TypeId;
     using arc::typeId;
+    // type_name.hpp
+    using arc::typeName;
     // union.hpp
     using arc::Union;
     using arc::withIndex;

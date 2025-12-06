@@ -297,6 +297,7 @@ int main()
 - [ARC trait: syntax](docs/trait-syntax.md)
 - [Embedding ARC DSL into source files](docs/arc-embed.md)
 - [Selective runtime polymorphism](docs/runtime-polymorphism.md)
+- [Spy trait for global method interception](docs/spy-trait.md)
 
 ### Compilable [examples](examples/)
 - [Filesystem](examples/filesystem): In-memory filesystem with REPL interface
