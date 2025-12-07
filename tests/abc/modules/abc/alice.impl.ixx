@@ -1,4 +1,4 @@
-module abc.alice:impl;
+export module abc.alice:impl;
 
 import abc.alice;
 import abc.traits;
