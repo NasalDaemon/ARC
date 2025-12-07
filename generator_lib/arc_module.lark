@@ -1,3 +1,13 @@
+%import .arc (include, namespace, cluster, trait, NAME)
+
+%import common.WS
+%import common.C_COMMENT
+%import common.CPP_COMMENT
+
+%ignore WS
+%ignore C_COMMENT
+%ignore CPP_COMMENT
+
 start: [includes] export_module import_module* (namespace | cluster | trait)+
 
 includes: "module;" include*
@@ -9,13 +19,3 @@ import_module: MODULE_IMPORT MODULE_NAME ";"
 MODULE_IMPORT: "import" | "export import"
 
 MODULE_NAME: (NAME | ".")+ [":" NAME]
-
-%import .arc (include, namespace, cluster, trait, NAME)
-
-%import common.WS
-%import common.C_COMMENT
-%import common.CPP_COMMENT
-
-%ignore WS
-%ignore C_COMMENT
-%ignore CPP_COMMENT

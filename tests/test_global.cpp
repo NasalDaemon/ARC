@@ -26,14 +26,14 @@ cluster MainCluster [R = Root]
     cluster = InnerCluster
 
     [trait::Log]
-    node --> *
+    node --> ^
 }
 
 cluster InnerCluster [R = Root]
 {
     node = R::Node
 
-    [trait::Log] *
+    [trait::Log] @global <-- @all
 }
 
 cluster GlobalCluster [R = Root]

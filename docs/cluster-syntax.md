@@ -6,6 +6,15 @@ With ARC, you can use a special DSL (Domain Specific Language) called "arc" to d
 
 The provided CMake functions `target_generate_arc_modules()` and `target_generate_arc_headers()` automatically generate `.ixx` or `.hxx` files from the `.ixx.arc` and `.hxx.arc` files found recursively in the source directory, and add them to the target. For generated `.hxx` files, each resulting include path matches the include path of the respective `.hxx.arc` file.
 
+## Quick reference: Special syntax
+
+| Syntax | Alternative | Description |
+|--------|-------------|-------------|
+| `..` | `@parent` | Parent cluster/domain node |
+| `^` | `@global` | Global dependency node |
+| `*` | `@all` | All nodes (used only in sink declarations) |
+| `~` | `@notrait` | No-trait connection marker |
+
 ## Cluster `.arc` file template
 
 ### Header includes and module imports
@@ -62,6 +71,10 @@ cluster FruitSalad
     // Equivalent to:
     // [trait::Elderberry]
     // elderberry <-- .., apple, banana, cherry, sourCherry, date
+    // Or with explicit syntax:
+    // [trait::Elderberry]
+    // elderberry <-- *
+    // where * (or @all) represents all nodes including parent
     // Any sink traits (like `trait::Elderberry`) must be declared before all explicit connections
     // Sink nodes (like `elderBerry`) may not have any outgoing connections apart from the implicit
     // connections to global nodes and other sink nodes
@@ -154,8 +167,10 @@ cluster FruitSalad
 
     // Explicitly redirecting trait to the global node
     [trait::Log]
-    apple --> *
+    apple --> ^
     // which resolves trait::Log to the respective global node
+    // Alternative syntax:
+    // apple --> @global
     // Equivalent to:
     // [trait::Log]
     // apple --> (arc::Global<trait::Log>) ..
@@ -228,12 +243,23 @@ cluster MyCluster
     // Equivalent to:
     // [arc::NoTrait<Provider>]
     // client --> provider
+
+    // Alternative no-trait syntax:
+    [@notrait] client --> provider
 }
 ```
 #### Sink declaration (collect all clients by default):
 ```cpp
 [~] logger
 // All nodes (including parent) implicitly connect to `logger` using the no-trait link
+
+// Explicit syntax (equivalent):
+[~] logger <-- *
+// or
+[~] * --> logger
+
+// Alternative syntax with @notrait and @all:
+[@notrait] logger <-- @all
 ```
 #### Multiple sinks in one declaration:
 ```cpp
@@ -256,9 +282,30 @@ auto provider = getNode(arc::noTrait<Provider>);
 provider->memberFunction(); // Calls `Provider`'s member function directly
 ```
 
+### Special node syntax:
+ARC provides shorthand and alternative syntax for special nodes:
+- **Parent node**: `..` or `@parent` (refers to the parent cluster)
+- **Global node**: `^` or `@global` (refers to the global dependency)
+- **All nodes**: `*` or `@all` (used only in sink node declarations to represent all nodes)
+
+Examples:
+```cpp
+// Parent node - both are equivalent:
+[trait::Logger] .. --> logger
+[trait::Logger] @parent --> logger
+
+// Global node - both are equivalent:
+[trait::Config] node --> ^
+[trait::Config] node --> @global
+
+// All nodes in sink - both are equivalent:
+[trait::Logger] logger <-- *
+[trait::Logger] logger <-- @all
+```
+
 ### Caveats:
 - Cannot not mix no-trait and a named trait for the same target node in one graph; pick one.
-- No-trait shorthand `~` with the global node (`*`) or parent node (`..`) is not supported; must explicitly use `arc::NoTrait<NodeHandle>` or a named trait.
+- No-trait shorthand `~` (or `@notrait`) with the global node (`^`/`@global`) or parent node (`..`/`@parent`) is not supported; must explicitly use `arc::NoTrait<NodeHandle>` or a named trait.
 
 Migration tip
 - If you later need a stable interface, replace `[~]` with a named trait (e.g., `[trait::X]`) and update call sites from `getNode(arc::noTrait<T>)` to `getNode(trait::x)`.

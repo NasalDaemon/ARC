@@ -1,3 +1,15 @@
+%import common.CNAME -> NAME
+
+%import common.SIGNED_NUMBER
+%import common.ESCAPED_STRING -> STRING
+%import common.WS
+%import common.C_COMMENT
+%import common.CPP_COMMENT
+
+%ignore WS
+%ignore C_COMMENT
+%ignore CPP_COMMENT
+
 include: INCLUDE_LOCAL_FILE
        | INCLUDE_GLOBAL_FILE
 INCLUDE_LOCAL_FILE: "#include \"" /[^\r\n"]+/ "\""
@@ -44,7 +56,7 @@ trait_method: [template_params] method_name cpp_func_params [method_qualifier] [
 method_name: [OPTIONAL_METHOD] NAME
 method_qualifier: "const"
 
-OPTIONAL_METHOD: "~"
+OPTIONAL_METHOD: "?"
 
 template_params: "template" "<" template_param ("," template_param)* ">"
 
@@ -68,11 +80,15 @@ connection_trait: "[" connection_trait_type [BARROW connection_trait_type] "]"
 
 connection_trait_type: NO_TRAIT | cpp_type
 
-NO_TRAIT: "~"
+NO_TRAIT: "~" | "@notrait"
 
 connection: node_names (arrow node_names)+
 
-sink_node: node_names
+sink_node: node_names                    -> sink_node_implicit
+         | node_names LARROW ALL_NODES   -> sink_node_larrow
+         | ALL_NODES  RARROW node_names  -> sink_node_rarrow
+
+ALL_NODES: "*" | "@all"
 
 arrow:             LARROW             -> left_arrow
      |             RARROW             -> right_arrow
@@ -119,9 +135,11 @@ cpp_func_param: cpp_type NAME
 !cpp_expr_mem_access: [TEMPLATE] cpp_type_no_typename cpp_expr_complex_cont*
                     | "operator" (CPP_BINARY_OP | ("()"|"[]") [cpp_templ_args]) cpp_func_args
 
+node_name: NODE_NAME
 node_names: NODE_NAME ("," NODE_NAME)*
 
-NODE_NAME: NAME | ".." | "*"
+NODE_NAME: NAME | NODE_SPECIAL
+NODE_SPECIAL.1: ".." | "@parent" | "^" | "@global"
 NAMESPACE: NAME ("::" NAME)*
 FQNAME: ["::"] NAMESPACE+
 
@@ -136,15 +154,3 @@ SEMICOLON: ";"
 
 CPP_LITERALS: SIGNED_NUMBER | STRING | CHAR
 CHAR: "'" /\\?./ "'"
-
-%import common.CNAME -> NAME
-
-%import common.SIGNED_NUMBER
-%import common.ESCAPED_STRING -> STRING
-%import common.WS
-%import common.C_COMMENT
-%import common.CPP_COMMENT
-
-%ignore WS
-%ignore C_COMMENT
-%ignore CPP_COMMENT

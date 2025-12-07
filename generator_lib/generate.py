@@ -110,12 +110,16 @@ class AddColonToRequiresStatements(Visitor_Recursive):
 
 add_colon_to_requires_statements = AddColonToRequiresStatements()
 
-NO_TRAIT = "~"
+NO_TRAIT = ("~", "@notrait")
+PARENT_NODE = ("..", "@parent")
+GLOBAL_NODE = ("^", "@global")
+ALL_NODES = ("*", "@all")
+SPECIAL_NODES = PARENT_NODE + GLOBAL_NODE + ALL_NODES
 
 def is_no_trait(trait: str | None) -> bool:
     if trait is None:
         return False
-    return trait == NO_TRAIT or "arc::NoTrait<" in trait
+    return trait in NO_TRAIT or "arc::NoTrait<" in trait
 
 
 class CppType:
@@ -183,7 +187,7 @@ class Connection:
     def __init__(self, to_node: "Node | Repeater", trait: str, to_trait: str | None = None, to_repeater: Repeater | None = None):
         self.to_node: Node | Repeater = to_node
         self.trait: str = trait
-        if self.trait == NO_TRAIT:
+        if self.trait in NO_TRAIT:
             self.trait = f"arc::NoTrait<{to_node.node_alias}>"
             self.to_trait = self.trait
         else:
@@ -215,10 +219,10 @@ class Node:
         self.is_global = False
         self.is_sink_node = False
         self.no_traits = False
-        if name == '..':
+        if name in PARENT_NODE:
             self.is_parent = True
             self.context = "Context"
-        elif name == '*':
+        elif name in GLOBAL_NODE:
             self.is_global = True
             self.context = "Context"
         else:
@@ -243,7 +247,7 @@ class Node:
         if to_node == self:
             raise SyntaxError(f"{pos} cannot connect '{self.name}' to itself")
         if self.is_global:
-            raise SyntaxError(f"{pos} cannot connect from global node '*' to any other node")
+            raise SyntaxError(f"{pos} cannot connect from global node '^' to any other node")
         if self.is_sink_node and not to_node.is_sink_node:
             raise SyntaxError(f"{pos} cannot connect from sink node '{self.name}' to a non-sink node")
         if not is_no_trait(trait) and trait in self.cluster.sink_traits:
@@ -258,9 +262,9 @@ class Node:
             raise SyntaxError(f"{pos} Cannot connect '{self.name}' to '{to_node.name}' in {self.cluster.cluster_class} '{self.cluster.full_name}':\n{error}")
 
         effective_to_trait = trait if to_trait is None else to_trait
-        if effective_to_trait == NO_TRAIT:
+        if effective_to_trait in NO_TRAIT:
             if to_node.is_global or to_node.is_parent:
-                raise SyntaxError(f"{pos} Cannot use no-trait shorthand '~' to connect to global '*' or parent '..' node in {self.cluster.cluster_class} '{self.cluster.full_name}'. "
+                raise SyntaxError(f"{pos} Cannot use no-trait shorthand '~' to connect to global '^' or parent '..' node in {self.cluster.cluster_class} '{self.cluster.full_name}'. "
                                   "Use a named trait like 'arc::NoTrait<TargetNode>' instead.")
         if to_node.is_global:
             to_trait = f"arc::Global<{effective_to_trait}>"
@@ -306,7 +310,7 @@ class Cluster:
         self.root_name: str | None = None
         self.info_name: str | None = None
         self.parent_node = Node("..", None, self.name, cluster=self, is_first=False)
-        self.global_node = Node("*", None, self.name, cluster=self, is_first=False)
+        self.global_node = Node("^", None, self.name, cluster=self, is_first=False)
         self.user_nodes: list[Node] = []
         self.repeaters: list[Repeater] = []
         self.nodes: list[Node | Repeater] = []
@@ -368,141 +372,175 @@ class Cluster:
             raise SyntaxError(f"{get_pos(arrow)} Only one chevron is allowed per arrow in clusters.")
         return False
 
+    def normalise_name(self, name: str) -> str:
+        if name in PARENT_NODE:
+            return '..'
+        if name in GLOBAL_NODE:
+            return '^'
+        if name in ALL_NODES:
+            return '*'
+
+        return name
+
     def walk(self, children):
         aliases: dict[str, str] = {}
         nodes: dict[str, Node] = {}
         nodes[".."] = self.parent_node
-        nodes["*"] = self.global_node
+        nodes["^"] = self.global_node
         explicit_connection_seen = False
         left_trait: str
         right_trait: str
         bi_trait: bool
-        for child in children:
-            if child.data == imported('cluster_annotations'):
-                for ann in child.children:
-                    if ann.children[-1].value == "Context":
-                        self.context_name = ann.children[0].value
-                    elif ann.children[-1].value == "Root":
-                        self.root_name = ann.children[0].value
-                    elif ann.children[-1].value == "Info":
-                        self.info_name = ann.children[0].value
-                    else:
-                        raise SyntaxError(f"{get_pos(ann)} Unknown cluster annotation: {ann.children[0].value}")
-            elif child.data == imported('node'):
-                name = child.children[0].value
-                if name in nodes:
-                    raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in cluster '{self.full_name}'")
-                impl = reconstructor.reconstruct(child.children[1])
-                intermediate_aliases: list[tuple[str, str]] = []
-                if len(child.children) > 2:
-                    for wrapper in child.children[2:]:
-                        cls = wrapper.children[0].value
-                        impl_alias = f"{name}_inner{len(intermediate_aliases)}_"
-                        intermediate_aliases.append((impl_alias, impl))
-                        args = [impl_alias]
-                        if len(wrapper.children) > 1:
-                            args.extend(reconstructor.reconstruct(arg) for arg in wrapper.children[1].children[1:-1:2])
-                        impl = f"{cls}<{', '.join(args)}>"
 
-                is_first = len(nodes) == 2
-                nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first, intermediate_aliases=intermediate_aliases)
-            elif child.data == imported('connection_block'):
-                for child in child.children:
-                    if child.data == imported('connection_aliases'):
-                        for child in child.children:
-                            alias, trait_type = child.children
-                            type_string = reconstructor.reconstruct(trait_type)
-                            if alias in aliases:
-                                if aliases.get(alias) != type_string:
-                                    raise SyntaxError(f"{get_pos(alias)} Alias '{alias}' changed from {aliases.get(alias)} to {type_string}")
-                            else:
-                                aliases[alias] = type_string
-                    elif child.data == imported('connection_trait'):
-                        left_trait = reconstructor.reconstruct(child.children[0])
+        def make_sink(name: str, token: Tree | Token):
+            node = nodes[name]
+            if self.cluster_class == "domain":
+                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' not permitted in domain '{self.full_name}'")
+            if explicit_connection_seen:
+                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' must be declared before any explicit connections")
+            if bi_trait:
+                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' cannot have bi-directional trait")
+            if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
+                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' is using the trait '{left_trait}' "
+                                f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
+            node.is_sink_node = True
+            self.sink_traits[left_trait].append((node, get_pos(token)))
 
-                        if len(child.children) == 1:
-                            bi_trait = False
-                            right_trait = left_trait
+        current_token: Tree | Token = children
+
+        try:
+            for child in children:
+                current_token = child
+                if child.data == imported('cluster_annotations'):
+                    for ann in child.children:
+                        current_token = ann
+                        if ann.children[-1].value == "Context":
+                            self.context_name = ann.children[0].value
+                        elif ann.children[-1].value == "Root":
+                            self.root_name = ann.children[0].value
+                        elif ann.children[-1].value == "Info":
+                            self.info_name = ann.children[0].value
                         else:
-                            bi_trait = True
-                            right_trait = reconstructor.reconstruct(child.children[-1])
-                        if left_trait != NO_TRAIT and left_trait in self.sink_traits:
-                            raise SyntaxError(f"{get_pos(child.children[0])} Trait '{left_trait}' already allocated to sink node "
-                                              f"'{self.sink_traits[left_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[left_trait][0][1]}")
-                        if right_trait != NO_TRAIT and right_trait in self.sink_traits:
-                            raise SyntaxError(f"{get_pos(child.children[-1])} Trait '{right_trait}' already allocated to sink node "
-                                              f"'{self.sink_traits[right_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[right_trait][0][1]}")
-                    elif child.data == imported('sink_node'):
-                        for c in child.children[0].children:
-                            name = c.value
-                            node = nodes[name]
-                            if self.cluster_class == "domain":
-                                raise SyntaxError(f"{get_pos(child)} Sink node '{name}' not permitted in domain '{self.full_name}'")
-                            if explicit_connection_seen:
-                                raise SyntaxError(f"{get_pos(child)} Sink node '{name}' in cluster '{self.full_name}' must be declared before any explicit connections")
-                            if bi_trait:
-                                raise SyntaxError(f"{get_pos(child)} Sink node '{name}' in cluster '{self.full_name}' cannot have bi-directional trait")
-                            if left_trait != NO_TRAIT and left_trait in self.sink_traits:
-                                raise SyntaxError(f"{get_pos(child)} Sink node '{name}' in cluster '{self.full_name}' is using the trait '{left_trait}' "
-                                                f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
-                            node.is_sink_node = True
-                            self.sink_traits[left_trait].append((node, get_pos(child)))
-                    elif child.data == imported('connection'):
-                        explicit_connection_seen = True
-                        for i in range(0, len(child.children) - 1, 2):
-                            lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
-                            is_override = self.validate_arrow(arrow)
-                            pos = get_pos(arrow)
-                            lnodes = [nodes[name.value] for name in lnames.children]
-                            rnodes = [nodes[name.value] for name in rnames.children]
+                            raise SyntaxError(f"{get_pos(ann)} Unknown cluster annotation: {ann.children[0].value}")
+                elif child.data == imported('node'):
+                    name = child.children[0].value
+                    if name in nodes:
+                        raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in cluster '{self.full_name}'")
+                    impl = reconstructor.reconstruct(child.children[1])
+                    intermediate_aliases: list[tuple[str, str]] = []
+                    if len(child.children) > 2:
+                        for wrapper in child.children[2:]:
+                            current_token = wrapper
+                            cls = wrapper.children[0].value
+                            impl_alias = f"{name}_inner{len(intermediate_aliases)}_"
+                            intermediate_aliases.append((impl_alias, impl))
+                            args = [impl_alias]
+                            if len(wrapper.children) > 1:
+                                args.extend(reconstructor.reconstruct(arg) for arg in wrapper.children[1].children[1:-1:2])
+                            impl = f"{cls}<{', '.join(args)}>"
 
-                            lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
-                            if arrow.data == imported('left_arrow'):
-                                for lnode, rnode in lrnodes:
-                                    rnode.add_connection(pos, is_override, lnode, left_trait)
-                            elif arrow.data == imported('right_arrow'):
-                                for lnode, rnode in lrnodes:
-                                    lnode.add_connection(pos, is_override, rnode, right_trait)
-                            elif arrow.data == imported('bi_arrow'):
-                                for lnode, rnode in lrnodes:
-                                    rnode.add_connection(pos, is_override, lnode, left_trait)
-                                    lnode.add_connection(pos, is_override, rnode, right_trait)
-                            elif arrow.data == imported('left_arrow_from'):
-                                from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
-                                to_trait = left_trait
-                                for lnode, rnode in lrnodes:
-                                    rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
-                            elif arrow.data == imported('right_arrow_from'):
-                                from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
-                                to_trait = right_trait
-                                for lnode, rnode in lrnodes:
-                                    lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
-                            elif arrow.data == imported('left_arrow_to'):
-                                from_trait = left_trait
-                                to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
-                                for lnode, rnode in lrnodes:
-                                    rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
-                            elif arrow.data == imported('right_arrow_to'):
-                                from_trait = right_trait
-                                to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
-                                for lnode, rnode in lrnodes:
-                                    lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
-                            elif arrow.data == imported('left_arrow_both'):
-                                to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
-                                from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
-                                for lnode, rnode in lrnodes:
-                                    rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
-                            elif arrow.data == imported('right_arrow_both'):
-                                from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
-                                to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
-                                for lnode, rnode in lrnodes:
-                                    lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                    is_first = len(nodes) == 2
+                    nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first, intermediate_aliases=intermediate_aliases)
+                elif child.data == imported('connection_block'):
+                    for child in child.children:
+                        current_token = child
+                        if child.data == imported('connection_aliases'):
+                            for child in child.children:
+                                current_token = child
+                                alias, trait_type = child.children
+                                type_string = reconstructor.reconstruct(trait_type)
+                                if alias in aliases:
+                                    if aliases.get(alias) != type_string:
+                                        raise SyntaxError(f"{get_pos(alias)} Alias '{alias}' changed from {aliases.get(alias)} to {type_string}")
+                                else:
+                                    aliases[alias] = type_string
+                        elif child.data == imported('connection_trait'):
+                            left_trait = reconstructor.reconstruct(child.children[0])
+
+                            if len(child.children) == 1:
+                                bi_trait = False
+                                right_trait = left_trait
                             else:
-                                raise SyntaxError(f'{pos} Unknown arrow: {arrow.data}')
-                    else:
-                        raise SyntaxError(f'{get_pos(child)} Unknown connection section: {child.data}')
-            else:
-                raise SyntaxError(f'{get_pos(child)} Unknown cluster section: {child.data}')
+                                bi_trait = True
+                                right_trait = reconstructor.reconstruct(child.children[-1])
+                            if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
+                                raise SyntaxError(f"{get_pos(child.children[0])} Trait '{left_trait}' already allocated to sink node "
+                                                f"'{self.sink_traits[left_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[left_trait][0][1]}")
+                            if right_trait not in NO_TRAIT and right_trait in self.sink_traits:
+                                raise SyntaxError(f"{get_pos(child.children[-1])} Trait '{right_trait}' already allocated to sink node "
+                                                f"'{self.sink_traits[right_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[right_trait][0][1]}")
+                        elif child.data in (imported('sink_node_implicit'), imported('sink_node_larrow')):
+                            for c in child.children[0].children:
+                                current_token = c
+                                name = self.normalise_name(c.value)
+                                make_sink(name, c)
+                        elif child.data == imported('sink_node_rarrow'):
+                            for c in child.children[-1].children:
+                                current_token = c
+                                name = self.normalise_name(c.value)
+                                make_sink(name, c)
+                        elif child.data == imported('connection'):
+                            explicit_connection_seen = True
+                            for i in range(0, len(child.children) - 1, 2):
+                                current_token = child.children[i]
+                                lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
+                                is_override = self.validate_arrow(arrow)
+                                pos = get_pos(arrow)
+                                lnodes = [nodes[self.normalise_name(name.value)] for name in lnames.children]
+                                rnodes = [nodes[self.normalise_name(name.value)] for name in rnames.children]
+
+                                lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
+                                if arrow.data == imported('left_arrow'):
+                                    for lnode, rnode in lrnodes:
+                                        rnode.add_connection(pos, is_override, lnode, left_trait)
+                                elif arrow.data == imported('right_arrow'):
+                                    for lnode, rnode in lrnodes:
+                                        lnode.add_connection(pos, is_override, rnode, right_trait)
+                                elif arrow.data == imported('bi_arrow'):
+                                    for lnode, rnode in lrnodes:
+                                        rnode.add_connection(pos, is_override, lnode, left_trait)
+                                        lnode.add_connection(pos, is_override, rnode, right_trait)
+                                elif arrow.data == imported('left_arrow_from'):
+                                    from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    to_trait = left_trait
+                                    for lnode, rnode in lrnodes:
+                                        rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
+                                elif arrow.data == imported('right_arrow_from'):
+                                    from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
+                                    to_trait = right_trait
+                                    for lnode, rnode in lrnodes:
+                                        lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                                elif arrow.data == imported('left_arrow_to'):
+                                    from_trait = left_trait
+                                    to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
+                                    for lnode, rnode in lrnodes:
+                                        rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
+                                elif arrow.data == imported('right_arrow_to'):
+                                    from_trait = right_trait
+                                    to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    for lnode, rnode in lrnodes:
+                                        lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                                elif arrow.data == imported('left_arrow_both'):
+                                    to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
+                                    from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    for lnode, rnode in lrnodes:
+                                        rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
+                                elif arrow.data == imported('right_arrow_both'):
+                                    from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
+                                    to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    for lnode, rnode in lrnodes:
+                                        lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                                else:
+                                    raise SyntaxError(f'{pos} Unknown arrow: {arrow.data}')
+                        else:
+                            raise SyntaxError(f'{get_pos(child)} Unknown connection section: {child.data}')
+                else:
+                    raise SyntaxError(f'{get_pos(child)} Unknown cluster section: {child.data}')
+        except SyntaxError:
+            raise
+        except Exception as e:
+            print(f"ERROR: {get_pos(current_token)} raised exception: {e}")
+            raise
 
         # Connect all nodes (including parent) to sink nodes at very end
         sink_traits = self.sink_traits
@@ -510,10 +548,10 @@ class Cluster:
         for trait, sink_nodes in sink_traits.items():
             for sink_node, pos in sink_nodes:
                 for node in nodes.values():
-                    if node.name not in ["*", sink_node.name]:
+                    if node.name not in GLOBAL_NODE + (sink_node.name,):
                         node.add_connection(pos, False, sink_node, trait)
 
-        self.user_nodes = [node for node in nodes.values() if node.name not in ['..', '*']]
+        self.user_nodes = [node for node in nodes.values() if node.name not in PARENT_NODE + GLOBAL_NODE]
         self.aliases = sorted(aliases.items())
         self.parent_node.connections.sort(key=lambda v: v.trait)
         self.repeaters.extend(self.parent_node.repeaters)

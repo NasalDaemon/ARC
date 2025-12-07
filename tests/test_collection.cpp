@@ -41,7 +41,7 @@ cluster Element [R = Root]
     .. <-> element
 
     [trait::Global]
-    element --> *
+    element --> ^
 }
 
 cluster Collection [R = Root]
