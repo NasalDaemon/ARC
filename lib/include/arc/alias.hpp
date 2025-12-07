@@ -46,7 +46,8 @@ struct Alias<T, Key, Keys...> final
     constexpr auto& get(this auto&& self) { return self; }
     constexpr auto* operator->(this auto&& self) { return std::addressof(self); }
 
-    ARC_INLINE constexpr auto impl(this auto&& self, auto&&... args)
+    template<class... Ts>
+    ARC_INLINE constexpr auto impl(this auto&& self, Ts&&... args)
         -> decltype(self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...))
     {
         return self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...);

@@ -529,35 +529,35 @@ TEST_CASE("CircularBuffer comparison operators") {
         CircularBuffer<int> cb{1, 2, 3};
         std::vector<int> vec{1, 2, 3};
         auto cmp = cb <=> vec;
-        CHECK(cmp == 0);
+        CHECK((cmp == 0));
     }
 
     SUBCASE("spaceship less") {
         CircularBuffer<int> cb{1, 2, 2};
         std::vector<int> vec{1, 2, 3};
         auto cmp = cb <=> vec;
-        CHECK(cmp < 0);
+        CHECK((cmp < 0));
     }
 
     SUBCASE("spaceship greater") {
         CircularBuffer<int> cb{1, 2, 4};
         std::vector<int> vec{1, 2, 3};
         auto cmp = cb <=> vec;
-        CHECK(cmp > 0);
+        CHECK((cmp > 0));
     }
 
     SUBCASE("spaceship with different sizes") {
         CircularBuffer<int> cb{1, 2};
         std::vector<int> vec{1, 2, 3};
         auto cmp = cb <=> vec;
-        CHECK(cmp < 0); // shorter is less
+        CHECK((cmp < 0)); // shorter is less
     }
 
     SUBCASE("spaceship with array") {
         CircularBuffer<int> cb{1, 2, 3};
         std::array<int, 3> arr{1, 2, 3};
         auto cmp = cb <=> arr;
-        CHECK(cmp == 0);
+        CHECK((cmp == 0));
     }
 }
 

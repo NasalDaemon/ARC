@@ -157,12 +157,14 @@ namespace detail {
 
     struct MockBase : arc::test::TestOnlyNode
     {
-        explicit MockBase(MockParams params = {})
+        explicit MockBase(MockParams params)
             : defaultBehaviour(params.defaultBehaviour)
             , counting(params.counting)
             , loggingAllCalls(params.logAllCalls)
             , callLog(params.logBufferMaxSize)
         {}
+
+        MockBase() : MockBase(MockParams()) {}
 
         constexpr void setReturnDefault() { defaultBehaviour = MockDefault::ReturnDefault; }
         constexpr void setThrowIfMissing() { defaultBehaviour = MockDefault::ThrowIfMissing; }
