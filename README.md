@@ -298,6 +298,7 @@ int main()
 - [Embedding ARC DSL into source files](docs/arc-embed.md)
 - [Selective runtime polymorphism](docs/runtime-polymorphism.md)
 - [Spy trait for global method interception](docs/spy-trait.md)
+- [Policy-based access control for safety-critical systems](docs/policies.md)
 
 ### Compilable [examples](examples/)
 - [Filesystem](examples/filesystem): In-memory filesystem with REPL interface

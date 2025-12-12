@@ -145,6 +145,20 @@ export namespace arc {
     using arc::InlineGraph;
     using arc::Graph;
     using arc::constructGraph;
+    // group.hpp
+    using arc::GroupWriteAccess;
+    using arc::Group;
+    using arc::NoGroup;
+    using arc::IsGroup;
+    using arc::IsSingleGroup;
+    using arc::GroupOf;
+    using arc::IsReadPermittedGroup;
+    using arc::IsWritePermittedGroup;
+    using arc::IsReadOnlyPermittedGroup;
+    using arc::IsReadPermittedNode;
+    using arc::IsWritePermittedNode;
+    using arc::IsReadOnlyPermittedNode;
+    using arc::InGroup;
     // key.hpp
     namespace key {
         using key::Default;

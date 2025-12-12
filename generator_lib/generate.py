@@ -2,6 +2,7 @@
 
 import argparse
 from bisect import bisect_right
+import builtins
 from collections import defaultdict
 from functools import cached_property
 import jinja2
@@ -110,7 +111,18 @@ class AddColonToRequiresStatements(Visitor_Recursive):
 
 add_colon_to_requires_statements = AddColonToRequiresStatements()
 
+def get_value(t: Tree | Token) -> str:
+    """Get the string value from either a Token or a Tree containing a Token"""
+    if isinstance(t, Token):
+        return t.value
+    elif isinstance(t, Tree):
+        assert len(t.children) == 1, f"Expected Tree with single child, got {len(t.children)} children"
+        return t.children[0].value
+    else:
+        raise TypeError(f"Expected Tree or Token, got {type(t)}")
+
 NO_TRAIT = ("~", "@notrait")
+DEFAULT_GROUP = ("~", "@nogroup")
 PARENT_NODE = ("..", "@parent")
 GLOBAL_NODE = ("^", "@global")
 ALL_NODES = ("*", "@all")
@@ -402,7 +414,7 @@ class Cluster:
                 raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' cannot have bi-directional trait")
             if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
                 raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' is using the trait '{left_trait}' "
-                                f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
+                                  f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
             node.is_sink_node = True
             self.sink_traits[left_trait].append((node, get_pos(token)))
 
@@ -447,8 +459,8 @@ class Cluster:
                         if child.data == imported('connection_aliases'):
                             for child in child.children:
                                 current_token = child
-                                alias, trait_type = child.children
-                                type_string = reconstructor.reconstruct(trait_type)
+                                alias = get_value(child.children[0])
+                                type_string = reconstructor.reconstruct(child.children[1])
                                 if alias in aliases:
                                     if aliases.get(alias) != type_string:
                                         raise SyntaxError(f"{get_pos(alias)} Alias '{alias}' changed from {aliases.get(alias)} to {type_string}")
@@ -472,12 +484,12 @@ class Cluster:
                         elif child.data in (imported('sink_node_implicit'), imported('sink_node_larrow')):
                             for c in child.children[0].children:
                                 current_token = c
-                                name = self.normalise_name(c.value)
+                                name = self.normalise_name(get_value(c))
                                 make_sink(name, c)
                         elif child.data == imported('sink_node_rarrow'):
                             for c in child.children[-1].children:
                                 current_token = c
-                                name = self.normalise_name(c.value)
+                                name = self.normalise_name(get_value(c))
                                 make_sink(name, c)
                         elif child.data == imported('connection'):
                             explicit_connection_seen = True
@@ -486,8 +498,8 @@ class Cluster:
                                 lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
                                 is_override = self.validate_arrow(arrow)
                                 pos = get_pos(arrow)
-                                lnodes = [nodes[self.normalise_name(name.value)] for name in lnames.children]
-                                rnodes = [nodes[self.normalise_name(name.value)] for name in rnames.children]
+                                lnodes = [nodes[self.normalise_name(get_value(name))] for name in lnames.children]
+                                rnodes = [nodes[self.normalise_name(get_value(name))] for name in rnames.children]
 
                                 lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
                                 if arrow.data == imported('left_arrow'):
@@ -786,6 +798,95 @@ class Trait:
         self.has_mutable_requires = next((not method.is_const for method in self.methods if not method.is_const and not method.is_template), False)
 
 
+class Group:
+    def __init__(self, name: str):
+        self.name: str = name
+        self.connectionsTo: list[tuple[str, bool]] = []
+        self.connectionsFrom: list[tuple[str, bool]] = []
+
+
+class Policy:
+    def __init__(self, name: str):
+        self.name: str = name
+        self.groups: list[Group] = []
+
+    def walk(self, children):
+        aliases: dict[str, str] = {g: "arc::NoGroup" for g in DEFAULT_GROUP}
+        groups: dict[str, Group] = {}
+        for c in children:
+            current_token = c
+            try:
+                if c.data == imported('group_name'):
+                    group_val = get_value(c.children[0])
+                    groups[group_val] = Group(group_val)
+                elif c.data == imported('group_alias'):
+                    alias = get_value(c.children[0])
+                    group_type = reconstructor.reconstruct(c.children[1])
+                    if alias in aliases:
+                        if aliases.get(alias) != group_type:
+                            raise SyntaxError(f"{get_pos(c)} Alias '{alias}' changed from {aliases.get(alias)} to {group_type}")
+                    else:
+                        aliases[alias] = group_type
+                elif c.data == imported('group_connection') or c.data == imported('connection'):
+                    for i in range(0, len(c.children) - 1, 2):
+                        current_token = c.children[i]
+                        lnames, arrow, rnames = (c.children[i], c.children[i+1], c.children[i+2])
+                        pos = get_pos(arrow)
+                        lnodes: list[str | Group] = [groups.get(get_value(name), aliases.get(get_value(name), str(get_value(name)))) for name in lnames.children]
+                        rnodes: list[str | Group] = [groups.get(get_value(name), aliases.get(get_value(name), str(get_value(name)))) for name in rnames.children]
+
+                        def addConnection(source: str | Group, target: str | Group, write: bool):
+                            if isinstance(source, Group):
+                                target_name = target if isinstance(target, str) else target.name
+                                source.connectionsTo.append((target_name, write))
+                            if isinstance(target, Group):
+                                source_name = source if isinstance(source, str) else source.name
+                                target.connectionsFrom.append((source_name, write))
+                            if not isinstance(source, Group) and not isinstance(target, Group):
+                                raise SyntaxError(f"{pos} Cannot connect two aliases '{source}' and '{target}' in group '{self.name}'")
+
+                        lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
+                        if arrow.data.startswith(imported('group_l_r_arrow')) or arrow.data == imported('group_l_w_arrow'):
+                            for lnode, rnode in lrnodes:
+                                addConnection(rnode, lnode, arrow.data == imported('group_l_w_arrow'))
+                        elif arrow.data == imported('group_r_r_arrow') or arrow.data == imported('group_r_w_arrow'):
+                            for lnode, rnode in lrnodes:
+                                addConnection(lnode, rnode, arrow.data == imported('group_r_w_arrow'))
+                        elif arrow.data.startswith(imported('group_bi_')) and arrow.data.endswith('_arrow'):
+                            prefix = imported('group_bi_')
+                            r_to_l, l_to_r = arrow.data[len(prefix)], arrow.data[len(prefix)+1]
+                            assert r_to_l in ('r', 'w')
+                            assert l_to_r in ('r', 'w')
+                            for lnode, rnode in lrnodes:
+                                addConnection(lnode, rnode, l_to_r == 'w')
+                                addConnection(rnode, lnode, r_to_l == 'w')
+                        else:
+                            raise SyntaxError(f'{pos} Unknown arrow: {arrow.data}')
+                else:
+                    raise SyntaxError(f'{get_pos(c)} Unknown policy entity: {c.data}')
+            except SyntaxError:
+                raise
+            except Exception as e:
+                print(f"ERROR: {get_pos(current_token)} raised exception: {e}")
+                raise
+
+        if not groups:
+            raise SyntaxError(f'Policy {self.name} has no groups defined')
+
+        self.groups = list(groups.values())
+        self.groups.sort(key=lambda v: v.name)
+        for g in self.groups:
+            connectionsTo = {}
+            for name, write in g.connectionsTo:
+                connectionsTo[name] = connectionsTo.get(name, False) or write
+            g.connectionsTo = sorted(connectionsTo.items(), key=lambda v: v[0])
+
+            connectionsFrom = {}
+            for name, write in g.connectionsFrom:
+                connectionsFrom[name] = connectionsFrom.get(name, False) or write
+            g.connectionsFrom = sorted(connectionsFrom.items(), key=lambda v: v[0])
+
+
 class Namespace:
     def __init__(self, name: str, repr_: 'Repr'):
         self.name: str = name
@@ -795,19 +896,29 @@ class Namespace:
         self.trait_aliases: list[list[str]] = []
         self.cluster_names: set[str] = set()
         self.clusters: list['Cluster'] = []
+        self.policies: list['Policy'] = []
 
     def walk(self, children):
         for c in children:
-            if c.data == 'cluster':
-                self.repr.visit_cluster(self.name, c)
-            elif c.data == imported('trait_def'):
-                self.repr.visit_trait_def(self.name, c)
-            elif c.data == imported('trait_alias'):
-                self.repr.visit_trait_alias(self.name, c)
+            if c.data == imported('cluster'):
+                self.repr.visit_cluster(self.name, c, is_domain=False)
+            elif c.data == imported('domain'):
+                self.repr.visit_cluster(self.name, c, is_domain=True)
+            elif c.data == imported('policy'):
+                self.repr.visit_policy(self.name, c)
+            elif c.data == imported('trait'):
+                # trait node contains [TRAIT token, trait_def or trait_alias]
+                trait_child = c.children[1]  # Skip token
+                if trait_child.data == imported('trait_def'):
+                    self.repr.visit_trait_def(self.name, trait_child)
+                elif trait_child.data == imported('trait_alias'):
+                    self.repr.visit_trait_alias(self.name, trait_child)
+                else:
+                    raise SyntaxError(f'{get_pos(trait_child)} Unknown trait type: {trait_child.data}')
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown namespace entity: {c.data}')
 
-    def add_cluster(self, name: str, tree: Tree, is_domain: bool) -> 'Cluster | Domain':
+    def add_cluster(self, name: str, tree: Tree, is_domain: bool) -> Cluster | Domain:
         if name in self.cluster_names:
             raise SyntaxError(f"{get_pos(tree)} cluster by name '{name}' already defined in namespace '{self.name}'")
         self.cluster_names.add(name)
@@ -815,7 +926,12 @@ class Namespace:
         self.clusters.append(cluster)
         return cluster
 
-    def add_trait(self, name: str, tree: Tree) -> 'Trait':
+    def add_policy(self, name: str) -> Policy:
+        policy = Policy(name)
+        self.policies.append(policy)
+        return policy
+
+    def add_trait(self, name: str, tree: Tree) -> Trait:
         if name in self.trait_names:
             raise SyntaxError(f"{get_pos(tree)} trait by name '{name}' already defined in namespace '{self.name}'")
         if not name[0].isupper():
@@ -870,33 +986,52 @@ class Repr:
             elif t.data == 'namespace':
                 name = t.children[0].value
                 self.get_namespace(name).walk(t.children[1:])
-            elif t.data == 'cluster':
-                self.visit_cluster("", t)
-            elif t.data == imported('trait_def'):
-                self.visit_trait_def("", t)
-            elif t.data == imported('trait_alias'):
-                self.visit_trait_alias("", t)
+            elif t.data == imported('cluster'):
+                self.visit_cluster("", t, is_domain=False)
+            elif t.data == imported('domain'):
+                self.visit_cluster("", t, is_domain=True)
+            elif t.data == imported('policy'):
+                self.visit_policy("", t)
+            elif t.data == imported('trait'):
+                # trait node contains [TRAIT token, trait_def or trait_alias]
+                trait_child = t.children[1]  # Skip token
+                if trait_child.data == imported('trait_def'):
+                    self.visit_trait_def("", trait_child)
+                elif trait_child.data == imported('trait_alias'):
+                    self.visit_trait_alias("", trait_child)
+                else:
+                    raise SyntaxError(f'{get_pos(trait_child)} Unknown trait type: {trait_child.data}')
             else:
                 raise SyntaxError(f'{get_pos(t)} Unknown token: {t.data}')
         self.includes = sorted(includes)
         self.import_modules = [f"{impt} {name}" for impt, name in sorted(import_modules, key=lambda v: v[1])]
 
-    def visit_cluster(self, source_ns: str, tree: Tree):
-        has_template = not isinstance(tree.children[0], Token)
-        type_index = 1 if has_template else 0
-        name_index = type_index + 1
-        name, namespace = self.split_namespace(tree, source_ns, tree.children[name_index].value)
-        cluster = namespace.add_cluster(name, tree.children[name_index], is_domain=tree.children[type_index].value == "domain")
+    def visit_cluster(self, source_ns: str, tree: Tree, is_domain: bool):
+        # tree is cluster/domain node with [CLUSTER/DOMAIN token, cluster_scope] children
+        scope = tree.children[1]  # Skip token, get cluster_scope
+        has_template = not isinstance(scope.children[0], Token)
+        name_index = 1 if has_template else 0
+        name, namespace = self.split_namespace(tree, source_ns, scope.children[name_index].value)
+        cluster = namespace.add_cluster(name, scope.children[name_index], is_domain=is_domain)
         if has_template:
-            cluster.add_template(tree.children[0])
-        cluster.walk(tree.children[(name_index+1):])
+            cluster.add_template(scope.children[0])
+        cluster.walk(scope.children[(name_index+1):])
+
+    def visit_policy(self, source_ns: str, tree: Tree):
+        # tree is policy node with [POLICY token, policy_scope] children
+        scope = tree.children[1]  # Skip token, get policy_scope
+        name, namespace = self.split_namespace(tree, source_ns, scope.children[0].value)
+        policy = namespace.add_policy(name)
+        policy.walk(scope.children[1:])
 
     def visit_trait_def(self, source_ns: str, tree: Tree):
+        # tree is trait_def node with FQNAME, optional trait_annotations, and trait_body children
         name, namespace = self.split_namespace(tree, source_ns, tree.children[0].value)
         trait = namespace.add_trait(name, tree)
         trait.walk(tree.children[1:])
 
     def visit_trait_alias(self, source_ns: str, tree: Tree):
+        # tree is trait_alias node with FQNAME tokens
         name, namespace = self.split_namespace(tree, source_ns, tree.children[0].value)
         namespace.add_trait_alias([c.value for c in tree.children], tree)
 

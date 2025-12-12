@@ -87,7 +87,6 @@ TEST_CASE("arc::Global")
 TEST_CASE("arc::Global hosted locally")
 {
     arc::GraphWithGlobal<MainCluster, Root::Logger, Root> graph{
-        .global{},
         .main{
             .node{},
             .cluster{},

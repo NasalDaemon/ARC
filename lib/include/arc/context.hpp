@@ -13,6 +13,7 @@
 #include "arc/finalise.hpp"
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
+#include "arc/group.hpp"
 #include "arc/key.hpp"
 #include "arc/link.hpp"
 #include "arc/trait.hpp"
@@ -125,6 +126,8 @@ struct NullContext : detail::ContextBase
     {
         using DefaultKey = key::Default;
 
+        using Group = NoGroup;
+
         // Allow global spy trait to be omitted from Depends list of nodes
         static void implicitDependencyAllowed(arc::Global<trait::Spy>);
         template<class Trait>
@@ -158,7 +161,7 @@ struct RootContext : NullContext
     };
 };
 
-template<class Parent_, IsNodeHandle NodeHandle>
+template<class Parent_, IsNodeHandle NodeHandle_>
 struct Context : detail::ContextBase
 {
     using Parent = Parent_;
@@ -167,6 +170,8 @@ struct Context : detail::ContextBase
     using Info = ParentContext::Info;
 
     static constexpr std::size_t Depth = 1 + ParentContext::Depth;
+
+    using NodeHandle = NodeHandle_;
 
     template<std::derived_from<Context> Self>
     using NodeTmpl = ToNodeWrapper<NodeHandle>::template Node<detail::CompressContext<Self>>;

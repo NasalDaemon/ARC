@@ -1,4 +1,4 @@
-%import .arc (include, namespace, cluster, trait)
+%import .arc (include, namespace, scope)
 
 %import common.WS
 %import common.C_COMMENT
@@ -8,4 +8,4 @@
 %ignore C_COMMENT
 %ignore CPP_COMMENT
 
-start: include* (namespace | cluster | trait)+
+start: include* (namespace | scope)+

@@ -5,6 +5,7 @@
 #include "arc/context_fwd.hpp"
 #include "arc/detail/concepts.hpp"
 #include "arc/environment.hpp"
+#include "arc/group.hpp"
 #include "arc/macros.hpp"
 #include "arc/key.hpp"
 
@@ -41,6 +42,18 @@ namespace detail {
         return false;
     }
 
+    template<class Source, class Target>
+    ARC_INLINE constexpr auto& permittedView(Target& target)
+    {
+        static_assert(IsReadPermittedNode<Source, Target>,
+            "Cannot finalise connection: source group does not permit connections to target group");
+
+        if constexpr (IsWritePermittedNode<Source, Target>)
+            return target;
+        else
+            return std::as_const(target);
+    }
+
 } // namespace detail
 
 ARC_MODULE_EXPORT
@@ -50,7 +63,7 @@ ARC_INLINE constexpr auto finalise(Source&, Target& target)
     constexpr auto accessTags = detail::accessTagsRequiredFromKeys<Source, Target>();
     if constexpr (std::tuple_size_v<decltype(accessTags)> != 0)
         static_assert(detail::alwaysFalse<Source, Target>, "Incorrect or insufficient keys to acquire access to target from source");
-    return makeAlias(target);
+    return makeAlias(detail::permittedView<Source>(target));
 }
 
 // If ConsumeKey is false, the first key not needed to acquire access will be included in the alias
@@ -70,11 +83,11 @@ constexpr auto finalise(Source& source, Target& target, Key const& key, Keys con
         if constexpr (ConsumeKey)
         {
             using FinalInterface = Key::template Interface<WithEnv>;
-            return makeAlias(detail::downCast<FinalInterface>(target), keys...);
+            return makeAlias(detail::downCast<FinalInterface>(detail::permittedView<Source>(target)), keys...);
         }
         else
         {
-            return makeAlias(detail::downCast<WithEnv>(target), key, keys...);
+            return makeAlias(detail::downCast<WithEnv>(detail::permittedView<Source>(target)), key, keys...);
         }
     }
 }

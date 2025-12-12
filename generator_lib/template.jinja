@@ -1,6 +1,32 @@
 {% for namespace in repr.namespaces %}
 
 namespace {{ namespace.name }} {
+{% for policy in namespace.policies %}
+
+{{ export }}struct {{ policy.name }}
+{
+    {% for classification in policy.groups %}
+    struct {{ classification.name }};
+    {% endfor %}
+};
+{% endfor %}
+{% for policy in namespace.policies %}
+{% for classification in policy.groups %}
+
+struct {{ policy.name }}::{{ classification.name }} : arc::Group
+{
+    using arc::Group::connectionsTo;
+    using arc::Group::connectionsFrom;
+
+    {% for toName, write in classification.connectionsTo %}
+    static auto connectionsTo({{ toName }} const*) -> {{ "arc::GroupWriteAccess" if write else "void" }};
+    {% endfor %}
+    {% for fromName, write in classification.connectionsFrom %}
+    static auto connectionsFrom({{ fromName }} const*) -> {{ "arc::GroupWriteAccess" if write else "void" }};
+    {% endfor %}
+};
+{% endfor %}
+{% endfor %}
 {% for trait in namespace.traits %}
 
 {{ export }}struct {{ trait.name }} : arc::Trait
