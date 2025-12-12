@@ -16,6 +16,7 @@ add_executable(arc_tests_headers
 add_executable(arc_tests_module
     test_abc_module.cpp
     test_circular_buffer.cpp
+    test_group.cpp
     test_collection.cpp
     test_embedded_modules.cpp
     test_global.cpp
@@ -83,6 +84,7 @@ target_generate_arc_modules(arc_tests_module
         test_domain
         test_repeater
     EMBED
+        test_group.cpp
         test_embedded_modules.cpp
         test_global.cpp
         test_collection.cpp

@@ -1,6 +1,28 @@
 {% for namespace in repr.namespaces %}
 
 namespace {{ namespace.name }} {
+{% for group in namespace.groups %}
+
+{{ export }}struct {{ group.name }}
+{
+    {% for classification in group.classifications.values() %}
+    struct {{ classification.name }};
+    {% endfor %}
+
+    {% for classification in group.classifications.values() %}
+    struct {{ classification.name }} : arc::GroupBase
+    {
+        {% for to in classification.connectionsTo %}
+        static void enableConnectionsTo({{ to }}*);
+        {% endfor %}
+        static void enableConnectionsFrom({{ classification.name }}*);
+        {% for from in classification.connectionsFrom %}
+        static void enableConnectionsFrom({{ from }}*);
+        {% endfor %}
+    };
+    {% endfor %}
+};
+{% endfor %}
 {% for trait in namespace.traits %}
 
 {{ export }}struct {{ trait.name }} : arc::Trait

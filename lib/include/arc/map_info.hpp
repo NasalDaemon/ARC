@@ -7,6 +7,7 @@
 #include "arc/context_fwd.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/global_trait.hpp"
+#include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 

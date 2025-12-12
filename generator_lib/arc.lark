@@ -15,9 +15,11 @@ include: INCLUDE_LOCAL_FILE
 INCLUDE_LOCAL_FILE: "#include \"" /[^\r\n"]+/ "\""
 INCLUDE_GLOBAL_FILE: "#include <" /[^\r\n>]+/ ">"
 
-namespace: "namespace" NAMESPACE "{" (cluster | trait)+ "}"
+namespace: "namespace" NAMESPACE "{" (group | cluster | trait)+ "}"
 
 cluster: [template_params] (CLUSTER | DOMAIN) FQNAME [cluster_annotations] "{" node+ connection_block* "}"
+
+group: "groups" FQNAME "{" NODE_NAME+ connection+ "}"
 
 CLUSTER: "cluster"
 DOMAIN: "domain"

@@ -5,6 +5,7 @@
 #include "arc/context_fwd.hpp"
 #include "arc/detail/concepts.hpp"
 #include "arc/environment.hpp"
+#include "arc/group.hpp"
 #include "arc/macros.hpp"
 #include "arc/key.hpp"
 
@@ -19,6 +20,9 @@ namespace detail {
     template<class Source, class Target>
     consteval auto accessTagsRequiredFromKeys()
     {
+        static_assert(PermissibleNode<Source, Target>,
+            "Cannot finalise connection: source group does not permit connections to target group");
+
         auto sourceRequires = ContextOf<Source>::Info::template requiresKeysToTarget<Source, Target>();
         auto targetRequires = ContextOf<Target>::Info::template requiresKeysToTarget<Source, Target>();
         return std::tuple_cat(sourceRequires, targetRequires);

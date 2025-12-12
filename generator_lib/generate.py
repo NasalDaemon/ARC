@@ -402,7 +402,7 @@ class Cluster:
                 raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' cannot have bi-directional trait")
             if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
                 raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' is using the trait '{left_trait}' "
-                                f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
+                                  f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
             node.is_sink_node = True
             self.sink_traits[left_trait].append((node, get_pos(token)))
 
@@ -786,6 +786,61 @@ class Trait:
         self.has_mutable_requires = next((not method.is_const for method in self.methods if not method.is_const and not method.is_template), False)
 
 
+class Classification:
+    def __init__(self, name: str):
+        self.name: str = name
+        self.connectionsTo: list[str] = []
+        self.connectionsFrom: list[str] = []
+
+
+class Group:
+    def __init__(self, name: str):
+        self.name: str = name
+        self.classifications: dict[str, Classification] = {}
+
+    def walk(self, children):
+        for c in children:
+            current_token = c
+            try:
+                if isinstance(c, Token):
+                    self.classifications[c.value] = Classification(c.value)
+                elif c.data == imported('connection'):
+                    for i in range(0, len(c.children) - 1, 2):
+                        current_token = c.children[i]
+                        lnames, arrow, rnames = (c.children[i], c.children[i+1], c.children[i+2])
+                        pos = get_pos(arrow)
+                        lnodes = [self.classifications[name.value] for name in lnames.children]
+                        rnodes = [self.classifications[name.value] for name in rnames.children]
+
+                        lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
+                        if arrow.data == imported('left_arrow'):
+                            for lnode, rnode in lrnodes:
+                                lnode.connectionsFrom.append(rnode.name)
+                                rnode.connectionsTo.append(lnode.name)
+                        elif arrow.data == imported('right_arrow'):
+                            for lnode, rnode in lrnodes:
+                                lnode.connectionsTo.append(rnode.name)
+                                rnode.connectionsFrom.append(lnode.name)
+                        elif arrow.data == imported('bi_arrow'):
+                            for lnode, rnode in lrnodes:
+                                lnode.connectionsTo.append(rnode.name)
+                                lnode.connectionsFrom.append(rnode.name)
+                                rnode.connectionsTo.append(lnode.name)
+                                rnode.connectionsFrom.append(lnode.name)
+                        else:
+                            raise SyntaxError(f'{pos} Unknown arrow: {arrow.data}')
+                else:
+                    raise SyntaxError(f'{get_pos(c)} Unknown group entity: {c.data}')
+            except SyntaxError:
+                raise
+            except Exception as e:
+                print(f"ERROR: {get_pos(current_token)} raised exception: {e}")
+                raise
+
+        if not self.classifications:
+            raise SyntaxError(f'Group {self.name} has no classifications defined')
+
+
 class Namespace:
     def __init__(self, name: str, repr_: 'Repr'):
         self.name: str = name
@@ -795,11 +850,14 @@ class Namespace:
         self.trait_aliases: list[list[str]] = []
         self.cluster_names: set[str] = set()
         self.clusters: list['Cluster'] = []
+        self.groups: list['Group'] = []
 
     def walk(self, children):
         for c in children:
             if c.data == 'cluster':
                 self.repr.visit_cluster(self.name, c)
+            elif c.data == imported('group'):
+                self.repr.visit_group(self.name, c)
             elif c.data == imported('trait_def'):
                 self.repr.visit_trait_def(self.name, c)
             elif c.data == imported('trait_alias'):
@@ -807,7 +865,7 @@ class Namespace:
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown namespace entity: {c.data}')
 
-    def add_cluster(self, name: str, tree: Tree, is_domain: bool) -> 'Cluster | Domain':
+    def add_cluster(self, name: str, tree: Tree, is_domain: bool) -> Cluster | Domain:
         if name in self.cluster_names:
             raise SyntaxError(f"{get_pos(tree)} cluster by name '{name}' already defined in namespace '{self.name}'")
         self.cluster_names.add(name)
@@ -815,7 +873,12 @@ class Namespace:
         self.clusters.append(cluster)
         return cluster
 
-    def add_trait(self, name: str, tree: Tree) -> 'Trait':
+    def add_group(self, name: str) -> Group:
+        group = Group(name)
+        self.groups.append(group)
+        return group
+
+    def add_trait(self, name: str, tree: Tree) -> Trait:
         if name in self.trait_names:
             raise SyntaxError(f"{get_pos(tree)} trait by name '{name}' already defined in namespace '{self.name}'")
         if not name[0].isupper():
@@ -872,6 +935,8 @@ class Repr:
                 self.get_namespace(name).walk(t.children[1:])
             elif t.data == 'cluster':
                 self.visit_cluster("", t)
+            elif t.data == imported('group'):
+                self.visit_group("", t)
             elif t.data == imported('trait_def'):
                 self.visit_trait_def("", t)
             elif t.data == imported('trait_alias'):
@@ -890,6 +955,11 @@ class Repr:
         if has_template:
             cluster.add_template(tree.children[0])
         cluster.walk(tree.children[(name_index+1):])
+
+    def visit_group(self, source_ns: str, tree: Tree):
+        name, namespace = self.split_namespace(tree, source_ns, tree.children[0].value)
+        group = namespace.add_group(name)
+        group.walk(tree.children[1:])
 
     def visit_trait_def(self, source_ns: str, tree: Tree):
         name, namespace = self.split_namespace(tree, source_ns, tree.children[0].value)
