@@ -2,9 +2,9 @@
 
 import argparse
 from bisect import bisect_right
-import builtins
 from collections import defaultdict
 from functools import cached_property
+from typing import Optional
 import jinja2
 from lark import Lark, Tree, Token, UnexpectedInput
 from lark.visitors import Visitor_Recursive
@@ -15,8 +15,8 @@ from pathlib import Path
 dir_path = Path(__file__).resolve().parent
 
 arg_parser = argparse.ArgumentParser(
-                    prog='ARC generator',
-                    description='Generates cpp source files from ARC DSL called arc')
+    prog='ARC generator',
+    description='Generates cpp source files from ARC DSL')
 
 arg_parser.add_argument('-i', '--input')
 arg_parser.add_argument('-o', '--output')
@@ -196,7 +196,17 @@ class Repeater:
 
 
 class Connection:
-    def __init__(self, to_node: "Node | Repeater", trait: str, to_trait: str | None = None, to_repeater: Repeater | None = None):
+    def __init__(
+        self,
+        pos: str,
+        to_node: "Node | Repeater",
+        trait: str,
+        to_trait: str | None = None,
+        traitblock_id: Optional[int] = None,
+        fanout_id: Optional[int] = None,
+        to_repeater: Repeater | None = None,
+    ):
+        self.pos = pos
         self.to_node: Node | Repeater = to_node
         self.trait: str = trait
         if self.trait in NO_TRAIT:
@@ -204,6 +214,8 @@ class Connection:
             self.to_trait = self.trait
         else:
             self.to_trait: str = to_trait or trait
+        self.traitblock_id = traitblock_id
+        self.fanout_id = fanout_id
         self.to_repeater = to_repeater
 
     @property
@@ -211,7 +223,7 @@ class Connection:
         return self.to_node.context
 
     def copy(self):
-        return Connection(self.to_node, self.trait, self.to_trait, self.to_repeater)
+        return Connection(self.pos, self.to_node, self.trait, self.to_trait, self.traitblock_id, self.fanout_id, self.to_repeater)
 
     def is_renaming(self):
         return self.trait != self.to_trait
@@ -254,7 +266,7 @@ class Node:
     def node_alias(self):
         return f"{self.context}Node_"
 
-    def add_connection(self, pos, is_override: bool, to_node: 'Node', trait: str, *, to_trait: str | None = None):
+    def add_connection(self, pos, traitblock_id: Optional[int], fanout_id: Optional[int], is_override: bool, to_node: 'Node', trait: str, *, to_trait: str | None = None):
         assert self.cluster == to_node.cluster
         if to_node == self:
             raise SyntaxError(f"{pos} cannot connect '{self.name}' to itself")
@@ -281,8 +293,27 @@ class Node:
         if to_node.is_global:
             to_trait = f"arc::Global<{effective_to_trait}>"
         to_node.add_client(pos, self, effective_to_trait)
-        connection = Connection(to_node, trait=trait, to_trait=to_trait)
+        connection = Connection(pos, to_node, trait=trait, to_trait=to_trait, traitblock_id=traitblock_id, fanout_id=fanout_id)
+
+        # Deal with repeated connections to the same trait
         if existing := next((c for c in self.connections if c.trait == connection.trait), None):
+            # Check that this new connection to the same trait is being added in the right place
+            if self.cluster.is_domain and fanout_id is None:
+                raise SyntaxError(f"{pos}: '{self.name}' in domain '{self.cluster.full_name}', repeated connections to trait '{connection.trait}' must be via explicit fanout")
+            if existing.traitblock_id != traitblock_id or existing.fanout_id != fanout_id:
+                error_msg = (
+                    f"{pos}:\nTrait '{connection.trait}' connection from '{self.name}' to '{to_node.name}' in "
+                    f"{self.cluster.cluster_class} '{self.cluster.full_name}' "
+                    f"conflicts with previous connection: {existing.pos}.\n")
+                if existing.fanout_id is not None:
+                    error_msg += "Last connection was an explicit fanout, which cannot be added to in a later connection."
+                elif fanout_id is not None:
+                    error_msg += "Cannot add a fanout to an existing non-fanout connection."
+                else:
+                    error_msg += "Repeated connections must be in the same connection block."
+                raise SyntaxError(error_msg)
+
+            # Add to existing repeater or create a new one
             if existing.to_repeater is None:
                 repeater = Repeater(self.name, connection.trait, len(self.repeaters))
                 repeater.add_connection(existing.copy())
@@ -330,6 +361,10 @@ class Cluster:
         self.dependencies: list[str] = []
         # trait: [(Node, position)] where len(list) > 1 only when trait is NO_TRAIT
         self.sink_traits: dict[str, list[tuple[Node, str]]] = defaultdict(list)
+
+    @property
+    def is_domain(self) -> bool:
+        return False
 
     @property
     def cluster_type(self) -> str:
@@ -403,6 +438,8 @@ class Cluster:
         left_trait: str
         right_trait: str
         bi_trait: bool
+        traitblock_id = 0
+        fanout_id = 0
 
         def make_sink(name: str, token: Tree | Token):
             node = nodes[name]
@@ -454,6 +491,7 @@ class Cluster:
                     is_first = len(nodes) == 2
                     nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first, intermediate_aliases=intermediate_aliases)
                 elif child.data == imported('connection_block'):
+                    traitblock_id += 1
                     for child in child.children:
                         current_token = child
                         if child.data == imported('connection_aliases'):
@@ -482,11 +520,15 @@ class Cluster:
                                 raise SyntaxError(f"{get_pos(child.children[-1])} Trait '{right_trait}' already allocated to sink node "
                                                 f"'{self.sink_traits[right_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[right_trait][0][1]}")
                         elif child.data in (imported('sink_node_implicit'), imported('sink_node_larrow')):
+                            if child.children[0].data == imported('node_names_fanout'):
+                                raise SyntaxError(f"{get_pos(child.children[0])} Sink nodes cannot use explicit fan-out syntax '{{node1, node2}}'")
                             for c in child.children[0].children:
                                 current_token = c
                                 name = self.normalise_name(get_value(c))
                                 make_sink(name, c)
                         elif child.data == imported('sink_node_rarrow'):
+                            if child.children[0].data == imported('node_names_fanout'):
+                                raise SyntaxError(f"{get_pos(child.children[0])} Sink nodes cannot use explicit fan-out syntax '{{node1, node2}}'")
                             for c in child.children[-1].children:
                                 current_token = c
                                 name = self.normalise_name(get_value(c))
@@ -496,52 +538,82 @@ class Cluster:
                             for i in range(0, len(child.children) - 1, 2):
                                 current_token = child.children[i]
                                 lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
-                                is_override = self.validate_arrow(arrow)
-                                pos = get_pos(arrow)
                                 lnodes = [nodes[self.normalise_name(get_value(name))] for name in lnames.children]
                                 rnodes = [nodes[self.normalise_name(get_value(name))] for name in rnames.children]
+                                is_override = self.validate_arrow(arrow)
+                                pos = get_pos(arrow)
+
+                                tid, lfid, rfid = traitblock_id, None, None
+                                if lnames.data == imported('node_names_fanout'):
+                                    fanout_id += 1
+                                    lfid = fanout_id
+                                if rnames.data == imported('node_names_fanout'):
+                                    fanout_id += 1
+                                    rfid = fanout_id
+
+                                def validate_fanout(right_arrow: bool):
+                                    tfid, sfid = (rfid, lfid) if right_arrow else (lfid, rfid)
+                                    if sfid is not None:
+                                        raise SyntaxError(f"{pos} many-to-one connections should not use fan-out syntax {'{node1, node2}'}")
+                                    count = len(rnodes) if right_arrow else len(lnodes)
+                                    if tfid is None:
+                                        if count > 1:
+                                            raise SyntaxError(f"{pos} Inline one-to-many connections must use explicit fan-out syntax {'{node1, node2}'}")
+                                    else:
+                                        if count < 2:
+                                            raise SyntaxError(f"{pos} Explicit fanout connections require multiple target nodes {'{node1, node2}'}")
 
                                 lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
                                 if arrow.data == imported('left_arrow'):
+                                    validate_fanout(right_arrow=False)
                                     for lnode, rnode in lrnodes:
-                                        rnode.add_connection(pos, is_override, lnode, left_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait)
                                 elif arrow.data == imported('right_arrow'):
+                                    validate_fanout(right_arrow=True)
                                     for lnode, rnode in lrnodes:
-                                        lnode.add_connection(pos, is_override, rnode, right_trait)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
                                 elif arrow.data == imported('bi_arrow'):
+                                    validate_fanout(right_arrow=False)
+                                    validate_fanout(right_arrow=True)
                                     for lnode, rnode in lrnodes:
-                                        rnode.add_connection(pos, is_override, lnode, left_trait)
-                                        lnode.add_connection(pos, is_override, rnode, right_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
                                 elif arrow.data == imported('left_arrow_from'):
+                                    validate_fanout(right_arrow=False)
                                     from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
                                     to_trait = left_trait
                                     for lnode, rnode in lrnodes:
-                                        rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('right_arrow_from'):
+                                    validate_fanout(right_arrow=True)
                                     from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
                                     to_trait = right_trait
                                     for lnode, rnode in lrnodes:
-                                        lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('left_arrow_to'):
+                                    validate_fanout(right_arrow=False)
                                     from_trait = left_trait
                                     to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
                                     for lnode, rnode in lrnodes:
-                                        rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('right_arrow_to'):
+                                    validate_fanout(right_arrow=True)
                                     from_trait = right_trait
                                     to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
                                     for lnode, rnode in lrnodes:
-                                        lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('left_arrow_both'):
+                                    validate_fanout(right_arrow=False)
                                     to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
                                     from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
                                     for lnode, rnode in lrnodes:
-                                        rnode.add_connection(pos, is_override, lnode, from_trait, to_trait=to_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('right_arrow_both'):
+                                    validate_fanout(right_arrow=True)
                                     from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
                                     to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
                                     for lnode, rnode in lrnodes:
-                                        lnode.add_connection(pos, is_override, rnode, from_trait, to_trait=to_trait)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, from_trait, to_trait=to_trait)
                                 else:
                                     raise SyntaxError(f'{pos} Unknown arrow: {arrow.data}')
                         else:
@@ -561,7 +633,7 @@ class Cluster:
             for sink_node, pos in sink_nodes:
                 for node in nodes.values():
                     if node.name not in GLOBAL_NODE + (sink_node.name,):
-                        node.add_connection(pos, False, sink_node, trait)
+                        node.add_connection(pos, None, None, False, sink_node, trait)
 
         self.user_nodes = [node for node in nodes.values() if node.name not in PARENT_NODE + GLOBAL_NODE]
         self.aliases = sorted(aliases.items())
@@ -588,6 +660,10 @@ class Domain(Cluster):
         self.overrides_seen = 0
         self.min_extra_chevrons = 2
         self.overrides_per_extra_chevron = 2
+
+    @property
+    def is_domain(self) -> bool:
+        return True
 
     @property
     def cluster_type(self) -> str:
@@ -823,11 +899,11 @@ class Policy:
                     alias = get_value(c.children[0])
                     group_type = reconstructor.reconstruct(c.children[1])
                     if alias in aliases:
-                        if aliases.get(alias) != group_type:
-                            raise SyntaxError(f"{get_pos(c)} Alias '{alias}' changed from {aliases.get(alias)} to {group_type}")
+                        if aliases[alias] != group_type:
+                            raise SyntaxError(f"{get_pos(c)} Alias '{alias}' changed from {aliases[alias]} to {group_type}")
                     else:
                         aliases[alias] = group_type
-                elif c.data == imported('group_connection') or c.data == imported('connection'):
+                elif c.data == imported('group_connection'):
                     for i in range(0, len(c.children) - 1, 2):
                         current_token = c.children[i]
                         lnames, arrow, rnames = (c.children[i], c.children[i+1], c.children[i+2])
@@ -892,11 +968,11 @@ class Namespace:
         self.name: str = name
         self.repr: 'Repr' = repr_
         self.trait_names: set[str] = set()
-        self.traits: list['Trait'] = []
+        self.traits: list[Trait] = []
         self.trait_aliases: list[list[str]] = []
         self.cluster_names: set[str] = set()
-        self.clusters: list['Cluster'] = []
-        self.policies: list['Policy'] = []
+        self.clusters: list[Cluster] = []
+        self.policies: list[Policy] = []
 
     def walk(self, children):
         for c in children:

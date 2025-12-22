@@ -142,7 +142,7 @@ cluster Cluster
 
     // Explicitly redirect sessions to the global logger so it can be resolved like a normal dependency (optional)
     [trait::Logger]
-    sessions --> ^
+    sessions --> @global
 }
 
 }
@@ -293,7 +293,7 @@ export struct Sessions
     template<class Context>
     struct Node : arc::Node
     {
-        // Since `sessions` is explicitly redirected to the global node `^` in the graph,
+        // Since `sessions` is explicitly redirected to the global node `@global` in the graph,
         // we can simply depend on `trait::Logger` instead of `arc::Global<trait::Logger>`
         using Depends = arc::Depends<trait::AuthService, trait::Logger>;
 

@@ -84,10 +84,10 @@ domain ShopDomain
     using delReq = trait::DeliveryRequest,  delRes = trait::DeliveryResponse
     using orderReq = trait::OrderRequest,   orderRes = trait::OrderResponse
 
-    [res      <-> req]      .. <-> Api
-    [custRes  <-> custReq]         Api <-> CUSTOMER
-    [delRes   <-> delReq]          Api <-> DELIVERY
-    [orderRes <-> orderReq]        Api <-> ORDER
+    [res      <-> req]      @parent <-> Api
+    [custRes  <-> custReq]              Api <-> CUSTOMER
+    [delRes   <-> delReq]               Api <-> DELIVERY
+    [orderRes <-> orderReq]             Api <-> ORDER
 
     // Order may be cancelled due to customer request, compliance or delivery problems
     [trait::OrderCancel]
@@ -102,10 +102,10 @@ domain CustomerDomain
 
     using res = trait::CustomerResponse, req = trait::CustomerRequest
     [res <-> req]
-    .. <-> gw
+    @parent <-> gw
 
     [trait::OrderCancel]
-    .. <-- gw
+    @parent <-- gw
 
     [trait::CustomerRegulations]
     gw --> Regs

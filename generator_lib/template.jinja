@@ -194,20 +194,28 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
 {% endif %}
 {
     using Depends = arc::Depends<{{ cluster.dependencies | join(", ") }}>;
-
     {% if 1 == cluster.nodes | length %}
+
     static constexpr bool isUnary()
     {
         return decltype({{ cluster.nodes.0.name }})::isUnary();
     }
-
     {% endif %}
     {% if cluster.root_name %}
+
     using {{ cluster.root_name }} = arc::ResolveRoot<{{ cluster.context_name }}>;
     {% endif %}
     {% if cluster.info_name %}
+
     using {{ cluster.info_name }} = arc::ResolveInfo<{{ cluster.context_name }}>;
     {% endif %}
+    {% if cluster.aliases %}
+
+    {% for alias, type in cluster.aliases %}
+    using {{ alias }} = {{ type }};
+    {% endfor %}
+    {% endif %}
+
     {% for node in cluster.nodes %}
     struct {{ node.context }};
     {% for alias, target in node.intermediate_aliases %}
@@ -215,12 +223,6 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
     {% endfor %}
     using {{ node.node_alias }} = {{ node.impl }};
     {% endfor %}
-    {% if cluster.aliases %}
-
-    {% for alias, type in cluster.aliases %}
-    using {{ alias }} = {{ type }};
-    {% endfor %}
-    {% endif %}
     {% if cluster.parent_node.connections %}
 
     {% for connection in cluster.parent_node.connections %}

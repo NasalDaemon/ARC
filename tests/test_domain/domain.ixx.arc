@@ -17,6 +17,16 @@ trait trait::Unary
     get()
 }
 
+trait trait::Unary2
+{
+    get()
+}
+
+trait trait::Unary3
+{
+    get()
+}
+
 domain Domain [R = Root]
 {
     nexus = R::Nexus
@@ -39,7 +49,11 @@ domain Domain [R = Root]
     [trait::Unary]
     nexus --> unary1
     nexus <-- unary1
+
+    [trait::Unary2]
     unary1 <<<--->>> unary2
+
+    [trait::Unary3]
     unary1 <<<--->>> unary2
     // unary1 <<<--->>> unary2
 

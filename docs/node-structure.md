@@ -171,11 +171,11 @@ cluster Dinner
    using g = trait::Guest
    using a = trait::Apple, b = trait::Banana, o = trait::Orange, t = trait::Tangerine
 
-   [g] .. --> guest
-   [a]        guest --> fruit
-   [b]        guest --> fruit
-   [o]        guest --> fruit
-   [t]        guest --> fruit
+   [g] @parent --> guest
+   [a]             guest --> fruit
+   [b]             guest --> fruit
+   [o]             guest --> fruit
+   [t]             guest --> fruit
 }
 
 trait Guest
@@ -195,7 +195,7 @@ trait Banana
 
 trait Orange [Types]
 {
-   requires typename Types::Orange
+   type Orange
    take() -> Types::Orange
 }
 

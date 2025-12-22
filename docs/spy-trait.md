@@ -337,7 +337,8 @@ struct TestingSpy : arc::Node
 
 ### Spy Composition
 
-Combine multiple spy behaviors using inheritance or aggregation:
+#### 1. Internal Composition
+Combine multiple spy behaviors within a single node using inheritance or aggregation:
 
 ```cpp
 struct CompositeSpy : arc::Node
@@ -348,8 +349,7 @@ struct CompositeSpy : arc::Node
     decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
     {
         // Layer 1: Logging
-        if (enableLogging)
-            logger.log(method);
+        logger.log(method);
 
         // Layer 2: Timing
         auto timer = profiler.startTiming(method);
@@ -362,10 +362,46 @@ struct CompositeSpy : arc::Node
         return impl_fn(std::forward<Args>(args)...);
     }
 
-    bool enableLogging = true;
     Logger logger;
     Profiler profiler;
     Validator validator;
+};
+```
+
+#### 2. Cluster-Based Composition (Daisy-Chaining)
+You can compose independent spy nodes by daisy-chaining them in a global cluster. This allows you to separate concerns into different nodes and combine them at the graph level.
+
+```cpp
+cluster GlobalSpies
+{
+    logger = LoggerSpy
+    profiler = ProfilingSpy
+
+    // Daisy-chain: calls go through logger, then profiler, then implementation
+    [arc::trait::Spy]
+    .. --> logger --> profiler
+}
+```
+
+Each spy in the chain should check if there is a next spy to call using `arc::CanResolve`:
+
+```cpp
+struct LoggerSpy : arc::Node
+{
+    using Traits = arc::Traits<LoggerSpy, arc::trait::Spy>;
+    using Depends = arc::Depends<arc::trait::Spy*>; // Optional dependency
+
+    template<class Method, class... Args>
+    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
+    {
+        std::println("Logging: {}", arc::typeName<Method>);
+
+        // Pass to next spy in chain if it exists, otherwise call implementation
+        if constexpr (arc::CanResolve<LoggerSpy, arc::trait::Spy>)
+            return getNode(arc::trait::spy).intercept(method, impl_fn, std::forward<Args>(args)...);
+        else
+            return impl_fn(std::forward<Args>(args)...);
+    }
 };
 ```
 
@@ -381,11 +417,9 @@ struct ConditionalSpy : arc::Node
     template<class Method, class... Args>
     decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
     {
-        if (!enabled)
-            return impl_fn(std::forward<Args>(args)...);
-
         // Spy logic only when enabled
-        recordCall<Method>();
+        if (enabled)
+            recordCall<Method>();
         return impl_fn(std::forward<Args>(args)...);
     }
 

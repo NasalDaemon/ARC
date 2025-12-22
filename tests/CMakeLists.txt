@@ -75,8 +75,7 @@ endif()
 
 target_generate_arc_headers(arc_tests_headers
     EMBED
-        test_embedded_headers.cpp
-        arc/tests/test_embedded_headers.hxx
+        test_embedded_headers.cpp    arc/tests/test_embedded_headers.hxx
 )
 
 target_generate_arc_modules(arc_tests_module

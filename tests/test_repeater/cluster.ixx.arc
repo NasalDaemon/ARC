@@ -12,7 +12,7 @@ cluster Cluster
     c = TestNode
 
     [trait::Trait]
-    .., a --> b, c
+    .., a --> {b, c}
 }
 
 }
