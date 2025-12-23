@@ -46,7 +46,7 @@ namespace detail {
     ARC_INLINE constexpr auto& permittedView(Target& target)
     {
         static_assert(IsReadPermittedNode<Source, Target>,
-            "Cannot finalise connection: source group does not permit connections to target group");
+            "Cannot finalise connection: source group has no permission to connect to target group");
 
         if constexpr (IsWritePermittedNode<Source, Target>)
             return target;

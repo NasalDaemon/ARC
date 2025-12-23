@@ -294,13 +294,12 @@ struct Collection<NodeHandle, ID>::Node<Context>::AsTrait : Node
     }
 
     template<class T>
-    constexpr auto finalise(this auto&, auto&, key::Element<T> const&, auto const&...)
+    static constexpr auto finalise(auto&, key::Element<T> const&, auto const&...)
     {
-        static_assert(std::is_same_v<T, ID>, "T is not ID or Handle type");
+        static_assert(std::is_same_v<T, ID> or std::is_same_v<T, Handle>, "T is not ID or Handle type");
     }
 
-    template<class Self>
-    ARC_INLINE constexpr auto finalise(this Self& self, auto& source, auto const& key, auto const&... keys)
+    ARC_INLINE constexpr auto finalise(this auto& self, auto& source, auto const& key, auto const&... keys)
     {
         // Don't consume the key, as we need to consume it for each element
         return arc::finalise<false>(source, self, key, keys...);
@@ -317,7 +316,7 @@ struct Collection<NodeHandle, ID>::Node<Context>::AsTrait : Node
                     [&](auto const&... ks)
                     {
                         auto target = el.node.asTrait(detail::AsRef{}, Trait{});
-                        target.ptr->finalise(self, ks...)->impl(ARC_FWD(args)...);
+                        target.ptr->finalise(self, ks...)->impl(args...);
                     },
                     keys);
             }

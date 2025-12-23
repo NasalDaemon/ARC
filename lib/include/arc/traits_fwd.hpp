@@ -30,11 +30,17 @@ concept IsResolvedTrait = requires
 
 namespace detail {
 
+    template<class Node>
+    concept HasNodeTraits = requires {
+        typename Node::Traits;
+    };
+
     template<class Node_>
     struct TraitNodeInterface
     {
         using Node = Node_;
         using DefaultInterface = Node_;
+        static_assert(HasNodeTraits<Node>, "Node passed to Traits has no Traits defined");
     };
 
     template<class Node_, class Interface_>
@@ -42,10 +48,13 @@ namespace detail {
     {
         using Node = Node_;
         using DefaultInterface = Interface_;
+        static_assert(HasNodeTraits<Node>, "Node passed to Traits has no Traits defined");
     };
 
     template<class TraitsT, class Trait>
-    concept TraitsHasTrait = IsTrait<Trait> and requires (Trait trait) { { TraitsT::resolveTrait(trait) } -> IsResolvedTrait; };
+    concept TraitsHasTrait = IsTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) {
+        { TraitsT::resolveTrait(trait, linkExact) } -> IsResolvedTrait;
+    };
 
     template<class Trait>
     struct TraitsHasTraitPred

@@ -3,10 +3,12 @@
 
 #include "arc/detached.hpp"
 #include "arc/macros.hpp"
+#include "arc/link.hpp"
 #include "arc/traits_fwd.hpp"
 
 #if !ARC_IMPORT_STD
 #include <type_traits>
+#include <utility>
 #endif
 
 namespace arc::detail {
@@ -24,41 +26,37 @@ namespace arc::detail {
     struct TraitResolver
     {
         // Exact match is highest priority
-        template<ExactlyMatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<typename NodeInterface::DefaultInterface, typename NodeInterface::Node::Types>;
+        static auto resolveTrait(Trait, LinkExact<Trait>) -> ResolvedTrait<typename NodeInterface::DefaultInterface, typename NodeInterface::Node::Types>;
 
         template<MatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<typename NodeInterface::DefaultInterface, typename NodeInterface::Node::Types>;
+        static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<typename NodeInterface::DefaultInterface, typename NodeInterface::Node::Types>;
     };
 
     template<class NodeInterface, class Trait, class Interface>
     struct TraitResolver<NodeInterface, Trait(Interface)>
     {
-        template<ExactlyMatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<Interface, typename NodeInterface::Node::Types>;
+        static auto resolveTrait(Trait, LinkExact<Trait>) -> ResolvedTrait<Interface, typename NodeInterface::Node::Types>;
 
         template<MatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<Interface, typename NodeInterface::Node::Types>;
+        static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<Interface, typename NodeInterface::Node::Types>;
     };
 
     template<class NodeInterface, class Trait, class Interface, class Types>
     struct TraitResolver<NodeInterface, Trait(Interface, Types)>
     {
-        template<ExactlyMatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<Interface, Types>;
+        static auto resolveTrait(Trait, LinkExact<Trait>) -> ResolvedTrait<Interface, Types>;
 
         template<MatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<Interface, Types>;
+        static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<Interface, Types>;
     };
 
     template<class NodeInterface, class Types, class Trait>
     struct TraitResolver<NodeInterface, Trait*(Types)>
     {
-        template<ExactlyMatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<typename NodeInterface::DefaultInterface, Types>;
+        static auto resolveTrait(Trait, LinkExact<Trait>) -> ResolvedTrait<typename NodeInterface::DefaultInterface, Types>;
 
         template<MatchesTrait<Trait> T>
-        static auto resolveTrait(T) -> ResolvedTrait<typename NodeInterface::DefaultInterface, Types>;
+        static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<typename NodeInterface::DefaultInterface, Types>;
     };
 
     template<class Node_, template<class> class GetContext_, class DefaultResolver, class... TraitTs>
@@ -83,7 +81,7 @@ namespace arc::detail {
     private:
         template<class Trait>
         requires TraitsHasTrait<Traits, Trait>
-        using Resolve = decltype(Traits::resolveTrait(std::declval<Trait>()));
+        using Resolve = decltype(Traits::resolveTrait(std::declval<Trait>(), std::declval<LinkExact<Trait>>()));
 
     public:
         template<class Trait>
@@ -96,20 +94,20 @@ namespace arc::detail {
     struct TraitsDefault
     {
         template<class UnmappedTrait>
-        static ResolvedTrait<void, void> resolveTrait(UnmappedTrait) = delete;
+        static ResolvedTrait<void, void> resolveTrait(UnmappedTrait, LinkPriorityMin) = delete;
     };
 
     template<class NodeInterface>
     struct TraitsOpenDefault
     {
-        static auto resolveTrait(auto) -> ResolvedTrait<typename NodeInterface::DefaultInterface, typename NodeInterface::Node::Types>;
+        static auto resolveTrait(auto, LinkPriorityMin) -> ResolvedTrait<typename NodeInterface::DefaultInterface, typename NodeInterface::Node::Types>;
     };
 
     template<template<class> class TraitTemplate>
     struct TraitsTemplateDefault
     {
         template<class Trait>
-        static TraitTemplate<Trait> resolveTrait(Trait);
+        static TraitTemplate<Trait> resolveTrait(Trait, LinkPriorityMin);
     };
 
 

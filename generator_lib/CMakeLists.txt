@@ -30,7 +30,7 @@ add_custom_command(
 add_custom_command(
     OUTPUT "${ARC_GENERATOR_VENV}.stamp"
     DEPENDS "${ARC_GENERATOR_PYTHON}" "${ARC_GENERATOR_DIR}/requirements.txt"
-    COMMAND ${ARC_GENERATOR_PYTHON} -m pip install -r "${ARC_GENERATOR_DIR}/requirements.txt" --upgrade
+    COMMAND ${ARC_GENERATOR_PYTHON} -m pip install -r "${ARC_GENERATOR_DIR}/requirements.txt"
     COMMAND ${CMAKE_COMMAND} -E touch "${ARC_GENERATOR_VENV}.stamp"
     COMMENT "arc_generator: Installing dependencies"
 )

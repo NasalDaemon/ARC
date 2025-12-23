@@ -177,9 +177,9 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<IsNodeHandle Node, IsSingleGroup... Group>
-requires (sizeof...(Group) > 0)
-struct InGroup : MapInfo<Node, detail::InGroup<Group...>> {};
+template<IsNodeHandle Node, IsSingleGroup... Groups>
+requires (sizeof...(Groups) > 0)
+struct InGroup : MapInfo<Node, detail::InGroup<Groups...>> {};
 
 } // namespace arc
 

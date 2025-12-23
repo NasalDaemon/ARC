@@ -39,7 +39,6 @@ struct DetachedImpl : Interface, private Node
     static_assert(IsStateless<Interface>);
 
     ARC_NODE_USE_PUBLIC_MEMBERS(Node)
-    using Types = Node::Types;
     using Node::finalise;
 
     // Use impl from the detached interface

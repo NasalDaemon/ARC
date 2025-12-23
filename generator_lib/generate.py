@@ -61,13 +61,13 @@ with open(input_file, 'r') as file:
         end = 'arc-embed-end'
         while True:
             begin_pos = text.find(begin)
+            if begin_pos == -1:
+                assert sections, f"'{begin}' not found in {input_path}"
+                break
             outer_line_count += text[:begin_pos].count("\n")
             if (npos := text.rfind("\n", 0, begin_pos)) != -1:
                 outer_col_count = begin_pos - npos
             section_lines.append((inner_line_count, outer_line_count, outer_col_count))
-            if begin_pos == -1:
-                assert sections, f"'{begin}' not found in {input_path}"
-                break
             begin_pos += len(begin)
             end_pos = text.find(end, begin_pos)
             assert end_pos != -1, f"matching '{end}' not found in {input_path}"
@@ -117,7 +117,7 @@ def get_value(t: Tree | Token) -> str:
         return t.value
     elif isinstance(t, Tree):
         assert len(t.children) == 1, f"Expected Tree with single child, got {len(t.children)} children"
-        return t.children[0].value
+        return get_value(t.children[0])
     else:
         raise TypeError(f"Expected Tree or Token, got {type(t)}")
 
@@ -551,9 +551,9 @@ class Cluster:
                                     fanout_id += 1
                                     rfid = fanout_id
 
-                                def validate_fanout(right_arrow: bool):
+                                def validate_fanout(right_arrow: bool, double_headed: bool = False):
                                     tfid, sfid = (rfid, lfid) if right_arrow else (lfid, rfid)
-                                    if sfid is not None:
+                                    if sfid is not None and not double_headed:
                                         raise SyntaxError(f"{pos} many-to-one connections should not use fan-out syntax {'{node1, node2}'}")
                                     count = len(rnodes) if right_arrow else len(lnodes)
                                     if tfid is None:
@@ -573,8 +573,8 @@ class Cluster:
                                     for lnode, rnode in lrnodes:
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
                                 elif arrow.data == imported('bi_arrow'):
-                                    validate_fanout(right_arrow=False)
-                                    validate_fanout(right_arrow=True)
+                                    validate_fanout(right_arrow=False, double_headed=True)
+                                    validate_fanout(right_arrow=True, double_headed=True)
                                     for lnode, rnode in lrnodes:
                                         rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait)
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)

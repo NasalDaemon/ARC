@@ -233,6 +233,8 @@ namespace detail {
             counting = params.counting;
             loggingAllCalls = params.logAllCalls;
             callLog.set_max_size(params.logBufferMaxSize);
+            if (loggingAllCalls)
+                callLog.reserve();
         }
 
         std::size_t totalCallCount() const

@@ -65,7 +65,7 @@ namespace detail {
             };
 
             template<class T>
-            static auto resolveLink(T) -> ResolvedLink<MainContext, T>;
+            static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<MainContext, T>;
 
             [[no_unique_address]] GlobalHost<GlobalNodeHandle, Root>::Member global{};
             ARC_NODE(MainContext, main)

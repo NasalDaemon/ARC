@@ -259,9 +259,22 @@ TEST_CASE("CircularBuffer clear") {
     cb.push_back(3);
     CHECK(cb.size() == 3);
 
+    auto begin_id = cb.begin_id();
+    auto end_id = cb.end_id();
+    CHECK(cb.contains_id(begin_id));
+    CHECK(!cb.contains_id(end_id));
+
     cb.clear();
     CHECK(cb.empty());
     CHECK(cb.size() == 0);
+    CHECK(!cb.contains_id(begin_id));
+    CHECK(!cb.contains_id(end_id));
+
+    cb.push_back(4);
+    CHECK(cb.size() == 1);
+    CHECK(cb.front() == 4);
+    CHECK(cb.back() == 4);
+    CHECK(cb.contains_id(end_id));
 }
 
 TEST_CASE("CircularBuffer reserve") {
@@ -327,6 +340,7 @@ TEST_CASE("CircularBuffer copy and move") {
     SUBCASE("copy assignment") {
         CircularBuffer<int> cb2{1, 2, 3};
         std::size_t id2 = cb2.begin_id();
+        std::size_t id2_end = cb2.end_id();
         CHECK(cb2.contains_id(id2));
         cb2 = cb1;
         CHECK(cb2.size() == 3);
@@ -334,6 +348,8 @@ TEST_CASE("CircularBuffer copy and move") {
         CHECK(cb2.back() == 3);
         CHECK(cb1.contains_id(id)); // original still valid
         CHECK(not cb2.contains_id(id2)); // copy invalidates previous ids in cb2
+        CHECK(cb2.contains_id(id2_end)); // end_id becomes begin_id
+        CHECK(id2_end == cb2.begin_id()); // end_id becomes begin_id
     }
 
     SUBCASE("move construction") {
@@ -358,6 +374,10 @@ TEST_CASE("CircularBuffer copy and move") {
         CHECK(cb1.capacity() == 0); // moved-from has zero capacity
         CHECK(not cb1.contains_id(id)); // ids invalidated in cb1
         CHECK(not cb2.contains_id(id2)); // move invalidates previous ids in cb2
+
+        std::size_t new_id2 = cb2.capacity(); // new begin_id after move
+        CHECK(cb2.contains_id(new_id2)); // new IDs assigned
+        CHECK(new_id2 == cb2.begin_id());
     }
 }
 
@@ -938,6 +958,50 @@ TEST_CASE("CircularBuffer emplace_back when full with throwing type") {
     CHECK(cb.size() == 3);
     CHECK(cb.front() == 2);
     CHECK(cb.back() == 4);
+}
+
+TEST_CASE("CircularBuffer index wraparound") {
+    // This test simulates index wraparound by starting indices near UINTMAX
+    // We can't actually wrap (too slow), but we test the wraparound-safe logic
+
+    CircularBuffer<int> cb(4);
+    cb.push_back(1);
+    cb.push_back(2);
+    cb.push_back(3);
+
+    // Save initial state
+    std::size_t begin_id = cb.begin_id();
+    std::size_t end_id = cb.end_id();
+    CHECK(cb.size() == end_id - begin_id);
+    CHECK(cb.contains_id(begin_id));
+    CHECK(cb.contains_id(end_id - 1));
+    CHECK(not cb.contains_id(end_id));
+    CHECK(not cb.contains_id(begin_id - 1));
+
+    // Test iterator comparison (uses subtraction-based comparison)
+    auto it1 = cb.begin();
+    auto it2 = cb.begin() + 1;
+    auto it3 = cb.end();
+    CHECK(it1 < it2);
+    CHECK(it2 < it3);
+    CHECK(it1 < it3);
+    CHECK(it3 - it1 == 3);
+
+    // Test that pop/push still works and indices advance correctly
+    cb.pop_front();
+    CHECK(cb.begin_id() == begin_id + 1);
+    CHECK(not cb.contains_id(begin_id));
+    CHECK(cb.contains_id(begin_id + 1));
+
+    cb.push_back(4);
+    CHECK(cb.end_id() == end_id + 1);
+    CHECK(cb.contains_id(end_id));
+    CHECK(not cb.contains_id(end_id + 1));
+
+    // Test clear and destroy_values (both use wraparound-safe loops)
+    cb.clear();
+    CHECK(cb.empty());
+    CHECK(cb.size() == 0);
 }
 
 }

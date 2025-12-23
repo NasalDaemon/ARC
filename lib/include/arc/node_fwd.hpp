@@ -17,6 +17,7 @@
     using Traits = Node::Traits; \
     using Depends = Node::Depends; \
     using Environment = Node::Environment; \
+    using Types = Node::Types; \
     using Node::assertNodeContext; \
     using Node::isUnary; \
     using Node::getNode; \
@@ -55,8 +56,8 @@ struct WrappedImpl : Interface
     using Interface::Interface;
 
     template<class F>
-    explicit constexpr WrappedImpl(Emplace<F> const& f)
-        : Interface(f)
+    explicit constexpr WrappedImpl(Emplace<F>&& f)
+        : Interface(std::move(f))
     {}
 
     using Traits = WrapNode<typename Interface::Traits::Node>::template Traits<Context>;
@@ -92,6 +93,7 @@ namespace detail {
 
     template<IsNode T>
     auto nodeState() -> NodeState<T>;
+    // Clusters should not be wrapped like Nodes, so member nodes stay public
     template<class T>
     auto nodeState() -> T;
 

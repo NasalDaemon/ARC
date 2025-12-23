@@ -68,13 +68,13 @@ namespace detail {
             struct Main_ : arc::Context<Node, Main>
             {
                 template<class Trait>
-                static ResolvedLink<OutVirtual_, Trait> resolveLink(Trait);
+                static ResolvedLink<OutVirtual_, Trait> resolveLink(Trait, LinkPriorityMin);
             };
 
             struct InFacade_ : arc::Context<Node, InFacade>
             {
                 template<class Trait>
-                static ResolvedLink<Main_, Trait> resolveLink(Trait);
+                static ResolvedLink<Main_, Trait> resolveLink(Trait, LinkPriorityMin);
             };
 
             struct OutVirtual_ : arc::Context<Node, arc::Virtual<OutInterfaces...>>

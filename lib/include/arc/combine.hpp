@@ -28,7 +28,7 @@ namespace detail {
 
             template<class T>
             requires detail::HasLink<ParentContext, T>
-            static auto resolveLink(T) -> ResolvedLink<ParentContext, T>;
+            static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<ParentContext, T>;
         };
 
         [[no_unique_address]] ContextToNodeState<Context> node{};
@@ -54,7 +54,7 @@ struct Combine
         }
 
         template<IsTrait Trait>
-        static auto resolveLink(Trait)
+        static auto resolveLink(Trait, LinkPriorityMin)
             -> ResolvedLink<
                 detail::SelectIf<
                     ContextHasTraitPred<Trait>,

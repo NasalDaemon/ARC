@@ -108,14 +108,14 @@ struct Root
 TEST_CASE("arc::InGroup")
 {
     arc::Graph<Inner, Root> graph{
-        .nodeHigh{ARC_EMPLACE(.i = 1)},
-        .nodeMid{ARC_EMPLACE(.i = 2)},
-        .nodeLow{ARC_EMPLACE(.i = 3)},
-        .node{ARC_EMPLACE(.i = 4)},
-        .nodeHighLow{ARC_EMPLACE(.i = 5)},
-        .nodeMidLow{ARC_EMPLACE(.i = 6)},
-        .nodeHighMidLow{ARC_EMPLACE(.i = 7)},
-        .nodeOtherA{ARC_EMPLACE(.i = 8)},
+        .nodeHigh{ARC_EMPLACE({.i = 1})},
+        .nodeMid{ARC_EMPLACE({.i = 2})},
+        .nodeLow{ARC_EMPLACE({.i = 3})},
+        .node{ARC_EMPLACE({.i = 4})},
+        .nodeHighLow{ARC_EMPLACE({.i = 5})},
+        .nodeMidLow{ARC_EMPLACE({.i = 6})},
+        .nodeHighMidLow{ARC_EMPLACE({.i = 7})},
+        .nodeOtherA{ARC_EMPLACE({.i = 8})},
     };
 
     // Default group can access all nodes in its own policy, but NOT nodes in Other policy
@@ -266,20 +266,20 @@ TEST_CASE("arc::InGroup nested")
 {
     arc::Graph<Outer, Root> graph{
         .inner{
-            .nodeHigh{ARC_EMPLACE(.i = 1)},
-            .nodeMid{ARC_EMPLACE(.i = 2)},
-            .nodeLow{ARC_EMPLACE(.i = 3)},
-            .node{ARC_EMPLACE(.i = 4)},
-            .nodeHighLow{ARC_EMPLACE(.i = 5)},
-            .nodeMidLow{ARC_EMPLACE(.i = 6)},
-            .nodeHighMidLow{ARC_EMPLACE(.i = 7)},
+            .nodeHigh{ARC_EMPLACE({.i = 1})},
+            .nodeMid{ARC_EMPLACE({.i = 2})},
+            .nodeLow{ARC_EMPLACE({.i = 3})},
+            .node{ARC_EMPLACE({.i = 4})},
+            .nodeHighLow{ARC_EMPLACE({.i = 5})},
+            .nodeMidLow{ARC_EMPLACE({.i = 6})},
+            .nodeHighMidLow{ARC_EMPLACE({.i = 7})},
         },
-        .nodeHigh{ARC_EMPLACE(.i = 8)},
-        .nodeMid{ARC_EMPLACE(.i = 9)},
-        .nodeLow{ARC_EMPLACE(.i = 10)},
-        .node{ARC_EMPLACE(.i = 11)},
-        .nodeHighLow{ARC_EMPLACE(.i = 12)},
-        .nodeMidLow{ARC_EMPLACE(.i = 13)},
+        .nodeHigh{ARC_EMPLACE({.i = 8})},
+        .nodeMid{ARC_EMPLACE({.i = 9})},
+        .nodeLow{ARC_EMPLACE({.i = 10})},
+        .node{ARC_EMPLACE({.i = 11})},
+        .nodeHighLow{ARC_EMPLACE({.i = 12})},
+        .nodeMidLow{ARC_EMPLACE({.i = 13})},
     };
 
     // Default group can access all

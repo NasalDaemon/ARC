@@ -47,7 +47,7 @@ policy SafetyClass
 - Different-group connections require explicit arrows
 - **Connections are NOT transitive**: `A -> B` and `B -> C` does not imply `A -> C`
 - Nodes without a group use the **default group** (`@nogroup` or `~`)
-- Without explicit `@nogroup` rules, unclassified nodes only connect to each other
+- Without explicit `@nogroup` rules, unclassified nodes can only connect to each other
 
 ### Multiple Group Membership
 
@@ -268,15 +268,8 @@ cluster MyCluster
 Violations produce clear compile-time errors:
 
 ```
-error: static assertion failed: Cannot finalise connection: source group does not permit connections to target group
+error: static assertion failed: Cannot finalise connection: source group has no permission to connect to target group
 ```
-
-## Limitations
-
-- Policies are structural only (no cryptographic guarantees)
-- Runtime validation must be added separately if needed
-- Permissions are binary (allowed/denied); no capability-based security
-- Group membership is static (nodes cannot change groups at runtime)
 
 ## Summary
 

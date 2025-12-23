@@ -130,6 +130,7 @@ template<IsNode NodeT>
 struct WrapNode
 {
     template<class Context>
+    requires std::same_as<NodeT, typename NodeT::Traits::Node>
     using Node = WrappedImpl<NodeT, Context>;
 
     template<class Context>
@@ -158,11 +159,13 @@ namespace detail {
     template<IsNode Node>
     struct NodeState : private Node
     {
+        static_assert(IsWrappedImpl<Node> or std::is_same_v<typename Node::Traits::Node, Node>);
+
         using Node::Node;
 
         template<class F>
-        explicit constexpr NodeState(Emplace<F> const& f)
-            : Node(f)
+        explicit constexpr NodeState(Emplace<F>&& f)
+            : Node(std::move(f))
         {}
 
         ARC_NODE_USE_PUBLIC_MEMBERS(Node)

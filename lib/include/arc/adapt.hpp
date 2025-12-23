@@ -27,7 +27,7 @@ struct Adapt
         struct Target_;
 
         template<IsTrait T>
-        static ResolvedLink<Facade_, T> resolveLink(T);
+        static ResolvedLink<Facade_, T> resolveLink(T, LinkPriorityMin);
 
         constexpr auto* asInterface(this auto& self) { return std::addressof(self.facade); }
 
@@ -36,7 +36,7 @@ struct Adapt
             static constexpr std::size_t Depth = Context::Depth;
 
             template<class Trait>
-            static ResolvedLink<Target_, Trait> resolveLink(Trait);
+            static ResolvedLink<Target_, Trait> resolveLink(Trait, LinkPriorityMin);
 
             static Facade_ isVirtualContext(detail::IsVirtualContextTag);
 
@@ -56,7 +56,7 @@ struct Adapt
 
             template<class Trait>
             requires detail::HasLink<Context, Trait>
-            static ResolvedLink<Context, Trait> resolveLink(Trait);
+            static ResolvedLink<Context, Trait> resolveLink(Trait, LinkPriorityMin);
         };
 
         ARC_NODE(Target_, target)

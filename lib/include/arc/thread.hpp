@@ -317,7 +317,7 @@ struct OnDynThread
 
             template<class T>
             requires detail::HasLink<Context, T>
-            static auto resolveLink(T) -> ResolvedLink<Context, T>;
+            static auto resolveLink(T, arc::LinkPriorityMin) -> ResolvedLink<Context, T>;
 
             struct Info : Context::Info
             {
@@ -398,7 +398,7 @@ struct OnDynThread
 
         template<class T>
         requires HasTrait<decltype(node), T>
-        static auto resolveLink(T) -> ResolvedLink<Inner, T>;
+        static auto resolveLink(T, arc::LinkPriorityMin) -> ResolvedLink<Inner, T>;
 
         constexpr auto* operator->(this auto& self)
         {

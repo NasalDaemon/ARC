@@ -71,13 +71,13 @@ constexpr Result withIndexInvoke(auto tag, std::size_t i, Visitor&& visitor)
     }
     else
     {
-        // Bucket: ceil of count/3 with an upper bound of 8
-        constexpr std::size_t m = std::min(static_cast<decltype(tag.count)>(8), 1 + ((tag.count - 1) / 3));
+        // Bucket: bit_ceil(count/3) with an upper bound of 8
+        constexpr std::size_t m = std::min(static_cast<decltype(tag.count)>(8), std::bit_ceil(1 + ((tag.count - 1) / 3)));
         switch (i / m)
         {
         case 0:  return withIndexInvoke<Result>(nextTag<0, m, false>(tag), i,       ARC_FWD(visitor));
-        case 1:  return withIndexInvoke<Result>(nextTag<1, m, false>(tag), i -   m, ARC_FWD(visitor));
-        default: return withIndexInvoke<Result>(nextTag<2, m, true >(tag), i - 2*m, ARC_FWD(visitor));
+        case 1:  return withIndexInvoke<Result>(nextTag<1, m, false>(tag), i - m,   ARC_FWD(visitor));
+        default: return withIndexInvoke<Result>(nextTag<2, m, true >(tag), i - m*2, ARC_FWD(visitor));
         }
     }
 }

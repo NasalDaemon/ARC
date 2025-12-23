@@ -5,13 +5,13 @@
 ## Why ARC?
 
 - **Architecture as First-Class Code:** Define your system as composable nodes with explicit dependencies and interfaces. Your boundaries are type-safe and compiler-enforced—not documentation that drifts out of sync.
-- **True Zero Overhead:** Not only at graph construction, but also at trait resolution and method invocation. There are no vtables, heap-allocations, runtime lookups, or hidden layers—just direct, inlined calls as if you hand-wrote them.
+- **True Zero Overhead:** Zero overhead at graph construction, trait resolution, and method invocation. There are no vtables, heap allocations, runtime lookups, or hidden layers; only direct, inlined calls as if hand-written. [Here](benchmarks/compilation/99) is a 99-node graph collapsed into a single line of assembly.
 - **Blazing Build Speed:** Each node can compile independently (even when building with C++ modules), so you never pay for modularity with slow builds.
 - **Testability by Default:** Swap in mocks or stubs anywhere, with full compile-time safety and zero runtime cost.
-- **No Intrusive Macros or Boilerplate:** Enjoy clean, modern C++.
+- **Group Access Policy Control:** Enforce strict segregation between nodes at compile time. Ideal for safety-critical standards where architectural boundaries must be guaranteed with zero runtime overhead.
+- **Thread Safety by Design:** Thread affinity of nodes can be enforced at compile time, eliminating entire classes of concurrency bugs before they start.
 - **Hybrid Static & Dynamic Dispatch:** Use static wiring everywhere for maximum performance; selectively enable runtime polymorphism only where you need it—effortlessly.
-- **Monolith & Microservice, Unified:** Instantly switch any node between in-process, out-of-process, or back—at any stage. Test, scale, and adapt without friction or rewrites.
-- **Thread Safety by Design:** Thread affinity is enforced at compile time, eliminating entire classes of concurrency bugs before they start.
+- **Monolith & Microservice, Unified:** Enjoy the modularity of microservices within an entirely in-process application, and transition to distributed microservices and back without changing your architectural graph.
 
 ## What Makes ARC Unique?
 
@@ -29,7 +29,7 @@ ARC structures applications using three core concepts:
 2. **Nodes** - Self-contained units that implement traits and declare which traits they depend on
 3. **Clusters** - Compositions that wire nodes together, satisfying all dependencies at compile time
 
-The result is a **Graph**—a single, efficient object containing all your nodes with their dependencies resolved. The compiler can inline across node boundaries, giving you modularity without overhead.
+The result is a **Graph**: a single, efficient object containing all your nodes with their dependencies resolved. The compiler can inline across node boundaries, giving you modularity without overhead.
 
 ## Compiler Support
 - [x] Clang 20+
@@ -295,10 +295,10 @@ int main()
 - [ARC cluster: syntax](docs/cluster-syntax.md)
 - [ARC domain: scalable clusters](docs/domain-syntax.md)
 - [ARC trait: syntax](docs/trait-syntax.md)
+- [ARC policy: access control syntax for safety-critical systems](docs/policies.md)
 - [Embedding ARC DSL into source files](docs/arc-embed.md)
 - [Selective runtime polymorphism](docs/runtime-polymorphism.md)
 - [Spy trait for global method interception](docs/spy-trait.md)
-- [Policy-based access control for safety-critical systems](docs/policies.md)
 
 ### Compilable [examples](examples/)
 - [Filesystem](examples/filesystem): In-memory filesystem with REPL interface

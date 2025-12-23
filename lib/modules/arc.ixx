@@ -37,6 +37,7 @@ export namespace arc {
     }
     // circular_buffer.hpp
     using arc::CircularBuffer;
+    using arc::StaticCircularBuffer;
     // cluster.hpp
     using arc::Cluster;
     using arc::IsRootCluster;
@@ -168,6 +169,9 @@ export namespace arc {
     // lazy.hpp
     using arc::Lazy;
     // link.hpp
+    using arc::LinkPriorityMin;
+    using arc::LinkPriorityMax;
+    using arc::LinkExact;
     using arc::CanGetNode;
     using arc::HasTrait;
     using arc::ResolvedLink;
@@ -272,7 +276,6 @@ export namespace arc {
     using arc::TraitExpects;
     using arc::TraitCanProvide;
     using arc::MatchesTrait;
-    using arc::ExactlyMatchesTrait;
     using arc::Implements;
     using arc::IsMethodOf;
     using arc::TraitOf;

@@ -59,8 +59,8 @@ struct PeerNode : Node
     }
 
     // Default impl of arc::trait::Peer is to have no peers
-    constexpr std::false_type impl(this auto const&, trait::Peer::isPeerId, auto const&) { return {}; }
-    constexpr std::false_type impl(this auto const&, trait::Peer::isPeerInstance, auto const&) { return {}; }
+    static constexpr std::false_type impl(trait::Peer::isPeerId, auto const&) { return {}; }
+    static constexpr std::false_type impl(trait::Peer::isPeerInstance, auto const&) { return {}; }
 
     template<class Self>
     static constexpr void assertNodeContext()
@@ -74,16 +74,16 @@ ARC_MODULE_EXPORT
 struct PeerDetached : DetachedInterface
 {
     // Default impl of arc::trait::Peer is to accept no peers
-    constexpr std::false_type impl(this auto const&, trait::Peer::isPeerId, auto const&) { return {}; }
-    constexpr std::false_type impl(this auto const&, trait::Peer::isPeerInstance, auto const&) { return {}; }
+    static constexpr std::false_type impl(trait::Peer::isPeerId, auto const&) { return {}; }
+    static constexpr std::false_type impl(trait::Peer::isPeerInstance, auto const&) { return {}; }
 };
 
 ARC_MODULE_EXPORT
 struct PeerDetachedOpen : DetachedInterface
 {
     // Default impl of arc::trait::Peer is to accept all peers
-    constexpr std::true_type impl(this auto const&, trait::Peer::isPeerId, auto const&) { return {}; }
-    constexpr std::true_type impl(this auto const&, trait::Peer::isPeerInstance, auto const&) { return {}; }
+    static constexpr std::true_type impl(trait::Peer::isPeerId, auto const&) { return {}; }
+    static constexpr std::true_type impl(trait::Peer::isPeerInstance, auto const&) { return {}; }
 };
 
 }

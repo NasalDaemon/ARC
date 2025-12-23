@@ -79,12 +79,12 @@
 #define ARC_COMPILER_GNU   ARC_IF_GNU_ELSE(1)(0)
 #define ARC_COMPILER_MSVC  ARC_IF_MSVC_ELSE(1)(0)
 
+#define ARC_COMPILER_CMP(NAME, op, ...) (ARC_CAT(ARC_COMPILER_, NAME) && (ARC_COMPILER_VERSION op ARC_MAKE_VERSION(__VA_ARGS__)))
+
 // ARC_COMPILER_GE(GCC, major, minor=0, patch=0)
 #define ARC_COMPILER_GE(NAME, ...) ARC_COMPILER_CMP(NAME, >=, __VA_ARGS__)
 // ARC_COMPILER_LT(GCC, major, minor=0, patch=0)
 #define ARC_COMPILER_LT(NAME, ...) ARC_COMPILER_CMP(NAME, <, __VA_ARGS__)
-
-#define ARC_COMPILER_CMP(NAME, op, ...) (ARC_CAT(ARC_COMPILER_, NAME) && (ARC_COMPILER_VERSION op ARC_MAKE_VERSION(__VA_ARGS__)))
 
 #if ARC_COMPILER_CLANG
 #pragma clang diagnostic push
@@ -128,14 +128,11 @@
 
 #define ARC_FWD(...) ARC_OVERLOAD(ARC_FWD, __VA_ARGS__)(__VA_ARGS__)
 
-#define ARC_FWD1(name)    ARC_FWD2(decltype(name), name)
 #define ARC_FWD2(T, name) static_cast<T&&>(name)
+#define ARC_FWD1(name)    ARC_FWD2(decltype(name), name)
 
 // ARC_METHODS(TraitName, MethodList=ARC_METHODS_TraitName)
 #define ARC_METHODS(...) ARC_OVERLOAD(ARC_METHODS, __VA_ARGS__)(__VA_ARGS__)
-
-#define ARC_METHODS1(traitName) \
-    ARC_METHODS2(traitName, ARC_METHODS_ ## traitName)
 
 #define ARC_METHODS2(traitName, METHOD_LIST) \
     METHOD_LIST(ARC_METHOD_TAG) \
@@ -152,6 +149,8 @@
         }; \
         using DuckMethods = Methods; \
     };
+#define ARC_METHODS1(traitName) \
+    ARC_METHODS2(traitName, ARC_METHODS_ ## traitName)
 
 #define ARC_METHOD_TAG(method) \
     struct method{} static constexpr method ## _c{};
@@ -176,12 +175,14 @@
 // ARC_LINK(TraitName, TargetContext, TargetTraitRename=<NoRename>)
 #define ARC_LINK(...) ARC_OVERLOAD(ARC_LINK, __VA_ARGS__)(__VA_ARGS__)
 
-#define ARC_LINK2(traitName, targetContext) \
-    ARC_LINK3(traitName, targetContext, T)
-
 #define ARC_LINK3(traitName, targetContext, targetTrait) \
     template<::arc::MatchesTrait<ARC_DEPAREN(traitName)> T> \
-    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T);
+    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkPriorityMin); \
+    template<class T> \
+    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkExact<ARC_DEPAREN(traitName)>);
+
+#define ARC_LINK2(traitName, targetContext) \
+    ARC_LINK3(traitName, targetContext, T)
 
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
     [[no_unique_address]] ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \
@@ -206,7 +207,11 @@
     })
 
 #define ARC_EMPLACE(...) \
-    ::arc::Emplace([&](auto t) { return typename decltype(t)::type{__VA_ARGS__}; })
+    ::arc::Emplace( \
+        [&](auto _arc_emplace_type_) \
+        { \
+            return typename decltype(_arc_emplace_type_)::type(__VA_ARGS__); \
+        })
 
 #if ARC_COMPILER_CLANG
 #pragma clang diagnostic pop
