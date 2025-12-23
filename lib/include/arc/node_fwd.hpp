@@ -55,8 +55,8 @@ struct WrappedImpl : Interface
     using Interface::Interface;
 
     template<class F>
-    explicit constexpr WrappedImpl(Emplace<F> const& f)
-        : Interface(f)
+    explicit constexpr WrappedImpl(Emplace<F>&& f)
+        : Interface(std::move(f))
     {}
 
     using Traits = WrapNode<typename Interface::Traits::Node>::template Traits<Context>;

@@ -45,7 +45,7 @@ namespace detail {
     };
 
     template<class TraitsT, class Trait>
-    concept TraitsHasTrait = IsTrait<Trait> and requires (Trait trait) { { TraitsT::resolveTrait(trait) } -> IsResolvedTrait; };
+    concept TraitsHasTrait = IsTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { TraitsT::resolveTrait(trait, linkExact) } -> IsResolvedTrait; };
 
     template<class Trait>
     struct TraitsHasTraitPred

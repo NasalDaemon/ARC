@@ -32,6 +32,12 @@ target_link_libraries(arc_example_filesystem_disk_repl PUBLIC
     arc_example_filesystem_modules
 )
 
+if(ARC_BUILD_LTO)
+    set_property(TARGET arc_example_filesystem_modules PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set_property(TARGET arc_example_filesystem_in_memory_repl PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set_property(TARGET arc_example_filesystem_disk_repl PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 if(ARC_BUILD_TESTS)
     add_executable(arc_example_filesystem_tests
         tests/test_cluster.cpp
@@ -61,6 +67,10 @@ if(ARC_BUILD_TESTS)
     )
 
     add_test(arc_example_filesystem_tests arc_example_filesystem_tests)
+
+    if(ARC_BUILD_LTO)
+        set_property(TARGET arc_example_filesystem_tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
 endif()
 
 target_generate_arc_src(arc_example_filesystem_modules

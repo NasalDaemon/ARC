@@ -40,14 +40,25 @@ concept IsResolvedLink = requires
     typename T::Trait;
 };
 
+ARC_MODULE_EXPORT
+struct LinkPriorityMin
+{};
+ARC_MODULE_EXPORT
+struct LinkPriorityMax : LinkPriorityMin
+{};
+ARC_MODULE_EXPORT
+template<class T>
+struct LinkExact : LinkPriorityMax
+{};
+
 namespace detail {
 
     template<class T, class Trait>
-    concept HasLink = IsNonGlobalTrait<Trait> and requires (Trait trait) { { T::resolveLink(trait) } -> IsResolvedLink; };
+    concept HasLink = IsNonGlobalTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { T::resolveLink(trait, linkExact) } -> IsResolvedLink; };
 
     template<class T, class Trait>
     requires HasLink<T, Trait>
-    using ResolveLink = decltype(T::resolveLink(std::declval<Trait>()));
+    using ResolveLink = decltype(T::resolveLink(std::declval<Trait>(), std::declval<LinkExact<Trait>>()));
 
     template<class T, class Trait>
     requires HasLink<T, Trait>

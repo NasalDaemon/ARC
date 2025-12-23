@@ -202,7 +202,7 @@ TEST_CASE("arc::Virtual")
 {
     using Virtual = arc::test::GraphWithGlobal<arc::Virtual<IApple, IEgg>, GlobalNode, arc::Virtual<IBread>>;
     Virtual virt{
-        .global{ARC_EMPLACE(.i = 9)},
+        .global{ARC_EMPLACE({.i = 9})},
         .main{
             .node{std::in_place_type<AppleEgg>},
             .mocks{arc::withFactory, []<class C>(C) -> C::type { return std::in_place_type<Bread>; }},

@@ -25,14 +25,14 @@ struct Narrow
 
             template<class T>
             requires detail::HasLink<Context, T>
-            static auto resolveLink(T) -> ResolvedLink<Context, T>;
+            static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<Context, T>;
         };
         ARC_NODE(Inner, node);
 
         // Narrow exposed traits
         template<class T>
         requires (... || MatchesTrait<T, Traits>)
-        static auto resolveLink(T) -> ResolvedLink<Inner, T>;
+        static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<Inner, T>;
 
         constexpr decltype(auto) operator->(this auto& self)
         {

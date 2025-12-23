@@ -141,12 +141,12 @@ TEST_CASE("arc::Collection")
         using Element = ElementNode;
     };
     arc::GraphWithGlobal<Collection, GlobalNode, Root> g{
-        .global{ARC_EMPLACE(.i = 14)},
+        .global{ARC_EMPLACE({.i = 14})},
         .main{
-            .outside{ARC_EMPLACE(.i = 10)},
+            .outside{ARC_EMPLACE({.i = 10})},
             .collection{2, [](auto insert) {
-                insert(0, ARC_EMPLACE(.element{ARC_EMPLACE(.i = 0)}));
-                insert(1, ARC_EMPLACE(.element{ARC_EMPLACE(.i = 1)}));
+                insert(0, ARC_EMPLACE({.element{ARC_EMPLACE({.i = 0})}}));
+                insert(1, ARC_EMPLACE({.element{ARC_EMPLACE({.i = 1})}}));
             }},
         },
     };

@@ -161,8 +161,8 @@ namespace detail {
         using Node::Node;
 
         template<class F>
-        explicit constexpr NodeState(Emplace<F> const& f)
-            : Node(f)
+        explicit constexpr NodeState(Emplace<F>&& f)
+            : Node(std::move(f))
         {}
 
         ARC_NODE_USE_PUBLIC_MEMBERS(Node)

@@ -71,10 +71,6 @@ ARC_MODULE_EXPORT
 template<class T, class Trait>
 concept MatchesTrait = TraitCanProvide<Trait, TraitExpects<T>>;
 
-ARC_MODULE_EXPORT
-template<class T, class Trait>
-concept ExactlyMatchesTrait = std::same_as<T, Trait> and MatchesTrait<T, Trait>;
-
 namespace detail {
     template<class Trait, class Impl, class Types, IsTrait... Subtraits>
     requires (sizeof...(Subtraits) > 0)

@@ -5,6 +5,7 @@
 
 #if !ARC_IMPORT_STD
 #include <concepts>
+#include <utility>
 #endif
 
 namespace arc {
@@ -26,18 +27,29 @@ struct Constructor
     }
 };
 
+namespace detail {
+    struct NonRelocatable
+    {
+        NonRelocatable() = default;
+        NonRelocatable(NonRelocatable&&) = delete;
+        NonRelocatable(NonRelocatable const&) = delete;
+    };
+}
+
 ARC_MODULE_EXPORT
 template<class F>
 struct Emplace
 {
     template<class Type>
-    explicit constexpr operator Type() const
+    explicit constexpr operator Type() &&
     {
-        std::same_as<Type> decltype(auto) result = factory(Constructor<Type>{});
+        std::same_as<Type> decltype(auto) result = std::move(factory)(Constructor<Type>{});
         return result;
     }
 
     [[no_unique_address]] F factory;
+    // Ensure that Emplace is never relocated to avoid dangling references
+    [[no_unique_address]] detail::NonRelocatable nonRelocatable{};
 };
 
 template<class F>

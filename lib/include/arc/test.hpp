@@ -77,7 +77,7 @@ namespace detail {
             struct Mocks;
 
             template<class Trait>
-            static ResolvedLink<Node, Trait> resolveLink(Trait);
+            static ResolvedLink<Node, Trait> resolveLink(Trait, arc::LinkPriorityMin);
 
             struct Node : arc::Context<Impl, NodeT>
             {
@@ -86,11 +86,11 @@ namespace detail {
                 // Resolve to parent by default
                 template<class Trait>
                 requires arc::detail::HasLink<Context, Trait>
-                static ResolvedLink<Context, Trait> resolveLink(Trait);
+                static ResolvedLink<Context, Trait> resolveLink(Trait, arc::LinkPriorityMax);
 
                 // Otherwise resolve to mocks
                 template<class Trait>
-                static ResolvedLink<Mocks, Trait> resolveLink(Trait);
+                static ResolvedLink<Mocks, Trait> resolveLink(Trait, arc::LinkPriorityMin);
 
                 // getNode calls to mocks, so allow partial implementation of traits
                 struct Info : Context::Info
@@ -106,15 +106,15 @@ namespace detail {
                 // Resolve to parent by default
                 template<class Trait>
                 requires arc::detail::HasLink<Context, Trait>
-                static ResolvedLink<Context, Trait> resolveLink(Trait);
+                static ResolvedLink<Context, Trait> resolveLink(Trait, arc::LinkPriorityMax);
 
                 // Otherwise resolve to node being tested
                 template<class Trait>
-                static ResolvedLink<Node, Trait> resolveLink(Trait);
+                static ResolvedLink<Node, Trait> resolveLink(Trait, arc::LinkPriorityMin);
 
                 // Allow explicitly resolving the node being tested
                 template<class Trait>
-                static ResolvedLink<Node, Trait> resolveLink(Local<Trait>);
+                static ResolvedLink<Node, Trait> resolveLink(Local<Trait>, arc::LinkExact<Local<Trait>>);
             };
 
             ARC_NODE(Node, node)

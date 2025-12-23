@@ -30,7 +30,7 @@ add_custom_command(
 add_custom_command(
     OUTPUT "${ARC_GENERATOR_VENV}.stamp"
     DEPENDS "${ARC_GENERATOR_PYTHON}" "${ARC_GENERATOR_DIR}/requirements.txt"
-    COMMAND ${ARC_GENERATOR_PYTHON} -m pip install -r "${ARC_GENERATOR_DIR}/requirements.txt" --upgrade
+    COMMAND ${ARC_GENERATOR_PYTHON} -m pip install -r "${ARC_GENERATOR_DIR}/requirements.txt"
     COMMAND ${CMAKE_COMMAND} -E touch "${ARC_GENERATOR_VENV}.stamp"
     COMMENT "arc_generator: Installing dependencies"
 )
@@ -43,6 +43,18 @@ function(target_generate_arc_src TARGET_NAME)
     set(oneValueArgs GRAPH_HEADER GRAPH_MODULE GRAPH_TYPE)
     set(multiValueArgs COMMON_HEADERS COMMON_MODULES NODES)
     cmake_parse_arguments(arg "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(${arg_PRINT})
+        message(STATUS "target_generate_arc_src: TARGET_NAME='${TARGET_NAME}'")
+        message(STATUS "  GRAPH_HEADER='${arg_GRAPH_HEADER}'")
+        message(STATUS "  GRAPH_MODULE='${arg_GRAPH_MODULE}'")
+        message(STATUS "  GRAPH_TYPE='${arg_GRAPH_TYPE}'")
+        message(STATUS "  COMMON_HEADERS='${arg_COMMON_HEADERS}'")
+        message(STATUS "  COMMON_MODULES='${arg_COMMON_MODULES}'")
+        message(STATUS "  NODES='${arg_NODES}'")
+        message(STATUS "  UNITY='${arg_UNITY}'")
+        message(STATUS "  PRECOMPILE_HEADERS='${arg_PRECOMPILE_HEADERS}'")
+    endif()
 
     if((DEFINED arg_GRAPH_HEADER) EQUAL (DEFINED arg_GRAPH_MODULE))
         message(FATAL_ERROR "One and only one of GRAPH_HEADER OR GRAPH_MODULE must be defined")

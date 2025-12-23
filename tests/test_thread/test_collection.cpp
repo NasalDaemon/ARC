@@ -150,18 +150,18 @@ TEST_CASE("arc::Collection using threads")
             .collection{3,
                 [](auto add)
                 {
-                    add(0, 0, ARC_EMPLACE(
+                    add(0, 0, ARC_EMPLACE({
                         .node1{314},
                         .node2{315},
-                    ));
-                    add(1, 1, ARC_EMPLACE(
+                    }));
+                    add(1, 1, ARC_EMPLACE({
                         .node1{42},
                         .node2{43},
-                    ));
-                    add(2, 2, ARC_EMPLACE(
+                    }));
+                    add(2, 2, ARC_EMPLACE({
                         .node1{99},
                         .node2{100},
-                    ));
+                    }));
                 }
             },
             .outer{3, 101},

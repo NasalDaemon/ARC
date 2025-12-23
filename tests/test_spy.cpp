@@ -120,8 +120,8 @@ TEST_CASE("arc::trait::Spy")
 {
     arc::GraphWithGlobal<Cluster, Global, Root> graph{
         .main{
-            .node1{ARC_EMPLACE(.i = 1)},
-            .node2{ARC_EMPLACE(.i = 42)},
+            .node1{ARC_EMPLACE({.i = 1})},
+            .node2{ARC_EMPLACE({.i = 42})},
         }
     };
 
