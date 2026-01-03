@@ -5,6 +5,7 @@
 #include "arc/detail/select.hpp"
 #include "arc/cluster.hpp"
 #include "arc/empty_types.hpp"
+#include "arc/ensure.hpp"
 #include "arc/factory.hpp"
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
@@ -30,6 +31,9 @@ namespace arc {
 
 struct detail::INodeBase : Node
 {
+    // Disable using Build, must use arc::Build<VirtualNode> instead
+    using Build = detail::DisableBuild;
+
     template<IsNodeHandle T, class Self>
     requires IsVirtualContext<ContextOf<Self>>
     constexpr auto exchangeImpl(this Self& self, auto&&... args)
@@ -44,6 +48,12 @@ struct detail::INodeBase : Node
 ARC_MODULE_EXPORT
 struct INode : virtual detail::INodeBase
 {};
+
+// Allow arc::Build to work with interfaces
+namespace detail {
+    template<IsInterface T>
+    inline constexpr bool isNodeBase<T> = true;
+}
 
 ARC_MODULE_EXPORT
 template<IsInterface... Interfaces>
@@ -145,10 +155,14 @@ struct Virtual
                 : ImplBase{virtualHost}
                 , impl{ARC_FWD(args)...}
             {}
+            explicit constexpr Impl(Node* virtualHost, auto&&... args) requires (detail::injectVirtualHost<ImplNode>)
+                : ImplBase{virtualHost}
+                , impl{virtualHost, ARC_FWD(args)...}
+            {}
 
         private:
             friend Node;
-            ImplOf<ImplNode> impl;
+            Ensure<ImplOf<ImplNode>> impl;
 
             static constexpr Node* getVirtualHost(ImplOf<ImplNode> const* p)
             {
@@ -220,16 +234,27 @@ struct Virtual
         };
 
     public:
+        struct Depends
+        {
+            // This can only really be checked when constructing the hosted node
+            static constexpr bool isSpecified = true;
+
+            // This will be enforced by each hosted node's own Depends
+            template<class Node, IsTrait Trait>
+            static constexpr bool dependencyListed = true;
+
+            // This will be enforced when constructing the hosted Node (via Ensure)
+            template<class Node, bool Transitive>
+            using AssertSatisfied = void;
+        };
+
         using Traits = arc::TraitsTemplate<Node, Resolver>;
 
         template<IsNodeHandle T>
         requires (... and std::derived_from<ImplInterface<T>, Interfaces>)
         explicit(false) constexpr Node(std::in_place_type_t<T>, auto&&... args)
         {
-            if constexpr (detail::injectVirtualHost<T>)
-                [[maybe_unused]] auto ignored = init<T>(this, ARC_FWD(args)...);
-            else
-                [[maybe_unused]] auto ignored = init<T>(ARC_FWD(args)...);
+            std::ignore = init<T>(ARC_FWD(args)...);
         }
 
         template<std::invocable<Constructor<Node>> F>
@@ -248,18 +273,9 @@ struct Virtual
                     throw std::runtime_error("arc::Union::emplace can only be called when the scheduler is in exclusive mode");
             }
 
-            if constexpr (detail::injectVirtualHost<T>)
-            {
-                auto [next, prev] = init<T>(this, ARC_FWD(args)...);
-                onGraphConstructed();
-                return next->impl;
-            }
-            else
-            {
-                auto [next, prev] = init<T>(ARC_FWD(args)...);
-                onGraphConstructed();
-                return next->impl;
-            }
+            auto [next, prev] = init<T>(ARC_FWD(args)...);
+            onGraphConstructed();
+            return next->impl;
         }
 
         Node(Node const&) = delete;

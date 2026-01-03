@@ -11,7 +11,7 @@ export struct Sheep {
     template<class Context>
     struct Node final : IAnimal
     {
-        using Traits = arc::TraitsFrom<Node, IAnimal>;
+        using Traits = arc::RebindTraits<Node, IAnimal>;
 
         std::string impl(trait::Animal::speak) const override
         {

@@ -12,11 +12,14 @@
 #include "arc/global_trait.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
+#include "arc/node_with_fwd.hpp"
+#include "arc/no_trait.hpp"
 #include "arc/trait.hpp"
 #include "arc/trait_view.hpp"
 #include "arc/traits_fwd.hpp"
 
 #if !ARC_IMPORT_STD
+#include <concepts>
 #include <functional>
 #include <type_traits>
 #endif
@@ -25,6 +28,8 @@ namespace arc {
 
 struct Node
 {
+    using Build = arc::Build<Node>;
+
     static constexpr bool isUnary() { return true; }
     using Types = EmptyTypes;
     using Environment = arc::Environment<>;
@@ -57,6 +62,12 @@ struct Node
         return makeTraitView(self, target, trait, key, keys...);
     }
 #endif
+
+    template<IsNodeHandle NodeHandle, class Self, class Key = ContextOf<Self>::Info::DefaultKey>
+    constexpr IsTraitViewOf<NoTrait<NodeHandle>, Key> auto getNode(this Self& self, Key const& key = {}, auto const&... keys)
+    {
+        return self.getNode(noTrait<NodeHandle>, key, keys...);
+    }
 
     template<IsTrait Trait, class Self, class Key = ContextOf<Self>::Info::DefaultKey>
     constexpr auto getGlobal(this Self& self, Trait trait = {}, Key const& key = {}, auto const&... keys)

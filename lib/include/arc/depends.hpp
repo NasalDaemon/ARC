@@ -1,5 +1,5 @@
-#ifndef INCLUDE_ARC_REQUIRES_HPP
-#define INCLUDE_ARC_REQUIRES_HPP
+#ifndef INCLUDE_ARC_DEPENDS_HPP
+#define INCLUDE_ARC_DEPENDS_HPP
 
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
@@ -16,6 +16,12 @@
 namespace arc {
 
 namespace detail {
+    template<class Trait>
+    concept IsDependsItem = IsTrait<std::remove_pointer_t<Trait>>;
+
+    template<IsDependsItem Item>
+    using DependsTrait = std::remove_pointer_t<Item>;
+
     template<class Context, class Requirement, bool Transitive>
     requires HasLink<Context, Requirement>
         and (not Transitive or detail::ResolveTrait<Context, Requirement>::template HasTrait<>)
@@ -49,15 +55,14 @@ namespace detail {
 }
 
 ARC_MODULE_EXPORT
-template<class... Traits>
-requires (... and IsTrait<std::remove_pointer_t<Traits>>)
+template<detail::IsDependsItem... Traits>
 struct Depends
 {
     static constexpr bool isSpecified = true;
 
     // When dependencies are specified, all dependencies must be listed explicitly
     template<class Node, IsTrait Trait>
-    static constexpr bool dependencyListed = requires { ContextOf<Node>::Info::implicitDependencyAllowed(Trait{}); } or (... or MatchesTrait<Trait, std::remove_pointer_t<Traits>>);
+    static constexpr bool dependencyListed = requires { ContextOf<Node>::Info::implicitDependencyAllowed(Trait{}); } or (... or MatchesTrait<Trait, detail::DependsTrait<Traits>>);
 
     // On failure, the missing required trait types are named in a list for better error messages
     template<class Node, bool Transitive>
@@ -66,4 +71,4 @@ struct Depends
 
 } // namespace arc
 
-#endif // INCLUDE_ARC_REQUIRES_HPP
+#endif // INCLUDE_ARC_DEPENDS_HPP

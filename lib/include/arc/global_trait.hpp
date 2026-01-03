@@ -12,6 +12,11 @@ struct Global : T
 {
     using Trait = T;
 
+    struct Meta : T::Meta
+    {
+        using Resolver = T::Meta::GlobalResolver;
+    };
+
     static Global expects();
     static void canProvide(Trait);
 };

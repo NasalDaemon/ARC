@@ -5,12 +5,12 @@ namespace examples::greet::trait {
 // Traits define interfaces between nodes
 trait Greeter
 {
-    greet()
+    greet() const
 }
 
 trait Responder
 {
-    respondTo(std::string_view name)
+    respondTo(std::string_view name) const
 }
 
 }

@@ -82,7 +82,7 @@ struct GlobalSpy : arc::Node
         ++callCount;
 
         // Example: Log before execution
-        std::println("Calling method: {}", arc::typeId<Method>);
+        std::println("Calling method: {}", arc::typeName<Method>);
 
         // Execute the actual implementation
         return impl_fn(std::forward<Args>(args)...);
@@ -160,7 +160,7 @@ struct MultiSpy::FilesystemSpyImpl : MultiSpy
 Use `GraphWithGlobal` to inject the spy into your dependency graph:
 
 ```cpp
-arc::GraphWithGlobal<MyCluster, GlobalSpy, MyRoot> graph{
+arc::GraphWithGlobal<MyCluster, GlobalSpy> graph{
     .global{}, // Spy node constructed here
     .main{
         // Your main graph configuration
@@ -168,7 +168,7 @@ arc::GraphWithGlobal<MyCluster, GlobalSpy, MyRoot> graph{
 };
 
 // All trait calls now route through the spy
-auto result = graph->node->getNode(trait::storage).get("/path");
+auto result = graph.main.node.getNode(trait::storage).get("/path");
 
 // Access spy state
 std::println("Total calls: {}", graph.global->callCount);
@@ -437,10 +437,9 @@ struct ConditionalSpy : arc::Node
 
 ### Best Practices
 
-1. **Use `SpyOnly<Trait>` when possible**: More specific types enable better compiler optimization
+1. **Use `SpyOnly<Trait>` when possible**: More specific types ensure only relevant methods are intercepted
 2. **Minimize work in hot paths**: Keep spy logic lightweight for frequently called methods
 3. **Conditional compilation**: Use `#ifdef` or `if constexpr` to disable spying in production builds
-4. **Lazy initialization**: Defer expensive spy setup until first use
 
 ```cpp
 template<class Method, class... Args>

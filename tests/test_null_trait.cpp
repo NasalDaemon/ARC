@@ -18,6 +18,8 @@ cluster Cluster [R = Root]
     node1 = R::Node
     node2 = R::Node
 
+    // Link nodes with NoTrait to each other
+    // Only time that sink can have multiple nodes
     [~] node1, node2
 }
 
@@ -33,7 +35,11 @@ struct Root
 
         int doSomething(this auto const& self)
         {
-            return self.getNode(arc::noTrait<Node>)->i;
+            // Both syntaxes work and return the same address
+            int const* a = &self.template getNode<Node>()->i;
+            int const* b = &self.getNode(arc::noTrait<Node>)->i;
+            CHECK(a == b);
+            return *a;
         }
 
         int i;

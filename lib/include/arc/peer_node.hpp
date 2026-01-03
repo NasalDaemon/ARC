@@ -6,10 +6,12 @@
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
 #include "arc/node.hpp"
+#include "arc/node_with_fwd.hpp"
 #include "arc/traits/peer.hxx"
 #include "arc/traits_fwd.hpp"
 
 #if !ARC_IMPORT_STD
+#include <concepts>
 #include <type_traits>
 #endif
 
@@ -18,6 +20,8 @@ namespace arc {
 ARC_MODULE_EXPORT
 struct PeerNode : Node
 {
+    using Build = arc::Build<PeerNode>;
+
     // Also exposed in TraitNodeView
     template<class Self>
     requires IsElementContext<ContextOf<Self>>
@@ -69,6 +73,21 @@ struct PeerNode : Node
         Node::assertNodeContext<Self>();
     }
 };
+
+namespace detail {
+    template<>
+    inline constexpr bool isNodeBase<PeerNode> = true;
+}
+
+ARC_MODULE_EXPORT
+template<detail::IsDependsItem... Traits>
+requires (sizeof...(Traits) > 0)
+using PeerNodeWithDepends = WithDepends<PeerNode, Traits...>;
+
+ARC_MODULE_EXPORT
+template<class... Traits>
+requires (sizeof...(Traits) > 0)
+using PeerNodeWithTraits = WithTraits<PeerNode, Traits...>;
 
 ARC_MODULE_EXPORT
 struct PeerDetached : DetachedInterface

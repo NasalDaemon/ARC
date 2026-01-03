@@ -1,5 +1,5 @@
-#ifndef ARC_DETAIL_TYPE_NAME_HPP
-#define ARC_DETAIL_TYPE_NAME_HPP
+#ifndef ARC_TYPE_NAME_HPP
+#define ARC_TYPE_NAME_HPP
 
 #include "arc/macros.hpp"
 
@@ -60,4 +60,4 @@ inline constexpr std::string_view typeName = detail::typeName<T>();
 
 } // namespace arc
 
-#endif // ARC_DETAIL_TYPE_NAME_HPP
+#endif // ARC_TYPE_NAME_HPP

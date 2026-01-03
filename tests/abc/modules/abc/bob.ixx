@@ -1,6 +1,7 @@
 module;
+#include "arc/macros.hpp"
 #if !ARC_IMPORT_STD
-#include <cstdio>
+#include <iostream>
 #endif
 export module abc.bob;
 
@@ -15,21 +16,17 @@ export namespace abc {
 struct Bob
 {
     template<class Context>
-    struct Node : arc::Node
+    struct Node : arc::Node::Build::
+        AddDepends<trait::Alice, trait::Charlie>::
+        WithTraits<trait::AliceRead, trait::Bob, trait::Charlie>
     {
-        using Depends = arc::Depends<trait::Alice, trait::Charlie>;
+        ARC_REBIND_TRAITS();
 
-        using Traits = arc::Traits<Node
-            , trait::AliceRead
-            , trait::Bob
-            , trait::Charlie
-        >;
-
-        void onGraphConstructed() { std::puts("Constructed Bob"); }
+        void onGraphConstructed() { std::cout << "Constructed Bob " << asBob().get() << "\n"; }
 
         int impl(trait::Alice::get) const
         {
-            return getNode(trait::alice).get();
+            return getAlice().get();
         }
 
         int impl(trait::Bob::get) const { return bob; }
@@ -37,7 +34,7 @@ struct Bob
 
         int impl(trait::Charlie::get) const
         {
-            return getNode(trait::charlie).get();
+            return getCharlie().get();
         }
 
         struct Types

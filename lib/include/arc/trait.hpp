@@ -25,6 +25,9 @@ struct Trait
         struct Applicable{};
         struct Methods{};
         struct DuckMethods{};
+        struct Resolver{};
+        struct GlobalResolver{};
+        struct Converter{};
     };
 
     template<class Self, std::same_as<Self> Expected>
@@ -51,6 +54,8 @@ concept IsTrait = requires (T trait) {
     requires IsStateless<typename T::Meta::Applicable>;
     requires IsStateless<typename T::Meta::Methods>;
     requires IsStateless<typename T::Meta::DuckMethods>;
+    requires IsStateless<typename T::Meta::Resolver>;
+    requires IsStateless<typename T::Meta::Converter>;
     trait.expects();
     typename detail::TakesNaryClassTemplate<T::template Implements>;
 };
@@ -110,6 +115,10 @@ struct JoinedTrait : Traits...
         {};
         struct DuckMethods : Traits::Meta::DuckMethods...
         {};
+        struct Resolver : Traits::Meta::Resolver...
+        {};
+        struct Converter : Traits::Meta::Converter...
+        {};
     };
 
     template<class Self, class Impl, class Types>
@@ -125,9 +134,16 @@ struct JoinedTrait : Traits...
 };
 
 ARC_MODULE_EXPORT
-template<IsTrait Trait, class Id>
-struct AltTrait : Trait
+template<IsTrait Trait_, class Id>
+struct AltTrait : Trait_
 {
+    struct Meta : Trait_::Meta
+    {
+        // Erase resolvers, as the name has changed
+        struct Resolver{};
+        struct Converter{};
+    };
+
     static AltTrait expects();
 
     static void canProvide(AltTrait);
@@ -137,11 +153,10 @@ namespace detail {
     template<IsTrait Trait_>
     struct DuckTrait : arc::Trait
     {
-        struct Meta
+        struct Meta : Trait_::Meta
         {
-            using Applicable = Trait_::Meta::Applicable;
+            // All methods are made duck methods
             using Methods = Trait_::Meta::DuckMethods;
-            using DuckMethods = Trait_::Meta::DuckMethods;
         };
 
         static TraitExpects<Trait_> expects();

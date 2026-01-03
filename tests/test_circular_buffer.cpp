@@ -899,6 +899,29 @@ TEST_CASE("CircularBuffer exception safety") {
         CHECK(cb.front() == 1);
         CHECK(cb.back() == 2);
     }
+
+    SUBCASE("append exception during construction leaves buffer partially updated") {
+        resetCounters();
+        CircularBuffer<ThrowingType> cb(16);
+        cb.emplace_back(1);
+        cb.emplace_back(2);
+
+        std::vector<ThrowingType> vec;
+        vec.reserve(5);
+        for (int i = 0; i < 5; ++i) vec.emplace_back(10 + i);
+
+        // Throw during 4th element construction in append (3 elements successfully added)
+        throwAfter = constructionCount + 3;
+        CHECK_THROWS_AS(cb.append(vec), std::runtime_error);
+
+        // 3 elements were successfully added before the throw
+        CHECK(cb.size() == 5);
+        CHECK(cb[0] == 1);
+        CHECK(cb[1] == 2);
+        CHECK(cb[2] == 10);
+        CHECK(cb[3] == 11);
+        CHECK(cb[4] == 12);
+    }
 }
 
 TEST_CASE("CircularBuffer emplace_back when full with throwing type") {
@@ -1002,6 +1025,79 @@ TEST_CASE("CircularBuffer index wraparound") {
     cb.clear();
     CHECK(cb.empty());
     CHECK(cb.size() == 0);
+}
+
+TEST_CASE("CircularBuffer append") {
+    CircularBuffer<int> cb(8);
+
+    SUBCASE("append range to empty buffer") {
+        std::vector<int> vec{1, 2, 3};
+        cb.append(vec);
+        CHECK(cb.size() == 3);
+        CHECK(cb[0] == 1);
+        CHECK(cb[1] == 2);
+        CHECK(cb[2] == 3);
+    }
+
+    SUBCASE("append range to partially full buffer") {
+        cb.push_back(10);
+        std::vector<int> vec{1, 2, 3};
+        cb.append(vec);
+        CHECK(cb.size() == 4);
+        CHECK(cb[0] == 10);
+        CHECK(cb[1] == 1);
+        CHECK(cb[2] == 2);
+        CHECK(cb[3] == 3);
+    }
+
+#if not ARC_COMPILER_LT(GCC, 15)
+    SUBCASE("append with iterator and count") {
+        std::vector<int> vec{1, 2, 3, 4, 5};
+        cb.append(vec.begin(), 3);
+        CHECK(cb.size() == 3);
+        CHECK(cb[0] == 1);
+        CHECK(cb[1] == 2);
+        CHECK(cb[2] == 3);
+    }
+#endif
+
+    SUBCASE("append exceeding maxSize throws") {
+        std::vector<int> vec{1, 2, 3, 4, 5, 6, 7, 8, 9};
+        CHECK_THROWS_AS(cb.append(vec), std::invalid_argument);
+    }
+
+    SUBCASE("append causing eviction") {
+        for (int i = 0; i < 6; ++i) cb.push_back(i);
+        // size is 6, maxSize is 8. spaceLeft is 2.
+        // append 4 elements. 2 will fit, 2 will cause eviction.
+        std::vector<int> vec{10, 11, 12, 13};
+        cb.append(vec);
+        CHECK(cb.size() == 8);
+        CHECK(cb[0] == 2); // 0 and 1 evicted
+        CHECK(cb[4] == 10);
+        CHECK(cb[7] == 13);
+    }
+
+    SUBCASE("append causing growth") {
+        CircularBuffer<int> cb_grow(32);
+        cb_grow.push_back(1);
+        CHECK(cb_grow.capacity() == 16);
+
+        std::vector<int> vec(20, 42);
+        cb_grow.append(vec);
+        CHECK(cb_grow.size() == 21);
+        CHECK(cb_grow.capacity() == 32);
+        CHECK(cb_grow[0] == 1);
+        CHECK(cb_grow[1] == 42);
+        CHECK(cb_grow[20] == 42);
+    }
+
+    SUBCASE("append empty range") {
+        std::vector<int> vec;
+        cb.append(vec);
+        CHECK(cb.empty());
+        CHECK(cb.capacity() == 0);
+    }
 }
 
 }

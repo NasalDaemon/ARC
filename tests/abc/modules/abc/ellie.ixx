@@ -15,10 +15,8 @@ export namespace abc {
 struct EllieType{};
 struct EllieType3{};
 
-struct Ellie : arc::Node
+struct Ellie : arc::NodeWithDepends<trait::Charlie>
 {
-    using Depends = arc::Depends<trait::Charlie>;
-
     struct Charlie;
     struct Charlie2;
     struct Ellie3Types;
@@ -68,7 +66,7 @@ struct Ellie::Charlie : Ellie
     {
         using CharlieType = arc::ResolveTypes<Self, trait::Charlie>::CharlieType;
         static_assert(std::is_same_v<int, CharlieType>);
-        return self.getNode(trait::charlie).get();
+        return self.getCharlie().get();
     }
 };
 

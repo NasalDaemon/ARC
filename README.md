@@ -149,12 +149,12 @@ export module app.traits;
 // Traits define interfaces between nodes
 trait app::trait::Greeter
 {
-    greet()
+    greet() const
 }
 
 trait app::trait::Responder
 {
-    respondTo(std::string_view name)
+    respondTo(std::string_view name) const
 }
 ```
 ```cpp
@@ -210,17 +210,17 @@ namespace app {
 export struct Bob
 {
     template<class Context>
-    struct Node : arc::Node
+    struct Node : arc::NodeWithDepends<trait::Responder>
     {
-        using Depends = arc::Depends<trait::Responder>;
         using Traits = arc::Traits<Node, trait::Greeter, trait::Responder>;
 
         void impl(trait::Greeter::greet) const
         {
             std::println("Hello from Bob!");
             // Can call getNode directly, as Context is already injected into the state
-            getNode(trait::responder).respondTo("Bob");
-            // The line above can be inlined by the compiler
+            getNode(trait::responder).respondTo("Bob"); // can be inlined by the compiler
+            // arc::NodeWithDepends also provides a shorthand for each listed trait:
+            getResponder().respondTo("Bobby"); // can be inlined by the compiler
         }
 
         void impl(trait::Responder::respondTo, std::string_view name) const
@@ -284,6 +284,7 @@ int main()
     // Output:
     // Hello from Bob! I am 30 years old.
     // Well met, Bob. I am Alice of 29 years!
+    // Well met, Bobby. I am Alice of 29 years!
 
     return 0;
 }
@@ -303,5 +304,5 @@ int main()
 ### Compilable [examples](examples/)
 - [Filesystem](examples/filesystem): In-memory filesystem with REPL interface
 - [Greet](examples/greet): A compilable copy of the [above code](#short-example-examplesgreet)
-- [Animal (union)](examples/animal): Demonstrates explicit runtime polymorphism with ARC's `arc::Union` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))
+- [Animal (union)](examples/animals): Demonstrates explicit runtime polymorphism with ARC's `arc::Union` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))
 - [Animals (virtual)](examples/animals_virtual): Traditional virtual interface version of the Animal example for comparison using `arc::Virtual` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))

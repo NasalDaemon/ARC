@@ -10,9 +10,8 @@ namespace examples::greet {
 export struct Bob
 {
     template<class Context>
-    struct Node : arc::Node
+    struct Node : arc::NodeWithDepends<trait::Responder>
     {
-        using Depends = arc::Depends<trait::Responder>;
         using Traits = arc::Traits<Node, trait::Greeter, trait::Responder>;
 
         Node(int age) : age(age) {}
@@ -21,6 +20,7 @@ export struct Bob
         {
             std::println("Hello from Bob!");
             getNode(trait::responder).respondTo("Bob");
+            getResponder().respondTo("Bobby");
         }
 
         void impl(trait::Responder::respondTo, std::string_view name) const

@@ -31,7 +31,7 @@ TEST_CASE("abc module")
 
     CHECK(15 == g.charlie.charlie.asTrait(trait::charlie3).get());
 
-    CHECK(64 == g.bob.asTrait(trait::bob).get());
+    CHECK(64 == g.bob->asBob().get());
 
     CHECK(99 == g.bob.asTrait(trait::charlie).get());
 
@@ -42,6 +42,8 @@ TEST_CASE("abc module")
     CHECK(99 == g.ellie.asTrait(trait::charlie).get());
 
     CHECK(99 == g.ellie.asTrait(trait::charlie2).get());
+
+    CHECK(99 == g.ellie->getCharlie().get());
 
     auto charlie2get = g.ellie.asTrait(trait::charlie2).get(arc::asFunctor);
     CHECK(99 == charlie2get());

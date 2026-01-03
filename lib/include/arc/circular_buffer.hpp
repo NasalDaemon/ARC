@@ -196,7 +196,6 @@ struct CircularBuffer
     template<std::ranges::input_range R>
     requires std::ranges::sized_range<R>
          and (not std::same_as<std::remove_cvref_t<R>, CircularBuffer>)
-         and std::constructible_from<T, decltype(std::forward_like<R>(std::declval<std::ranges::range_reference_t<R>>()))>
     constexpr CircularBuffer(R&& range, std::optional<std::size_t> maxSize_ = std::nullopt)
         : CircularBuffer(maxSize_ ? *maxSize_ : std::max(defaultMaxSize, std::ranges::size(range)))
     {
@@ -215,9 +214,20 @@ struct CircularBuffer
         }
 
         T* outStorage = reinterpret_cast<T*>(buffer.data.get());
-        for (auto&& elem : ARC_FWD(range))
+        for (decltype(auto) elem : ARC_FWD(range))
         {
-            std::construct_at(outStorage + writeIndex, std::forward_like<R>(elem));
+            if constexpr (std::ranges::view<R>)
+            {
+                static_assert(std::constructible_from<T, std::ranges::range_reference_t<R>>,
+                    "CircularBuffer::CircularBuffer: buffer element type not constructible from view reference type");
+                std::construct_at(outStorage + writeIndex, ARC_FWD(elem));
+            }
+            else
+            {
+                static_assert(std::constructible_from<T, decltype(std::forward_like<R>(elem))>,
+                    "CircularBuffer::CircularBuffer: buffer element type not constructible from range element type");
+                std::construct_at(outStorage + writeIndex, std::forward_like<R>(elem));
+            }
             ++writeIndex;
         }
     }
@@ -369,6 +379,66 @@ struct CircularBuffer
         // Increment writeIndex after constructing the new element in case of exceptions
         ++writeIndex;
         return *dst;
+    }
+
+    template<std::ranges::input_range R>
+    requires std::ranges::sized_range<R>
+         and (not std::same_as<std::remove_cvref_t<R>, CircularBuffer>)
+         and std::constructible_from<T, std::ranges::range_reference_t<R>>
+    constexpr void append(R&& range)
+    {
+        std::size_t const count = std::ranges::size(range);
+        if (count == 0)
+            return;
+        if (count > maxSize) [[unlikely]]
+            throw std::invalid_argument("CircularBuffer::append: count exceeds maxSize");
+
+        std::size_t const prevSize = size();
+        std::size_t const spaceLeft = maxSize - prevSize;
+        if (spaceLeft < count) [[unlikely]]
+        {
+            // Need to evict some elements from the front
+            std::size_t elementsToEvict = count - spaceLeft;
+            for (std::size_t i = 0; i < elementsToEvict; ++i)
+            {
+                std::destroy_at(buffer.value_at(readIndex));
+                ++readIndex;
+            }
+        }
+
+        if constexpr (Growing)
+        {
+            // If we need to grow the buffer and we can
+            std::size_t const neededCapacity = prevSize + std::min(count, spaceLeft);
+            std::size_t const neededMask = mask_for(neededCapacity);
+            // neededMask is at least 1 here since count > 0 and maxSize >= 2
+            if (buffer.mask < neededMask) [[unlikely]]
+                grow_buffer(neededMask);
+        }
+
+        for (decltype(auto) elem : ARC_FWD(range))
+        {
+            if constexpr (std::ranges::view<R>)
+            {
+                static_assert(std::constructible_from<T, std::ranges::range_reference_t<R>>,
+                    "CircularBuffer::append: buffer element type not constructible from view reference type");
+                std::construct_at(buffer.storage_at(writeIndex), ARC_FWD(elem));
+            }
+            else
+            {
+                static_assert(std::constructible_from<T, decltype(std::forward_like<R>(elem))>,
+                    "CircularBuffer::append: buffer element type not constructible from range element type");
+                std::construct_at(buffer.storage_at(writeIndex), std::forward_like<R>(elem));
+            }
+            ++writeIndex;
+        }
+    }
+
+    template<class It>
+    requires std::constructible_from<T, std::iter_reference_t<It>>
+    constexpr void append(It begin, std::size_t const count)
+    {
+        append(std::views::counted(begin, count));
     }
 
     constexpr T pop_front_value() requires detail::MoveConstructible<T>
@@ -567,6 +637,7 @@ private:
         grow_buffer(min_mask((buffer.mask << 1) | 1));
     }
 
+    ARC_COLD
     constexpr void grow_buffer(std::size_t newMask)
     {
         buffer = Buffer(std::move(buffer), newMask, readIndex, writeIndex, readIndex);

@@ -20,6 +20,7 @@
 #include "arc/macros.hpp"
 #include "arc/no_trait.hpp"
 #include "arc/node.hpp"
+#include "arc/node_with.hpp"
 #include "arc/resolve.hpp"
 #include "arc/repeater.hpp"
 #include "arc/traits.hpp"

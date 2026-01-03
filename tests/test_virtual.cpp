@@ -130,9 +130,9 @@ struct AppleEgg
 struct Bread
 {
     template<class Context>
-    struct Node : IBread
+    struct Node : arc::Build<IBread>::WithDepends<trait::Apple, trait::Egg, arc::Global<trait::Global>>
     {
-        using Traits = arc::Traits<Node, trait::Bread>;
+        using Traits = arc::RebindTraits<Node>;
 
         // Prove that withFactory works with copy/move elision
         Node() = default;
@@ -143,12 +143,14 @@ struct Bread
 
         int impl(trait::Bread::slices) const final
         {
-            return getNode(trait::egg).yolks() * slices;
+            return getEgg().yolks() * slices;
         }
 
         void onGraphConstructed()
         {
+            // Proves getGlobal isn't a converter in WithDepends, as it clashes with Node::getGlobal
             CHECK(getGlobal(trait::global).get() == 9);
+            CHECK(getGlobalGlobal().get() == 9);
             CHECK(slices == 314);
             slices = 12;
         }

@@ -117,6 +117,10 @@
 
 #define ARC_COLD [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
 
+#define ARC_REBIND_TRAITS(...) ARC_OVERLOAD(ARC_REBIND_TRAITS, 0, ## __VA_ARGS__)(0, ## __VA_ARGS__)
+#define ARC_REBIND_TRAITS2(_, NodeName) using Traits = arc::RebindTraits<NodeName>
+#define ARC_REBIND_TRAITS1(_) ARC_REBIND_TRAITS2(_, Node)
+
 // Clang won't detail the failure in the build diagnostic when asserting the concept directly
 #if ARC_COMPILER_CLANG
 #   define ARC_ASSERT_IMPLEMENTS(Impl, Types, Trait) \
@@ -134,9 +138,9 @@
 // ARC_METHODS(TraitName, MethodList=ARC_METHODS_TraitName)
 #define ARC_METHODS(...) ARC_OVERLOAD(ARC_METHODS, __VA_ARGS__)(__VA_ARGS__)
 
-#define ARC_METHODS2(traitName, METHOD_LIST) \
+#define ARC_METHODS2(TraitName, METHOD_LIST) \
     METHOD_LIST(ARC_METHOD_TAG) \
-    friend constexpr traitName traitOf(::arc::IsMethodOf<traitName> auto) { return {}; } \
+    friend constexpr TraitName traitOf(::arc::IsMethodOf<TraitName> auto) { return {}; } \
     struct Meta \
     { \
         struct Applicable \
@@ -148,6 +152,18 @@
             METHOD_LIST(ARC_DUCK_METHOD) \
         }; \
         using DuckMethods = Methods; \
+        struct Resolver \
+        { \
+            ARC_TRAIT_RESOLVER(TraitName) \
+        }; \
+        struct GlobalResolver \
+        { \
+            ARC_GLOBAL_TRAIT_RESOLVER(TraitName) \
+        }; \
+        struct Converter \
+        { \
+            ARC_TRAIT_CONVERTER(TraitName) \
+        }; \
     };
 #define ARC_METHODS1(traitName) \
     ARC_METHODS2(traitName, ARC_METHODS_ ## traitName)
@@ -164,6 +180,26 @@
     { \
         return self.impl(method ## _c, asFunctor); \
     }
+
+#define ARC_TRAIT_RESOLVER(...) ARC_OVERLOAD(ARC_TRAIT_RESOLVER, __VA_ARGS__)(__VA_ARGS__)
+#define ARC_TRAIT_RESOLVER2(function, Trait) \
+    template<::arc::IsNode Self, class Key = ::arc::ContextOf<Self>::Info::DefaultKey> \
+    ARC_INLINE constexpr ::arc::IsTraitView auto function(this Self& self, Key key = {}, auto const&... keys) \
+    { \
+        return self.getNode(Trait{}, key, keys...); \
+    }
+#define ARC_TRAIT_RESOLVER1(Trait) ARC_TRAIT_RESOLVER2(get ## Trait, Trait)
+
+#define ARC_GLOBAL_TRAIT_RESOLVER(Trait) ARC_TRAIT_RESOLVER2(getGlobal ## Trait, ::arc::Global<Trait>)
+
+#define ARC_TRAIT_CONVERTER(...) ARC_OVERLOAD(ARC_TRAIT_CONVERTER, __VA_ARGS__)(__VA_ARGS__)
+#define ARC_TRAIT_CONVERTER2(function, Trait) \
+    template<::arc::IsNode Self, class Key = ::arc::ContextOf<Self>::Info::DefaultKey> \
+    ARC_INLINE constexpr ::arc::IsTraitView auto function(this Self& self, Key key = {}, auto const&... keys) \
+    { \
+        return self.asTrait(Trait{}, key, keys...); \
+    }
+#define ARC_TRAIT_CONVERTER1(Trait) ARC_TRAIT_CONVERTER2(as ## Trait, Trait)
 
 #define ARC_DUCK_METHOD(method) \
     template<::arc::IsTraitView Self> \

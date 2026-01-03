@@ -3,6 +3,7 @@
 
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
+#include "arc/depends.hpp"
 #include "arc/global_graph.hpp"
 #include "arc/graph.hpp"
 #include "arc/key.hpp"
@@ -11,8 +12,14 @@
 #include "arc/map_info.hpp"
 #include "arc/mock_fwd.hpp"
 #include "arc/node.hpp"
+#include "arc/node_with_fwd.hpp"
 #include "arc/test_context.hpp"
 #include "arc/trait.hpp"
+
+#if !ARC_IMPORT_STD
+#include <concepts>
+#include <cstddef>
+#endif
 
 namespace arc::test {
 
@@ -48,6 +55,8 @@ struct MockKey : arc::key::Default
 ARC_MODULE_EXPORT
 struct TestOnlyNode : arc::Node
 {
+    using Build = arc::Build<TestOnlyNode>;
+
     template<class Self>
     static constexpr void assertNodeContext()
     {
@@ -55,6 +64,16 @@ struct TestOnlyNode : arc::Node
         arc::Node::assertNodeContext<Self>();
     }
 };
+
+ARC_MODULE_EXPORT
+template<arc::detail::IsDependsItem... Traits>
+requires (sizeof...(Traits) > 0)
+using TestOnlyNodeWithDepends = WithDepends<TestOnlyNode, Traits...>;
+
+ARC_MODULE_EXPORT
+template<class... Traits>
+requires (sizeof...(Traits) > 0)
+using TestOnlyNodeWithTraits = WithTraits<TestOnlyNode, Traits...>;
 
 namespace detail {
 
@@ -147,5 +166,9 @@ using GraphWithGlobal = arc::GraphWithGlobal<Cluster<Node, Mocks>, GlobalNode, R
 
 } // namespace arc::test
 
+namespace arc::detail {
+    template<>
+    inline constexpr bool isNodeBase<arc::test::TestOnlyNode> = true;
+}
 
 #endif // INCLUDE_ARC_TEST_HPP

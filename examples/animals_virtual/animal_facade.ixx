@@ -13,7 +13,7 @@ export struct IAnimalFacade
     template<class Context>
     struct Node final : IAnimal
     {
-        using Traits = arc::TraitsFrom<Node, IAnimal>;
+        using Traits = arc::RebindTraits<Node>;
 
         // Forward to adapted node
         std::string impl(trait::Animal::speak) const override

@@ -12,6 +12,7 @@
 #include "arc/cluster.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/defer.hpp"
+#include "arc/ensure.hpp"
 #include "arc/factory.hpp"
 #include "arc/finalise.hpp"
 #include "arc/global_context.hpp"
@@ -148,9 +149,22 @@ struct Union
         };
 
         template<class Option>
-        using ToNode = detail::ToNodeState<typename ToNodeWrapper<Option>::template Node<detail::CompressContext<InnerContext>>>;
+        using ToNode = Ensure<detail::ToNodeState<typename ToNodeWrapper<Option>::template Node<detail::CompressContext<InnerContext>>>>;
 
     public:
+        struct Depends
+        {
+            static constexpr bool isSpecified = (ToNode<Options>::Depends::isSpecified and ...);
+
+            // This will be enforced by each option's own Depends
+            template<class Node, IsTrait Trait>
+            static constexpr bool dependencyListed = true;
+
+            // This is enforced by ToNode (using Ensure)
+            template<class Node, bool Transitive>
+            using AssertSatisfied = void;
+        };
+
         template<std::size_t I>
         using NodeAt = ToNode<detail::TypeAt<I, Options...>>;
 
@@ -208,7 +222,7 @@ struct Union
         explicit(false) constexpr Node(std::in_place_type_t<Option>, auto&&... args)
             : index(findIndex<Option>())
         {
-            new (bytes) ToNode<Option>{ARC_FWD(args)...};
+            new (bytes) ToNode<Option>(ARC_FWD(args)...);
         }
 
         template<class Option>

@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_TRAITS_FWD_HPP
 
 #include "arc/context_fwd.hpp"
+#include "arc/empty_types.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/trait.hpp"
@@ -33,6 +34,27 @@ namespace detail {
     template<class Node>
     concept HasNodeTraits = requires {
         typename Node::Traits;
+    };
+
+    template<class Trait_>
+    struct TraitsItem
+    {
+        using Trait = Trait_;
+    };
+    template<class Trait_, class I>
+    struct TraitsItem<Trait_(I)>
+    {
+        using Trait = Trait_;
+    };
+    template<class Trait_, class I, class T>
+    struct TraitsItem<Trait_(I, T)>
+    {
+        using Trait = Trait_;
+    };
+    template<class Trait_, class T>
+    struct TraitsItem<Trait_*(T)>
+    {
+        using Trait = Trait_;
     };
 
     template<class Node_>
@@ -81,7 +103,6 @@ namespace detail {
     template<template<class> class TraitTemplate>
     struct TraitsTemplateDefault;
 
-
 } // namespace detail
 
 ARC_MODULE_EXPORT
@@ -89,16 +110,16 @@ template<class Node, class... TraitTs>
 using Traits = detail::Traits<Node, ContextParameterOf, detail::TraitsDefault, TraitTs...>;
 
 ARC_MODULE_EXPORT
-template<class Node, class... Traits>
-using TraitsOpen = detail::Traits<Node, ContextParameterOf, detail::TraitsOpenDefault<detail::TraitNodeInterface<Node>>, Traits...>;
+template<class Node, class... TraitTs>
+using TraitsOpen = detail::Traits<Node, ContextParameterOf, detail::TraitsOpenDefault<detail::TraitNodeInterface<Node>>, TraitTs...>;
 
 ARC_MODULE_EXPORT
-template<class Node, template<class> class TraitTemplate, class... Traits>
-using TraitsTemplate = detail::Traits<Node, ContextParameterOf, detail::TraitsTemplateDefault<TraitTemplate>, Traits...>;
+template<class Node, template<class> class TraitTemplate, class... TraitTs>
+using TraitsTemplate = detail::Traits<Node, ContextParameterOf, detail::TraitsTemplateDefault<TraitTemplate>, TraitTs...>;
 
 ARC_MODULE_EXPORT
-template<class OtherNode, class FromNode, class... ExtraTraits>
-using TraitsFrom = FromNode::Traits::template Rebind<OtherNode, ContextParameterOf, ExtraTraits...>;
+template<class Self, class... TraitTs>
+using RebindTraits = Self::Traits::template Rebind<Self, ContextParameterOf, TraitTs...>;
 
 } // namespace arc
 

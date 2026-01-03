@@ -1,3 +1,21 @@
+{%- macro trait_resolver(name) -%}
+    {# Ensure to change any clashing getX names to get_X #}
+    {%- if name in ("Node", "Global", "State", "Peers", "ElementHandle", "ElementId") -%}
+    ARC_TRAIT_RESOLVER(get_{{name}}, {{ name }})
+    {%- else -%}
+    ARC_TRAIT_RESOLVER({{ name }})
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro trait_converter(name) -%}
+    {# Ensure to change any clashing asX names to as_X #}
+    {%- if name in ("Trait") -%}
+    ARC_TRAIT_CONVERTER(as_{{name}}, {{ name }})
+    {%- else -%}
+    ARC_TRAIT_CONVERTER({{ name }})
+    {%- endif -%}
+{%- endmacro -%}
+
 {% for namespace in repr.namespaces %}
 
 namespace {{ namespace.name }} {
@@ -13,29 +31,29 @@ namespace {{ namespace.name }} {
 {% for policy in namespace.policies %}
 {% for classification in policy.groups %}
 
-struct {{ policy.name }}::{{ classification.name }} : arc::Group
+struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
 {
-    using arc::Group::connectionsTo;
-    using arc::Group::connectionsFrom;
+    using ::arc::Group::connectionsTo;
+    using ::arc::Group::connectionsFrom;
 
     {% for toName, write in classification.connectionsTo %}
-    static auto connectionsTo({{ toName }} const*) -> {{ "arc::GroupWriteAccess" if write else "void" }};
+    static auto connectionsTo({{ toName }} const*) -> {{ "::arc::GroupWriteAccess" if write else "void" }};
     {% endfor %}
     {% for fromName, write in classification.connectionsFrom %}
-    static auto connectionsFrom({{ fromName }} const*) -> {{ "arc::GroupWriteAccess" if write else "void" }};
+    static auto connectionsFrom({{ fromName }} const*) -> {{ "::arc::GroupWriteAccess" if write else "void" }};
     {% endfor %}
 };
 {% endfor %}
 {% endfor %}
 {% for trait in namespace.traits %}
 
-{{ export }}struct {{ trait.name }} : arc::Trait
+{{ export }}struct {{ trait.name }} : ::arc::Trait
 {
     {% for method_name in trait.method_names %}
     ARC_METHOD_TAG({{ method_name }})
     {% endfor %}
 
-    template<arc::IsMethodOf<{{ trait.name }}> Tag>
+    template<::arc::IsMethodOf<{{ trait.name }}> Tag>
     friend constexpr {{ trait.name }} traitOf(Tag) { return {}; }
 
     struct Meta
@@ -53,7 +71,7 @@ struct {{ policy.name }}::{{ classification.name }} : arc::Group
             {% endfor %}
 
             {% for method in trait.methods %}
-            template<arc::IsTraitView Self
+            template<::arc::IsTraitView Self
                 {%- for prefix, name in method.templates -%}
                 , {{ prefix }}{{ prefix.pack }} {{ name }}
                 {%- endfor -%}
@@ -61,10 +79,10 @@ struct {{ policy.name }}::{{ classification.name }} : arc::Group
                 , class {{ trait.types_name }} = std::remove_cvref_t<Self>::Types
                 {%- endif -%}
                 {%- if trait.root_name -%}
-                , class {{ trait.root_name }} = arc::ResolveRoot<arc::ContextOf<std::remove_cvref_t<Self>>>
+                , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
                 {%- if trait.info_name -%}
-                , class {{ trait.info_name }} = arc::ResolveInfo<arc::ContextOf<std::remove_cvref_t<Self>>>
+                , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
                 {%- if trait.impl_named -%}
                 , class {{ trait.impl_name }} = std::remove_cvref_t<Self>::Traits::Node
@@ -90,14 +108,26 @@ struct {{ policy.name }}::{{ classification.name }} : arc::Group
             ARC_DUCK_METHOD({{ method_name }})
             {% endfor %}
         };
+        struct Resolver
+        {
+            {{ trait_resolver(trait.name) }}
+        };
+        struct GlobalResolver
+        {
+            ARC_GLOBAL_TRAIT_RESOLVER({{ trait.name }})
+        };
+        struct Converter
+        {
+            {{ trait_converter(trait.name) }}
+        };
     };
 
     template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "" }}
     {%- if trait.root_name -%}
-        , class {{ trait.root_name }} = arc::ResolveRoot<arc::ContextOf<{{ trait.impl_name }}>>
+        , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<{{ trait.impl_name }}>>
     {%- endif -%}
     {%- if trait.info_name -%}
-        , class {{ trait.info_name }} = arc::ResolveInfo<arc::ContextOf<{{ trait.impl_name }}>>
+        , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<{{ trait.impl_name }}>>
     {%- endif -%}
     >
     requires requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_)
@@ -140,9 +170,43 @@ struct {{ policy.name }}::{{ classification.name }} : arc::Group
 {% for alias in namespace.trait_aliases %}
 
 {% if alias | count == 2 %}
-{{ export }}struct {{ alias[0] }} : arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}> {};
+{{ export }}struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
+{
+    struct Meta : {{ alias[0] }}::AltTrait::Meta
+    {
+        struct Resolver
+        {
+            {{ trait_resolver(alias[0]) }}
+        };
+        struct GlobalResolver
+        {
+            ARC_GLOBAL_TRAIT_RESOLVER({{ alias[0] }})
+        };
+        struct Converter
+        {
+            {{ trait_converter(alias[0]) }}
+        };
+    };
+};
 {% else %}
-{{ export }}struct {{ alias[0] }} : arc::JoinedTrait<{{ alias[1:] | join(", ") }}> {};
+{{ export }}struct {{ alias[0] }} : ::arc::JoinedTrait<{{ alias[1:] | join(", ") }}>
+{
+    struct Meta : {{ alias[0] }}::JoinedTrait::Meta
+    {
+        struct Resolver : {{ alias[0] }}::JoinedTrait::Meta::Resolver
+        {
+            {{ trait_resolver(alias[0]) }}
+        };
+        struct GlobalResolver
+        {
+            ARC_GLOBAL_TRAIT_RESOLVER({{ alias[0] }})
+        };
+        struct Converter : {{ alias[0] }}::JoinedTrait::Meta::Converter
+        {
+            {{ trait_converter(alias[0]) }}
+        };
+    };
+};
 {% endif %}
 {{ export }}inline constexpr {{ alias[0] }} {{ alias[0][0].lower() + alias[0][1:] }}{};
 {% endfor %}
@@ -151,7 +215,7 @@ struct {{ policy.name }}::{{ classification.name }} : arc::Group
 {% if not cluster.templates %}
 template<class Context>
 struct {{ cluster.node_name() }};
-{{ export }}using {{ cluster.name }} = arc::InlineNode<{{ cluster.node_name() }}>;
+{{ export }}using {{ cluster.name }} = ::arc::InlineNode<{{ cluster.node_name() }}>;
 {% else %}
 {{ export }}template<
     {%- set comma = joiner(", ") -%}
@@ -193,7 +257,7 @@ template<class {{ cluster.context_name }}>
 struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
 {% endif %}
 {
-    using Depends = arc::Depends<{{ cluster.dependencies | join(", ") }}>;
+    using Depends = ::arc::Depends<{{ cluster.dependencies | join(", ") }}>;
     {% if 1 == cluster.nodes | length %}
 
     static constexpr bool isUnary()
@@ -203,11 +267,11 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
     {% endif %}
     {% if cluster.root_name %}
 
-    using {{ cluster.root_name }} = arc::ResolveRoot<{{ cluster.context_name }}>;
+    using {{ cluster.root_name }} = ::arc::ResolveRoot<{{ cluster.context_name }}>;
     {% endif %}
     {% if cluster.info_name %}
 
-    using {{ cluster.info_name }} = arc::ResolveInfo<{{ cluster.context_name }}>;
+    using {{ cluster.info_name }} = ::arc::ResolveInfo<{{ cluster.context_name }}>;
     {% endif %}
     {% if cluster.aliases %}
 
@@ -235,7 +299,7 @@ struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
     {% endif %}
 
     {% for node in cluster.nodes %}
-    struct {{ node.context }} : arc::Context<{{ cluster.node_name() }}, {{ node.context }}Node_>
+    struct {{ node.context }} : ::arc::Context<{{ cluster.node_name() }}, {{ node.context }}Node_>
     {
         {% for connection in node.connections %}
         {% if connection.is_renaming() %}

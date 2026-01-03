@@ -40,6 +40,21 @@ ARC_MODULE_EXPORT
 template<class T>
 concept IsNode = std::derived_from<T, Node>;
 
+namespace detail {
+    template<class T>
+    inline constexpr bool isNodeBase = false;
+
+    template<>
+    inline constexpr bool isNodeBase<Node> = true;
+
+    template<class T>
+    concept IsNodeBaseC = isNodeBase<T>;
+}
+
+ARC_MODULE_EXPORT
+template<class T>
+concept IsNodeBase = IsNode<T> and detail::IsNodeBaseC<T>;
+
 ARC_MODULE_EXPORT
 template<class T>
 concept IsNodeWrapper = requires {
