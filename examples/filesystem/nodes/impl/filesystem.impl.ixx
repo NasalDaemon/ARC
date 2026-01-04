@@ -14,9 +14,9 @@ namespace examples::filesystem {
 FILESYSTEM::impl(trait::Filesystem::read, std::string_view path) const
     -> std::expected<DataView, FsError>
 {
-    std::string normalised = getNode(trait::pathOps).normalise(path);
+    auto normalised = getPathOps().normalise(path);
 
-    auto entry = getNode(trait::storage).get(normalised);
+    auto entry = getStorage().get(normalised);
     if (!entry)
         return std::unexpected(FsError::NotFound);
 
@@ -109,11 +109,9 @@ FILESYSTEM::impl(trait::Filesystem::remove, std::string_view path)
 FILESYSTEM::impl(trait::Filesystem::list, std::string_view path) const
     -> std::expected<Children, FsError>
 {
-    auto pathOps = getNode(trait::pathOps);
-    auto storage = getNode(trait::storage);
+    std::string normalised = getPathOps().normalise(path);
 
-    std::string normalised = pathOps.normalise(path);
-
+    auto storage = getStorage();
     auto entry = storage.get(normalised);
     if (!entry)
         return std::unexpected(FsError::NotFound);
@@ -126,20 +124,14 @@ FILESYSTEM::impl(trait::Filesystem::list, std::string_view path) const
 
 FILESYSTEM::impl(trait::Filesystem::exists, std::string_view path) const -> bool
 {
-    auto pathOps = getNode(trait::pathOps);
-    auto storage = getNode(trait::storage);
-
-    std::string normalised = pathOps.normalise(path);
-    return static_cast<bool>(storage.get(normalised));
+    auto normalised = getPathOps().normalise(path);
+    return static_cast<bool>(getStorage().get(normalised));
 }
 
 FILESYSTEM::impl(trait::Filesystem::isDir, std::string_view path) const -> bool
 {
-    auto pathOps = getNode(trait::pathOps);
-    auto storage = getNode(trait::storage);
-
-    std::string normalised = pathOps.normalise(path);
-    auto entry = storage.get(normalised);
+    auto normalised = getPathOps().normalise(path);
+    auto entry = getStorage().get(normalised);
     return entry && entry->isDir();
 }
 

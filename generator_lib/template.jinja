@@ -71,7 +71,7 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
             {% endfor %}
 
             {% for method in trait.methods %}
-            template<::arc::IsTraitView Self
+            template<::arc::IsTraitViewOrNode Self
                 {%- for prefix, name in method.templates -%}
                 , {{ prefix }}{{ prefix.pack }} {{ name }}
                 {%- endfor -%}
@@ -102,6 +102,11 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
             }
             {% endfor %}
         };
+        struct Named
+        {
+            struct {{ trait.name }} : Methods {};
+        };
+        using NamedMethods = Named::{{ trait.name }};
         struct DuckMethods
         {
             {% for method_name in trait.method_names %}
@@ -172,8 +177,13 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
 {% if alias | count == 2 %}
 {{ export }}struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
 {
-    struct Meta : {{ alias[0] }}::AltTrait::Meta
+    struct Meta : AltTrait::Meta
     {
+        struct Named
+        {
+            struct {{ alias[0]}} : Meta::Methods {};
+        };
+        using NamedMethods = Named::{{ alias[0] }};
         struct Resolver
         {
             {{ trait_resolver(alias[0]) }}
@@ -191,17 +201,22 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
 {% else %}
 {{ export }}struct {{ alias[0] }} : ::arc::JoinedTrait<{{ alias[1:] | join(", ") }}>
 {
-    struct Meta : {{ alias[0] }}::JoinedTrait::Meta
+    struct Meta : JoinedTrait::Meta
     {
-        struct Resolver : {{ alias[0] }}::JoinedTrait::Meta::Resolver
+        struct Named
+        {
+            struct {{ alias[0]}} : Meta::NamedMethods {};
+        };
+        using NamedMethods = Named::{{ alias[0] }};
+        struct Resolver : JoinedTrait::Meta::Resolver
         {
             {{ trait_resolver(alias[0]) }}
         };
-        struct GlobalResolver
+        struct GlobalResolver : JoinedTrait::Meta::GlobalResolver
         {
             ARC_GLOBAL_TRAIT_RESOLVER({{ alias[0] }})
         };
-        struct Converter : {{ alias[0] }}::JoinedTrait::Meta::Converter
+        struct Converter : JoinedTrait::Meta::Converter
         {
             {{ trait_converter(alias[0]) }}
         };

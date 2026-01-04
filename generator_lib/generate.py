@@ -131,7 +131,7 @@ SPECIAL_NODES = PARENT_NODE + GLOBAL_NODE + ALL_NODES
 def is_no_trait(trait: str | None) -> bool:
     if trait is None:
         return False
-    return trait in NO_TRAIT or "arc::NoTrait<" in trait
+    return trait in NO_TRAIT or "::arc::NoTrait<" in trait
 
 
 class CppType:
@@ -187,11 +187,11 @@ class Repeater:
 
     @property
     def impl(self):
-        return f'arc::Repeater<{self.trait}, {len(self.connections)}>'
+        return f'::arc::Repeater<{self.trait}, {len(self.connections)}>'
 
     def add_connection(self, connection: 'Connection'):
         assert connection.trait == self.trait, (connection.trait, self.trait)
-        connection.trait = f"arc::RepeaterTrait<{len(self.connections)}>"
+        connection.trait = f"::arc::RepeaterTrait<{len(self.connections)}>"
         self.connections.append(connection)
 
 
@@ -210,7 +210,7 @@ class Connection:
         self.to_node: Node | Repeater = to_node
         self.trait: str = trait
         if self.trait in NO_TRAIT:
-            self.trait = f"arc::NoTrait<{to_node.node_alias}>"
+            self.trait = f"::arc::NoTrait<{to_node.node_alias}>"
             self.to_trait = self.trait
         else:
             self.to_trait: str = to_trait or trait
@@ -291,7 +291,7 @@ class Node:
                 raise SyntaxError(f"{pos} Cannot use no-trait shorthand '~' to connect to global '^' or parent '..' node in {self.cluster.cluster_class} '{self.cluster.full_name}'. "
                                   "Use a named trait like 'arc::NoTrait<TargetNode>' instead.")
         if to_node.is_global:
-            to_trait = f"arc::Global<{effective_to_trait}>"
+            to_trait = f"::arc::Global<{effective_to_trait}>"
         to_node.add_client(pos, self, effective_to_trait)
         connection = Connection(pos, to_node, trait=trait, to_trait=to_trait, traitblock_id=traitblock_id, fanout_id=fanout_id)
 
@@ -368,7 +368,7 @@ class Cluster:
 
     @property
     def cluster_type(self) -> str:
-        return "arc::Cluster"
+        return "::arc::Cluster"
 
     @property
     def cluster_class(self) -> str:
@@ -667,7 +667,7 @@ class Domain(Cluster):
 
     @property
     def cluster_type(self) -> str:
-        return "arc::Domain<arc::DomainParams{.MaxDepth=3}>"
+        return "::arc::Domain<::arc::DomainParams{.MaxDepth=3}>"
 
     @property
     def cluster_class(self) -> str:
@@ -676,13 +676,13 @@ class Domain(Cluster):
     def predicates(self, node: Node | Repeater) -> list[str]:
         if isinstance(node, Repeater):
             return []
-        preds = ["arc::pred::HasDepends"]
+        preds = ["::arc::pred::HasDepends"]
         if not node.is_unary:
-            preds.append("arc::pred::NonUnary")
+            preds.append("::arc::pred::NonUnary")
             return preds
-        preds.append("arc::pred::Unary")
+        preds.append("::arc::pred::Unary")
         if not node.has_state:
-            preds.append("arc::pred::Stateless")
+            preds.append("::arc::pred::Stateless")
         return preds
 
     def validate_arrow(self, arrow: Tree) -> bool:
@@ -887,7 +887,7 @@ class Policy:
         self.groups: list[Group] = []
 
     def walk(self, children):
-        aliases: dict[str, str] = {g: "arc::NoGroup" for g in DEFAULT_GROUP}
+        aliases: dict[str, str] = {g: "::arc::NoGroup" for g in DEFAULT_GROUP}
         groups: dict[str, Group] = {}
         for c in children:
             current_token = c

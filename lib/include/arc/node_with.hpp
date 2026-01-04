@@ -16,32 +16,35 @@ struct UnboundTraits
 };
 
 template<class... TraitTs>
-struct WithTraits : TraitsItem<TraitTs>::Trait::Meta::Converter...
+struct AsTrait
+    : TraitsItem<TraitTs>::Trait::Meta::Converter...
+    , TraitsItem<TraitTs>::Trait::Meta::NamedMethods...
 {
     using Traits = UnboundTraits<TraitTs...>;
 };
 template<>
-struct WithTraits<>
+struct AsTrait<>
 {};
 
 template<class... DependTraits>
-struct WithDepends : DependsTrait<DependTraits>::Meta::Resolver...
+struct Resolve
+    : DependsTrait<DependTraits>::Meta::Resolver...
 {
     using Depends = arc::Depends<DependTraits...>;
 };
 template<>
-struct WithDepends<>
+struct Resolve<>
 {
-    using Depends = DependsImplicitly;
+    using Depends = Node::Depends;
 };
 
 template<IsNodeBase Node, class... DependTraits, class... TraitTs>
 struct NodeWith<Node, void(DependTraits...), TraitTs...>
     : Node
-    , WithDepends<DependTraits...>
-    , WithTraits<TraitTs...>
+    , Resolve<DependTraits...>
+    , AsTrait<TraitTs...>
 {
-    using Depends = NodeWith::WithDepends::Depends;
+    using Depends = NodeWith::Resolve::Depends;
 };
 
 }

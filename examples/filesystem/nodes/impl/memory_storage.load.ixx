@@ -21,8 +21,8 @@ auto MemoryStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_vi
         }
 
         auto const loadRecursive =
-            // Weird GCC bug requires 'this' to be captured by value
-            [p = this](this auto& self, std::filesystem::path const& currentPath, std::string fsPath) -> void
+            // Weird GCC bug requires 'this' to be captured as a named value
+            [p = this](this auto self, std::filesystem::path const& currentPath, std::string fsPath) -> void
             {
                 for (auto const& entry : std::filesystem::directory_iterator{currentPath})
                 {
@@ -31,7 +31,7 @@ auto MemoryStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_vi
 
                     if (entry.is_directory())
                     {
-                        if (auto result = p->impl(trait::Storage::put{}, fullFsPath, InMemoryEntry::directory()); !result)
+                        if (auto result = p->put(fullFsPath, InMemoryEntry::directory()); !result)
                             std::println("Warning: Could not create directory {}: {}", fullFsPath, asString(result.error()));
                         else
                             self(entry.path(), fullFsPath);
@@ -42,7 +42,7 @@ auto MemoryStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_vi
                         {
                             std::ifstream file(entry.path());
                             std::string content(std::istreambuf_iterator<char>{file}, {});
-                            if (auto result = p->impl(trait::Storage::put{}, fullFsPath, InMemoryEntry::file(std::move(content))); !result)
+                            if (auto result = p->put(fullFsPath, InMemoryEntry::file(std::move(content))); !result)
                                 std::println("Warning: Could not write file {}: {}", fullFsPath, asString(result.error()));
                         }
                         catch (std::exception const& e)

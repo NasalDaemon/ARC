@@ -38,7 +38,7 @@ struct Node;
 
 ARC_MODULE_EXPORT
 template<class T>
-concept IsNode = std::derived_from<T, Node>;
+concept IsNode = detail::IsInstanceOf<T, Node>;
 
 namespace detail {
     template<class T>

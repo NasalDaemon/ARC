@@ -20,13 +20,7 @@ namespace detail {
         };
 
         template<class... Traits>
-        using AndTraits = AssertNoBuild<Traits...>;
-
-        template<class... Traits>
         using WithTraits = AssertNoBuild<Traits...>;
-
-        template<detail::IsDependsItem... DependTraits>
-        using AndDepends = AssertNoBuild<DependTraits...>;
 
         template<detail::IsDependsItem... DependTraits>
         using WithDepends = AssertNoBuild<DependTraits...>;
@@ -52,19 +46,11 @@ struct Build<Node>
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
-    using AddTraits = Build<Node, void(), Traits...>;
-
-    template<class... Traits>
-    requires (sizeof...(Traits) > 0)
-    using WithTraits = detail::NodeWith<Node, void(), Traits...>;
+    using WithTraits = Build<Node, void(), Traits...>;
 
     template<detail::IsDependsItem... DependTraits>
     requires (sizeof...(DependTraits) > 0)
-    using AddDepends = Build<Node, void(DependTraits...)>;
-
-    template<detail::IsDependsItem... DependTraits>
-    requires (sizeof...(DependTraits) > 0)
-    using WithDepends = detail::NodeWith<Node, void(DependTraits...)>;
+    using WithDepends = Build<Node, void(DependTraits...)>;
 };
 
 template<class Node, detail::IsDependsItem... DependTraits>

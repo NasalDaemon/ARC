@@ -4,7 +4,7 @@ import std;
 
 namespace examples::filesystem {
 
-auto PathOps::normalise(std::string_view path) const -> std::string
+auto PathOps::impl(trait::PathOps::normalise, std::string_view path) const -> std::string
 {
     if (path.empty())
         return "/";
@@ -62,7 +62,7 @@ auto PathOps::normalise(std::string_view path) const -> std::string
 
 auto PathOps::impl(trait::PathOps::parent, std::string_view path) const -> std::string
 {
-    std::string normalised = normalise(path);
+    std::string normalised = AsTrait::PathOps::normalise(path);
     auto const pos = normalised.rfind('/');
     if (pos == 0)
         normalised.resize(1);
@@ -75,7 +75,7 @@ auto PathOps::impl(trait::PathOps::parent, std::string_view path) const -> std::
 
 auto PathOps::impl(trait::PathOps::filename, std::string_view path) const -> std::string
 {
-    std::string normalised = normalise(path);
+    std::string normalised = PathOps::normalise(path);
     if (normalised == "/")
         normalised.clear();
     else if (auto pos = normalised.rfind('/'); pos != std::string::npos)

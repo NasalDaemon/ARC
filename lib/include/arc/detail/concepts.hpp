@@ -5,6 +5,7 @@
 
 #if !ARC_IMPORT_STD
 #include <concepts>
+#include <memory>
 #include <type_traits>
 #endif
 
@@ -18,6 +19,9 @@ concept MoveConstructible = std::constructible_from<T, T&&>;
 
 template<class T>
 concept CopyConstructible = std::constructible_from<T, T const&>;
+
+template<class T, class Type>
+concept IsInstanceOf = requires(T const& t) { static_cast<Type const*>(std::addressof(t)); };
 
 template<template<class> class Template>
 using TakesUnaryClassTemplate = void;

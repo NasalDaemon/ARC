@@ -272,6 +272,7 @@ export namespace arc {
     }
     // trait_view.hpp
     using arc::IsTraitView;
+    using arc::IsTraitViewOrNode;
     using arc::IsTraitViewOf;
     using arc::AsFunctor;
     using arc::asFunctor;

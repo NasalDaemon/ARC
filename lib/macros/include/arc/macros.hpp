@@ -151,6 +151,11 @@
         { \
             METHOD_LIST(ARC_DUCK_METHOD) \
         }; \
+        struct Named \
+        { \
+            struct TraitName : Methods {}; \
+        }; \
+        using NamedMethods = Named::TraitName; \
         using DuckMethods = Methods; \
         struct Resolver \
         { \
@@ -175,10 +180,17 @@
     static void applicable(method);
 
 #define ARC_AS_FUNCTOR_METHOD(method) \
-    template<::arc::IsTraitView Self> \
+    template<::arc::IsTraitViewOrNode Self> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, ::arc::AsFunctor asFunctor) \
     { \
         return self.impl(method ## _c, asFunctor); \
+    }
+
+#define ARC_DUCK_METHOD(method) \
+    template<::arc::IsTraitViewOrNode Self> \
+    ARC_INLINE constexpr decltype(auto) method(this Self&& self, auto&&... args) \
+    { \
+        return self.impl(method ## _c, ARC_FWD(args)...); \
     }
 
 #define ARC_TRAIT_RESOLVER(...) ARC_OVERLOAD(ARC_TRAIT_RESOLVER, __VA_ARGS__)(__VA_ARGS__)
@@ -187,7 +199,11 @@
     ARC_INLINE constexpr ::arc::IsTraitView auto function(this Self& self, Key key = {}, auto const&... keys) \
     { \
         return self.getNode(Trait{}, key, keys...); \
-    }
+    } \
+    /* for some reason, clangd crashes without an overload */ \
+    ARC_IF_CLANG( \
+        void function(this auto&) requires false; \
+    )
 #define ARC_TRAIT_RESOLVER1(Trait) ARC_TRAIT_RESOLVER2(get ## Trait, Trait)
 
 #define ARC_GLOBAL_TRAIT_RESOLVER(Trait) ARC_TRAIT_RESOLVER2(getGlobal ## Trait, ::arc::Global<Trait>)
@@ -198,15 +214,12 @@
     ARC_INLINE constexpr ::arc::IsTraitView auto function(this Self& self, Key key = {}, auto const&... keys) \
     { \
         return self.asTrait(Trait{}, key, keys...); \
-    }
+    } \
+    /* for some reason, clangd crashes without an overload */ \
+    ARC_IF_CLANG( \
+        void function(this auto&) requires false; \
+    )
 #define ARC_TRAIT_CONVERTER1(Trait) ARC_TRAIT_CONVERTER2(as ## Trait, Trait)
-
-#define ARC_DUCK_METHOD(method) \
-    template<::arc::IsTraitView Self> \
-    ARC_INLINE constexpr decltype(auto) method(this Self&& self, auto&&... args) \
-    { \
-        return self.impl(method ## _c, ARC_FWD(args)...); \
-    }
 
 // ARC_LINK(TraitName, TargetContext, TargetTraitRename=<NoRename>)
 #define ARC_LINK(...) ARC_OVERLOAD(ARC_LINK, __VA_ARGS__)(__VA_ARGS__)

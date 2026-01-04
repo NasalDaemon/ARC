@@ -4,6 +4,7 @@
 #include "arc/empty_types.hpp"
 #include "arc/key.hpp"
 #include "arc/macros.hpp"
+#include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
@@ -20,6 +21,10 @@ namespace detail {
 ARC_MODULE_EXPORT
 template<class T>
 concept IsTraitView = detail::isTraitView<std::remove_cvref_t<T>>;
+
+ARC_MODULE_EXPORT
+template<class T>
+concept IsTraitViewOrNode = IsTraitView<T> or IsNode<T>;
 
 ARC_MODULE_EXPORT
 template<class T, class Trait, class Key = key::Default>

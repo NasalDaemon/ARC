@@ -130,7 +130,7 @@ struct AppleEgg
 struct Bread
 {
     template<class Context>
-    struct Node : arc::Build<IBread>::WithDepends<trait::Apple, trait::Egg, arc::Global<trait::Global>>
+    struct Node : arc::WithDepends<IBread, trait::Apple, trait::Egg, arc::Global<trait::Global>>
     {
         using Traits = arc::RebindTraits<Node>;
 

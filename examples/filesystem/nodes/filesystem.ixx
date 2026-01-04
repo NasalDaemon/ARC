@@ -11,9 +11,8 @@ namespace examples::filesystem {
 export struct Filesystem
 {
     template<class Context>
-    struct Node : arc::Node
+    struct Node : arc::NodeWithDepends<trait::Storage, trait::PathOps>
     {
-        using Depends = arc::Depends<trait::Storage, trait::PathOps>;
         using Traits = arc::Traits<Node, trait::Filesystem>;
 
         struct Types

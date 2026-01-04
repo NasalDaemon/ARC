@@ -25,6 +25,7 @@ struct Trait
         struct Applicable{};
         struct Methods{};
         struct DuckMethods{};
+        struct NamedMethods{};
         struct Resolver{};
         struct GlobalResolver{};
         struct Converter{};
@@ -53,8 +54,10 @@ concept IsTrait = requires (T trait) {
     requires IsStateless<typename T::Meta>;
     requires IsStateless<typename T::Meta::Applicable>;
     requires IsStateless<typename T::Meta::Methods>;
+    requires IsStateless<typename T::Meta::NamedMethods>;
     requires IsStateless<typename T::Meta::DuckMethods>;
     requires IsStateless<typename T::Meta::Resolver>;
+    requires IsStateless<typename T::Meta::GlobalResolver>;
     requires IsStateless<typename T::Meta::Converter>;
     trait.expects();
     typename detail::TakesNaryClassTemplate<T::template Implements>;
@@ -113,9 +116,13 @@ struct JoinedTrait : Traits...
         };
         struct Methods : Traits::Meta::Methods...
         {};
+        struct NamedMethods : Traits::Meta::NamedMethods...
+        {};
         struct DuckMethods : Traits::Meta::DuckMethods...
         {};
         struct Resolver : Traits::Meta::Resolver...
+        {};
+        struct GlobalResolver : Traits::Meta::GlobalResolver...
         {};
         struct Converter : Traits::Meta::Converter...
         {};
@@ -141,7 +148,10 @@ struct AltTrait : Trait_
     {
         // Erase resolvers, as the name has changed
         struct Resolver{};
+        struct GlobalResolver{};
         struct Converter{};
+        // Named methods should lose the original name
+        using NamedMethods = Trait_::Meta::Methods;
     };
 
     static AltTrait expects();

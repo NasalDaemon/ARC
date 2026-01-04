@@ -12,12 +12,12 @@ namespace arc::tests::joined_trait::trait {
 
 trait A
 {
-    getA() const -> int
+    fnA() const -> int
 }
 
 trait B
 {
-    getB() const -> int
+    fnB() const -> int
 }
 
 trait AB = A + B
@@ -51,7 +51,7 @@ struct Root
     {
         using Traits = arc::Traits<A, trait::A>;
 
-        int impl(trait::A::getA) const
+        int impl(trait::A::fnA) const
         {
             return 42;
         }
@@ -61,25 +61,46 @@ struct Root
     {
         using Traits = arc::Traits<B, trait::B>;
 
-        int impl(trait::B::getB) const
+        int impl(trait::B::fnB) const
         {
             return 84;
         }
     };
 
-    struct AB : arc::Node
+    struct AB : arc::Node::Build::WithTraits<trait::AB>::WithDepends<trait::A, trait::B>
     {
-        using Depends = arc::Depends<trait::A, trait::B>;
-        using Traits = arc::Traits<AB, trait::AB>;
+        using Traits = arc::RebindTraits<AB>;
 
-        int impl(this auto const& self, trait::AB::getA)
+        int impl(this auto const& self, trait::AB::fnA)
         {
-            return self.getNode(trait::a).getA();
+            static_assert(requires { self.asA(); });
+            static_assert(requires { self.AsTrait::asA(); });
+
+            static_assert(requires { self.fnA(); });
+            static_assert(requires { self.A::fnA(); });
+            static_assert(requires { self.AB::fnA(); });
+            static_assert(requires { self.AsTrait::fnA(); });
+            static_assert(requires { self.AsTrait::A::fnA(); });
+            static_assert(requires { self.AsTrait::AB::fnA(); });
+
+            static_assert(requires { self.Resolve::getA(); });
+            return self.getA().fnA();
         }
 
-        int impl(this auto const& self, trait::AB::getB)
+        int impl(this auto const& self, trait::AB::fnB)
         {
-            return self.getNode(trait::b).getB();
+            static_assert(requires { self.asB(); });
+            static_assert(requires { self.AsTrait::asB(); });
+
+            static_assert(requires { self.fnB(); });
+            static_assert(requires { self.B::fnB(); });
+            static_assert(requires { self.AB::fnB(); });
+            static_assert(requires { self.AsTrait::fnB(); });
+            static_assert(requires { self.AsTrait::B::fnB(); });
+            static_assert(requires { self.AsTrait::AB::fnB(); });
+
+            static_assert(requires { self.Resolve::getB(); });
+            return self.getB().fnB();
         }
     };
 
@@ -88,14 +109,14 @@ struct Root
         using Depends = arc::Depends<trait::A, trait::B>;
         using Traits = arc::Traits<AandB, trait::A, trait::B>;
 
-        int impl(this auto const& self, trait::AB::getA)
+        int impl(this auto const& self, trait::AB::fnA)
         {
-            return self.getNode(trait::a).getA();
+            return self.getNode(trait::a).fnA();
         }
 
-        int impl(this auto const& self, trait::AB::getB)
+        int impl(this auto const& self, trait::AB::fnB)
         {
-            return self.getNode(trait::b).getB();
+            return self.getNode(trait::b).fnB();
         }
     };
 };
@@ -104,18 +125,18 @@ TEST_CASE("arc::JoinedTrait")
 {
     arc::Graph<TestCluster, Root> g;
 
-    CHECK(42 == g.asTrait(trait::a).getA());
-    CHECK(42 == g.asTrait(trait::aB).getA());
-    CHECK(84 == g.asTrait(trait::b).getB());
-    CHECK(84 == g.asTrait(trait::aB).getB());
+    CHECK(42 == g.asTrait(trait::a).fnA());
+    CHECK(42 == g.asTrait(trait::aB).fnA());
+    CHECK(84 == g.asTrait(trait::b).fnB());
+    CHECK(84 == g.asTrait(trait::aB).fnB());
 
-    CHECK(42 == g.ab.asTrait(trait::a).getA());
-    CHECK(42 == g.ab.asTrait(trait::aB).getA());
-    CHECK(84 == g.ab.asTrait(trait::b).getB());
-    CHECK(84 == g.ab.asTrait(trait::aB).getB());
+    CHECK(42 == g.ab.asTrait(trait::a).fnA());
+    CHECK(42 == g.ab.asTrait(trait::aB).fnA());
+    CHECK(84 == g.ab.asTrait(trait::b).fnB());
+    CHECK(84 == g.ab.asTrait(trait::aB).fnB());
 
-    CHECK(42 == g.aandb.asTrait(trait::a).getA());
-    CHECK(84 == g.aandb.asTrait(trait::b).getB());
+    CHECK(42 == g.aandb.asTrait(trait::a).fnA());
+    CHECK(84 == g.aandb.asTrait(trait::b).fnB());
     static_assert(not g.aandb.hasTrait(trait::aB));
 }
 
