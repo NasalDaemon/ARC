@@ -11,12 +11,12 @@ namespace examples::animals_virtual {
 export struct IAnimalFacade
 {
     template<class Context>
-    struct Node final : IAnimal
+    struct Node final : arc::Uses<IAnimal, trait::Animal>
     {
         // Forward to adapted node
         std::string impl(trait::Animal::speak) const override
         {
-            return getNode(trait::animal).speak();
+            return getAnimal().speak();
         }
 
         // As a dynamic node, this facade can swap the implementation hosted by arc::Virtual
@@ -28,10 +28,10 @@ export struct IAnimalFacade
 
             // This node is still alive in a detached state
             // It can call into itself and other nodes, but other nodes can't reach it
-            std::println("{}", asTrait(trait::animal).speak());
+            std::println("{}", speak());
             // prints: yip! (assuming it adapted Fox)
 
-            std::println("{}", handle.getNext()->asTrait(trait::animal).speak());
+            std::println("{}", handle.getNext()->speak());
             // prints: moo!
         }
     };

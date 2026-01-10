@@ -45,9 +45,8 @@ namespace arc::tests::virtual_ {
 struct AppleType;
 struct BreadType;
 
-struct IApple : arc::INode
+struct IApple : arc::INodeImpl<trait::Apple>
 {
-    using Traits = arc::Traits<trait::Apple>;
     struct Types
     {
         using AppleType = virtual_::AppleType;
@@ -55,33 +54,30 @@ struct IApple : arc::INode
     virtual int impl(trait::Apple::seeds) const = 0;
     virtual bool impl(trait::Apple::testExchange) = 0;
 };
-struct IBread : arc::INode
+struct IBread : arc::INodeImpl<trait::Bread>
 {
-    using Traits = arc::Traits<trait::Bread>;
     struct Types
     {
         using BreadType = virtual_::BreadType;
     };
     virtual int impl(trait::Bread::slices) const = 0;
 };
-struct IEgg : arc::INode
+struct IEgg : arc::INodeImpl<trait::Egg>
 {
-    using Traits = arc::Traits<trait::Egg>;
     virtual int impl(trait::Egg::yolks) const = 0;
 };
 
 struct AppleEgg
 {
     template<class Context>
-    struct Node : IApple, IEgg
+    struct Node : arc::INodeOf<IApple, IEgg>::Uses<trait::Bread>
     {
-        using Traits = arc::Traits<trait::Apple, trait::Egg>;
-
         static_assert(std::is_same_v<BreadType, typename arc::ResolveTypes<Node, trait::Bread>::BreadType>);
 
         int impl(trait::Apple::seeds) const final
         {
-            return seeds + getNode(trait::bread).slices();
+            asEgg();
+            return seeds + getBread().slices();
         }
 
         int impl(trait::Egg::yolks) const final
@@ -95,17 +91,19 @@ struct AppleEgg
             {
                 arc::KeepAlive keepAlive;
                 {
-                    CHECK(asTrait(trait::apple).seeds() == 34);
-                    auto handle = exchangeImpl<AppleEgg>(11, 3);
+                    CHECK(asApple().seeds() == 34);
                     allowDestroy = false;
+                    auto handle = exchangeImpl<AppleEgg>(11, 3);
                     REQUIRE(handle.getNext() != this);
-                    CHECK(handle.getNext()->asTrait(trait::apple).seeds() == 47);
+                    CHECK(handle.getNext()->asApple().seeds() == 47);
+                    CHECK(handle.getNext()->Apple::seeds() == 47);
                     // Using current node still works, but "re-entry" to this context from apple
                     // will go to the new node that was just emplaced into the graph instead
-                    CHECK(asTrait(trait::apple).seeds() == 46);
+                    CHECK(asApple().seeds() == 46);
                     keepAlive = handle;
                 }
-                CHECK(asTrait(trait::apple).seeds() == 46);
+                CHECK(asApple().seeds() == 46);
+                CHECK(Apple::seeds() == 46);
                 allowDestroy = true;
                 return true;
             }
@@ -141,6 +139,7 @@ struct Bread
 
         int impl(trait::Bread::slices) const final
         {
+            static_assert(requires { Bread::slices(); });
             return getEgg().yolks() * slices;
         }
 
@@ -218,23 +217,27 @@ TEST_CASE("arc::Virtual")
 
 struct VirtualOnly
 {
-    struct Leaf final : IEgg, IBread
+    struct Leaf final : arc::INodeOf<IEgg, IBread>
     {
         int impl(trait::Egg::yolks) const
         {
-            return yolks;
+            static_assert(requires { yolks(); });
+            static_assert(requires { Egg::yolks(); });
+            return yolks_;
         }
         int impl(trait::Bread::slices) const
         {
-            return slices;
+            static_assert(requires { slices(); });
+            static_assert(requires { Bread::slices(); });
+            return slices_;
         }
 
         explicit Leaf(int yolks = 999, int slices = 88)
-            : yolks(yolks), slices(slices)
+            : yolks_(yolks), slices_(slices)
         {}
 
-        int yolks;
-        int slices;
+        int yolks_;
+        int slices_;
     };
 
     template<class Context>
@@ -275,13 +278,8 @@ struct StaticBread
 struct BreadFacade
 {
     template<class Context>
-    struct Node final : IApple, IBread
+    struct Node final : arc::INodeOf<IApple, IBread>
     {
-        using Traits = arc::Traits<Node
-            , trait::Apple*(IApple::Types)
-            , trait::Bread*(IBread::Types)
-        >;
-
         int impl(trait::Apple::seeds) const { return 0; }
         bool impl(trait::Apple::testExchange)
         {
@@ -337,8 +335,6 @@ struct EggFacade
     template<class Context>
     struct Node final : IEgg
     {
-        using Traits = arc::Traits<trait::Egg>;
-
         int impl(trait::Egg::yolks) const
         {
             return getNode(trait::egg).yolks();

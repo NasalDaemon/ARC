@@ -10,11 +10,8 @@ namespace examples::filesystem {
 export struct Repl
 {
     template<class Context>
-    struct Node : arc::Node
+    struct Node : arc::NodeUses<trait::Filesystem, trait::DirectorySync*>
     {
-        using Depends = arc::Depends<trait::Filesystem, trait::DirectorySync*>;
-        using Traits = arc::NoTraits;
-
         auto run(int argc, char* argv[]) -> int;
 
     private:

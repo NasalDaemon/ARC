@@ -8,13 +8,8 @@ import std;
 namespace examples::filesystem {
 
 // DiskStorage node reads and writes directly to the filesystem under a root path
-export struct DiskStorage : arc::Node
+export struct DiskStorage : arc::NodeImpl<trait::Storage, trait::DirectorySync>
 {
-    using Traits = arc::Traits<DiskStorage
-        , trait::Storage
-        , trait::DirectorySync
-    >;
-
     struct Types
     {
         using GetResult = std::optional<DiskEntry>;

@@ -144,9 +144,11 @@ struct Union
         using ToNode = Ensure<detail::ToNodeState<typename ToNodeWrapper<Option>::template Node<detail::CompressContext<InnerContext>>>>;
 
         template<class Option>
-        using OptionNode = detail::InheritAll<
-            detail::EnableIf<std::is_base_of_v<detail::NodeUserClass<detail::NodeOf<Option>>, ToNode<Options>>, ToNode<Options>>...
-        >::type;
+        using OptionNode = detail::SelectIf<
+            std::is_base_of,
+            UnderlyingNode<Option>,
+            ToNode<Options>...
+        >;
 
     public:
         struct Depends

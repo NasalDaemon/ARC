@@ -208,7 +208,7 @@ class OnThread
 
 public:
     template<class Context>
-    struct Node : InnerNode<Context>
+    struct Impl : InnerNode<Context>
     {
         using InnerNode<Context>::InnerNode;
 
@@ -233,6 +233,9 @@ public:
             }
         }
     };
+
+    template<class Context>
+    using Node = Impl<Context>;
 };
 
 ARC_MODULE_EXPORT

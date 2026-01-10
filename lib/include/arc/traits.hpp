@@ -30,6 +30,9 @@ namespace arc::detail {
 
         template<MatchesTrait<Trait> T>
         static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<void, void>;
+
+        template<class Node>
+        using AddDefaultTypes = Trait*(typename Node::Types);
     };
 
     template<class Trait, class Interface>
@@ -39,6 +42,9 @@ namespace arc::detail {
 
         template<MatchesTrait<Trait> T>
         static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<Interface, void>;
+
+        template<class Node>
+        using AddDefaultTypes = Trait(Interface, typename Node::Types);
     };
 
     template<class Trait, class Interface, class Types>
@@ -48,6 +54,10 @@ namespace arc::detail {
 
         template<MatchesTrait<Trait> T>
         static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<Interface, Types>;
+
+        // Already have explicit types
+        template<class Node>
+        using AddDefaultTypes = Trait(Interface, Types);
     };
 
     template<class Types, class Trait>
@@ -57,6 +67,10 @@ namespace arc::detail {
 
         template<MatchesTrait<Trait> T>
         static auto resolveTrait(T, LinkPriorityMin) -> ResolvedTrait<void, Types>;
+
+        // Already have explicit types
+        template<class Node>
+        using AddDefaultTypes = Trait*(Types);
     };
 
     template<class T, class Node>
@@ -66,10 +80,16 @@ namespace arc::detail {
     auto nodeIfVoid() -> Node;
 
     template<class T, class Node>
+    using NodeIfVoid = decltype(nodeIfVoid<T, Node>());
+
+    template<class T, class Node>
     auto nodeTypesIfVoid() -> T;
     template<class T, class Node>
     requires std::is_void_v<T>
     auto nodeTypesIfVoid() -> Node::Types;
+
+    template<class T, class Node>
+    using NodeTypesIfVoid = decltype(nodeTypesIfVoid<T, Node>());
 
     template<class DefaultResolver, class... TraitTs>
     struct Traits : DefaultResolver, TraitResolver<TraitTs>...
@@ -80,6 +100,12 @@ namespace arc::detail {
         template<class Trait>
         static constexpr bool HasTrait = TraitsHasTrait<Traits, Trait>;
 
+        template<class Node>
+        using AddDefaultTypes = Traits<
+            DefaultResolver,
+            typename TraitResolver<TraitTs>::template AddDefaultTypes<Node>...
+        >;
+
     private:
         template<class Trait>
         requires TraitsHasTrait<Traits, Trait>
@@ -87,10 +113,10 @@ namespace arc::detail {
 
     public:
         template<class Trait, class Node>
-        using ResolveInterface = TraitImplementation<Node, decltype(nodeIfVoid<typename Resolve<Trait>::Interface, Node>())>;
+        using ResolveInterface = TraitImplementation<Node, NodeIfVoid<typename Resolve<Trait>::Interface, Node>>;
 
         template<class Trait, class Node>
-        using ResolveTypes = decltype(nodeTypesIfVoid<typename Resolve<Trait>::Types, Node>());
+        using ResolveTypes = NodeTypesIfVoid<typename Resolve<Trait>::Types, Node>;
     };
 
     struct TraitsDefault
@@ -111,6 +137,26 @@ namespace arc::detail {
         static TraitTemplate<Trait> resolveTrait(Trait, LinkPriorityMin);
     };
 
+    template<class Traits>
+    struct CombineTraits<Traits>
+    {
+        using type = Traits;
+    };
+
+    template<class DR1, class DR2, class... TraitTs1, class... TraitTs2>
+    struct CombineTraits<Traits<DR1, TraitTs1...>, Traits<DR2, TraitTs2...>>
+    {
+        static_assert(std::is_same_v<DR1, DR2>, "Cannot combine Traits with different DefaultResolvers");
+        static_assert(std::is_same_v<DR1, TraitsDefault> or std::is_same_v<DR1, TraitsOpenDefault>,
+            "May only combine arc::Traits<...> or arc::TraitsOpen<...>");
+        using type = Traits<DR1, TraitTs1..., TraitTs2...>;
+    };
+
+    template<class T1, class T2, class T3, class... Ts>
+    struct CombineTraits<T1, T2, T3, Ts...>
+    {
+        using type = CombineTraits<typename CombineTraits<T1, T2>::type, typename CombineTraits<T3, Ts...>::type>::type;
+    };
 
 } // namespace arc::detail
 

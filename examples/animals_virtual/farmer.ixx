@@ -6,15 +6,11 @@ import std;
 
 namespace examples::animals_virtual {
 
-export struct Farmer : arc::Node
+export struct Farmer : arc::NodeUses<trait::Animal>
 {
-    using Depends = arc::Depends<trait::Animal>;
-
-    using Traits = arc::Traits<Farmer>;
-
     void greetAnimal(this auto const& self)
     {
-        std::println("Animal says {}", self.getNode(trait::animal).speak());
+        std::println("Animal says {}", self.getAnimal().speak());
     }
 };
 

@@ -57,7 +57,8 @@ struct Combine
         static auto resolveLink(Trait, LinkPriorityMin)
             -> ResolvedLink<
                 detail::SelectIf<
-                    ContextHasTraitPred<Trait>,
+                    ContextHasTraitPred,
+                    Trait,
                     typename detail::CombinePart<Node, Nodes>::Context...
                 >,
                 Trait>;

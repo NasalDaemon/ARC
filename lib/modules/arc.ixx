@@ -191,6 +191,9 @@ export namespace arc {
     using arc::Narrow;
     // node_fwd.hpp
     using arc::Node;
+    namespace detail {
+        using detail::NodeOf;
+    }
     using arc::IsNode;
     using arc::IsNodeWrapper;
     using arc::WrapNode;
@@ -299,6 +302,7 @@ export namespace arc {
     using arc::Traits;
     using arc::TraitsOpen;
     using arc::TraitsTemplate;
+    using arc::TraitsOf;
     // type_id.hpp
     using arc::TypeId;
     using arc::typeId;
@@ -313,6 +317,8 @@ export namespace arc {
     using arc::IsInterface;
     using arc::IsVirtualContext;
     using arc::INode;
+    using arc::INodeImpl;
+    using arc::INodeOf;
     using arc::Virtual;
 }
 

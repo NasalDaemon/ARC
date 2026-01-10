@@ -5,6 +5,7 @@
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
+#include "arc/traits_fwd.hpp"
 
 #if !ARC_IMPORT_STD
 #include <concepts>
@@ -49,9 +50,7 @@ namespace detail {
 
 ARC_MODULE_EXPORT
 template<class T>
-concept IsInterface = std::derived_from<T, detail::INodeBase> and requires {
-    typename T::Traits;
-};
+concept IsInterface = std::derived_from<T, detail::INodeBase> and detail::HasNodeTraits<T>;
 
 ARC_MODULE_EXPORT
 template<class Context>

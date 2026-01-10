@@ -57,40 +57,16 @@ namespace detail {
         using Trait = Trait_;
     };
 
-    template<class Node_>
-    struct TraitNodeInterface
-    {
-        using Node = Node_;
-        using DefaultInterface = Node_;
-        static_assert(HasNodeTraits<Node>, "Node passed to Traits has no Traits defined");
-    };
-
-    template<class Node_, class Interface_>
-    struct TraitNodeInterface<Node_(Interface_)>
-    {
-        using Node = Node_;
-        using DefaultInterface = Interface_;
-        static_assert(HasNodeTraits<Node>, "Node passed to Traits has no Traits defined");
-    };
+    template<class... NodeTraits>
+    struct CombineTraits;
 
     template<class TraitsT, class Trait>
     concept TraitsHasTrait = IsTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) {
         { TraitsT::resolveTrait(trait, linkExact) } -> IsResolvedTrait;
     };
 
-    template<class Trait>
-    struct TraitsHasTraitPred
-    {
-        template<class TraitsT>
-        static constexpr bool value = TraitsHasTrait<TraitsT, Trait>;
-    };
-
-    template<class Trait>
-    struct NodeTraitsHasTraitPred
-    {
-        template<class Node>
-        static constexpr bool value = TraitsHasTrait<typename Node::Traits, Trait>;
-    };
+    template<class Trait, HasNodeTraits Node>
+    using NodeTraitsHasTraitPred = std::bool_constant<TraitsHasTrait<typename Node::Traits, Trait>>;
 
     template<class DefaultResolver, class... TraitTs>
     struct Traits;
@@ -115,6 +91,11 @@ using TraitsOpen = detail::Traits<detail::TraitsOpenDefault, TraitTs...>;
 ARC_MODULE_EXPORT
 template<template<class> class TraitTemplate, class... TraitTs>
 using TraitsTemplate = detail::Traits<detail::TraitsTemplateDefault<TraitTemplate>, TraitTs...>;
+
+ARC_MODULE_EXPORT
+template<detail::HasNodeTraits... Node>
+requires (sizeof...(Node) > 0)
+using TraitsOf = detail::CombineTraits<typename Node::Traits::template AddDefaultTypes<Node>...>::type;
 
 } // namespace arc
 

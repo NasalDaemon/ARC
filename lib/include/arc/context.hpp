@@ -182,12 +182,8 @@ template<class Context, class Trait>
 concept ContextHasTrait = IsContext<Context> and IsTrait<Trait> and HasTrait<ContextToNode<Context>, Trait>;
 
 ARC_MODULE_EXPORT
-template<IsTrait Trait>
-struct ContextHasTraitPred
-{
-    template<IsContext Context>
-    static constexpr bool value = ContextHasTrait<Context, Trait>;
-};
+template<IsTrait Trait, IsContext Context>
+using ContextHasTraitPred = std::bool_constant<ContextHasTrait<Context, Trait>>;
 
 } // namespace arc
 

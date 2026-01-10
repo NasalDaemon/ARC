@@ -21,10 +21,10 @@ export struct Goat {
 
             // This node is still alive in a detached state
             // It can call into itself and other nodes, but other nodes can't reach it
-            std::println("{}", asTrait(trait::animal).speak());
+            std::println("{}", asAnimal().speak());
             // prints: meeh!
 
-            std::println("{}", handle.getNext()->asTrait(trait::animal).speak());
+            std::println("{}", handle.getNext()->asAnimal().speak());
             // prints: mmmooooo!
         }
     };

@@ -33,8 +33,8 @@ template<class... Bases>
 struct InheritAll : Bases...
 {};
 
-template<class Pred, class... Ts>
-using SelectIf = InheritAll<EnableIf<Pred::template value<Ts>, Ts>...>::type;
+template<template<class, class> class Pred, class T, class... Ts>
+using SelectIf = InheritAll<EnableIf<Pred<T, Ts>::value, Ts>...>::type;
 
 struct Empty{};
 

@@ -11,23 +11,6 @@ namespace arc {
 namespace detail {
     template<IsNodeBase Node, class... Traits>
     struct NodeWith;
-
-    struct DisableBuild
-    {
-        template<class... T>
-        struct AssertNoBuild
-        {
-            static_assert(alwaysFalse<T...>,
-                "YourNode::Impl/YourNode::Uses is disabled for YourNode; "
-                "use arc::Build<YourNode>/arc::Uses<YourNode, ...>/arc::Impl<YourNode, ...> instead");
-        };
-
-        template<class... Traits>
-        using Impl = AssertNoBuild<Traits...>;
-
-        template<detail::IsDependsItem... DependTraits>
-        using Uses = AssertNoBuild<DependTraits...>;
-    };
 }
 
 ARC_MODULE_EXPORT
@@ -63,7 +46,7 @@ struct Build<Node, void(DependTraits...)> final
     requires (sizeof...(Traits) > 0)
     using Impl = detail::NodeWith<Node, void(DependTraits...), Traits...>;
 
-    using NoTraits = detail::NodeWith<Node, void(DependTraits...), arc::NoTraits>;
+    using NoTraits = Impl<arc::NullTrait>;
 };
 
 template<class Node, class... Traits>
@@ -73,7 +56,7 @@ struct Build<Node, void(), Traits...> final
     requires (sizeof...(DependTraits) > 0)
     using Uses = detail::NodeWith<Node, void(DependTraits...), Traits...>;
 
-    using NoDeps = detail::NodeWith<Node, void(), Traits...>;
+    using UsesAny = detail::NodeWith<Node, void(void*), Traits...>;
 };
 
 ARC_MODULE_EXPORT

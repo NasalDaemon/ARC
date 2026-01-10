@@ -8,16 +8,23 @@
 
 namespace arc::detail {
 
-template<class... TraitTs>
+template<class NodeBase, class... TraitTs>
 struct AsTrait
     : TraitsItem<TraitTs>::Trait::Meta::Converter...
     , TraitsItem<TraitTs>::Trait::Meta::NamedMethods...
 {
     using Traits = arc::Traits<TraitTs...>;
 };
-template<>
-struct AsTrait<>
-{};
+template<HasNodeTraits NodeBase>
+struct AsTrait<NodeBase>
+{
+    using Traits = NodeBase::Traits;
+};
+template<class NodeBase>
+struct AsTrait<NodeBase>
+{
+    using Traits = arc::NoTraits;
+};
 
 template<class... DependTraits>
 struct Resolve
@@ -25,37 +32,39 @@ struct Resolve
 {
     using Depends = arc::Depends<DependTraits...>;
 };
+
 template<>
-struct Resolve<>
+struct Resolve<void*>
 {
-    using Depends = Node::Depends;
+    using Depends = DependsImplicitly;
 };
 
-template<class... T>
+template<class Node, class... T>
 struct AssertNoImpl
 {
-    static_assert(alwaysFalse<T...>, "Cannot use Impl more than once when building a node");
+    static_assert(alwaysFalse<Node, T...>, "Cannot use Impl more than once when building a node");
 };
 
-template<class... T>
+template<class Node, class... T>
 struct AssertNoUses
 {
-    static_assert(alwaysFalse<T...>, "Cannot use Uses more than once when building a node");
+    static_assert(alwaysFalse<Node, T...>, "Cannot use Uses more than once when building a node");
 };
 
 template<IsNodeBase Node, class... DependTraits, class... TraitTs>
 struct NodeWith<Node, void(DependTraits...), TraitTs...>
     : Node
     , Resolve<DependTraits...>
-    , AsTrait<TraitTs...>
+    , AsTrait<Node, TraitTs...>
 {
-    using Depends = NodeWith::Resolve::Depends;
+    using Depends = Resolve<DependTraits...>::Depends;
+    using Traits = AsTrait<Node, TraitTs...>::Traits;
 
     template<class... Ts>
-    using Impl = AssertNoImpl<Ts...>;
+    using Impl = AssertNoImpl<Node, Ts...>;
 
     template<detail::IsDependsItem... Ts>
-    using Uses = AssertNoUses<Ts...>;
+    using Uses = AssertNoUses<Node, Ts...>;
 };
 
 }

@@ -29,28 +29,76 @@
 
 namespace arc {
 
-struct detail::INodeBase
-    : Node
-    , detail::DisableBuild // Disable using Build, must use arc::Build<VirtualNode> instead
-{
-    template<IsNodeHandle T, class Self>
-    requires IsVirtualContext<ContextOf<Self>>
-    constexpr auto exchangeImpl(this Self& self, auto&&... args)
+namespace detail {
+    template<class... T>
+    struct INodeAssertNoImpl
     {
-        static_assert(not std::is_const_v<Self>, "Cannot exchange implementation of a node in a const context");
-        return ContextOf<Self>::template exchangeImpl<T>(self, ARC_FWD(args)...);
-    }
+        static_assert(alwaysFalse<T...>,
+            "YourNode::Impl is disabled for arc::INode; "
+            "use arc::INodeImpl<YourNode, ...>/arc::Impl<YourNode, ...>/arc::Build<YourNode> instead");
+    };
+    template<class... T>
+    struct INodeAssertNoUses
+    {
+        static_assert(alwaysFalse<T...>,
+            "YourNode::Uses is disabled for arc::INode; "
+            "use arc::Uses<YourNode, ...>/arc::INodeOf<Interfaces...>::Uses<...>/arc::Build<YourNode> instead");
+    };
 
-    constexpr auto* asInterface(this auto& self) { return std::addressof(self); }
-};
+    struct INodeBase : Node
+    {
+        template<class... Traits>
+        using Impl = INodeAssertNoImpl<Traits...>;
+
+        template<detail::IsDependsItem... DependTraits>
+        using Uses = INodeAssertNoUses<DependTraits...>;
+
+        template<IsNodeHandle T, class Self>
+        requires IsVirtualContext<ContextOf<Self>>
+        constexpr auto exchangeImpl(this Self& self, auto&&... args)
+        {
+            static_assert(not std::is_const_v<Self>, "Cannot exchange implementation of a node in a const context");
+            return ContextOf<Self>::template exchangeImpl<T>(self, ARC_FWD(args)...);
+        }
+
+        constexpr auto* asInterface(this auto& self) { return std::addressof(self); }
+    };
+
+    template<class T>
+    concept InterfaceNoDepends = IsInterface<T> and not NodeHasDepends<T>;
+} // namespace detail
 
 ARC_MODULE_EXPORT
 struct INode : virtual detail::INodeBase
 {};
 
+// Implicit UsesAny, since it makes little sense for an Interface
+// to enforce dependencies before being defined concretely
+ARC_MODULE_EXPORT
+template<IsTrait Trait, IsTrait... Traits>
+using INodeImpl = detail::NodeWith<INode, void(void*), Trait, Traits...>;
+
+ARC_MODULE_EXPORT
+template<detail::InterfaceNoDepends Interface, detail::InterfaceNoDepends... Interfaces>
+struct INodeOf : Interface, Interfaces...
+{
+    using Traits = arc::TraitsOf<Interface, Interfaces...>;
+    using Depends = detail::DependsImplicitly;
+
+    template<detail::IsDependsItem... Traits>
+    using Uses = arc::Uses<INodeOf, Traits...>;
+};
+
+template<detail::InterfaceNoDepends Interface>
+struct INodeOf<Interface> : Interface
+{
+    template<detail::IsDependsItem... Traits>
+    using Uses = arc::Uses<Interface, Traits...>;
+};
+
 // Allow arc::Build to work with interfaces
 namespace detail {
-    template<IsInterface T>
+    template<std::derived_from<detail::INodeBase> T>
     inline constexpr bool isNodeBase<T> = true;
 }
 
@@ -202,7 +250,8 @@ struct Virtual
 
         template<class Trait>
         using InterfaceOf = detail::SelectIf<
-            detail::NodeTraitsHasTraitPred<Trait>,
+            detail::NodeTraitsHasTraitPred,
+            Trait,
             Interfaces...
         >;
 

@@ -5,10 +5,8 @@ import arc;
 
 namespace examples::animals {
 
-export struct Cow : arc::Node
+export struct Cow : arc::NodeImpl<trait::Animal>
 {
-    using Traits = arc::Traits<trait::Animal>;
-
     std::string impl(trait::Animal::speak) const { return happy ? "moo" : "mmmooooo!"; }
 
     explicit Cow(bool happy) : happy(happy) {}

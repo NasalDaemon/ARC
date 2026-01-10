@@ -5,12 +5,8 @@ import arc;
 
 namespace examples::animals {
 
-export struct Farmer : arc::Node
+export struct Farmer : arc::NodeUses<trait::Animal>
 {
-    using Depends = arc::Depends<trait::Animal>;
-
-    using Traits = arc::Traits<Farmer>;
-
     void greetAnimal(this auto const& self)
     {
         auto animal = self.getNode(trait::animal);
