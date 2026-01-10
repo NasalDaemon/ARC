@@ -29,7 +29,7 @@ struct Repeater
     template<class Context>
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node, Trait>;
+        using Traits = arc::Traits<Trait>;
 
         template<std::size_t I>
         struct TypesAtT : arc::ResolveTypes<Node, RepeaterTrait<I>>

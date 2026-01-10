@@ -59,7 +59,7 @@ namespace app {
 
 export struct Cow : arc::Node
 {
-    using Traits = arc::Traits<Cow, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     std::string impl(trait::Animal::speak) const { return happy ? "moo" : "mmmooooo!"; }
 
@@ -79,7 +79,7 @@ namespace app {
 
 export struct Sheep : arc::Node
 {
-    using Traits = arc::Traits<Sheep, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     std::string impl(trait::Animal::speak) const { return "baa!"; }
 };
@@ -187,7 +187,7 @@ namespace app {
 
 struct IAnimal : arc::INode
 {
-    using Traits = arc::Traits<IAnimal, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     virtual std::string impl(trait::Animal::speak) const = 0;
     virtual void impl(trait::Animal::evolve) const = 0;
@@ -209,8 +209,6 @@ export struct Cow
     template<class Context>
     struct Node final : IAnimal
     {
-        using Traits = arc::RebindTraits<Node>;
-
         std::string impl(trait::Animal::speak) const override
         {
             return happy ? "moo" : "mmmooooo!";
@@ -242,8 +240,6 @@ export struct Sheep {
     template<class Context>
     struct Node final : IAnimal
     {
-        using Traits = arc::RebindTraits<Node>;
-
         std::string impl(trait::Animal::speak) const override
         {
             return black ? "barbar" : "baa!";
@@ -288,8 +284,6 @@ export struct Goat {
     template<class Context>
     struct Node final : IAnimal
     {
-        using Traits = arc::RebindTraits<Node>;
-
         std::string impl(trait::Animal::speak) const override { return "meeh!"; }
 
         void impl(trait::Animal::evolve) override
@@ -322,7 +316,7 @@ namespace app {
 // Fox is a static node which we can adapt to IAnimal using arc::Adapt<Fox, IAnimalFacade>
 export struct Fox : arc::Node
 {
-    using Traits = arc::Traits<Fox, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     std::string impl(trait::Animal::speak) const override { return "yip"; }
 
@@ -350,8 +344,6 @@ export struct IAnimalFacade
     template<class Context>
     struct Node final : IAnimal
     {
-        using Traits = arc::RebindTraits<Node>;
-
         // Forward to adapted node
         std::string impl(trait::Animal::speak) const override
         {

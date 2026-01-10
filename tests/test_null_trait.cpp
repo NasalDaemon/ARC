@@ -31,7 +31,7 @@ struct Root
 {
     struct Node : arc::Node
     {
-        using Traits = arc::NoTraits<Node>;
+        using Traits = arc::NoTraits;
 
         int doSomething(this auto const& self)
         {

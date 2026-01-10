@@ -43,8 +43,7 @@ template<class T>
 concept IsNoTrait = IsTrait<T> and detail::isNoTrait<T>;
 
 ARC_MODULE_EXPORT
-template<class T>
-using NoTraits = arc::Traits<T, NullTrait>;
+using NoTraits = arc::Traits<NullTrait>;
 
 }
 

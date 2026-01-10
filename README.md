@@ -175,7 +175,7 @@ export struct Alice : arc::Node
     using Depends = arc::Depends<trait::Responder>;
 
     // Declares which traits this node implements
-    using Traits = arc::Traits<Alice, trait::Greeter, trait::Responder>;
+    using Traits = arc::Traits<trait::Greeter, trait::Responder>;
 
     void impl(this auto const& self, trait::Greeter::greet)
     {
@@ -210,16 +210,16 @@ namespace app {
 export struct Bob
 {
     template<class Context>
-    struct Node : arc::NodeWithDepends<trait::Responder>
+    struct Node : arc::NodeUses<trait::Responder>
     {
-        using Traits = arc::Traits<Node, trait::Greeter, trait::Responder>;
+        using Traits = arc::Traits<trait::Greeter, trait::Responder>;
 
         void impl(trait::Greeter::greet) const
         {
             std::println("Hello from Bob!");
             // Can call getNode directly, as Context is already injected into the state
             getNode(trait::responder).respondTo("Bob"); // can be inlined by the compiler
-            // arc::NodeWithDepends also provides a shorthand for each listed trait:
+            // arc::NodeUses also provides a shorthand for each listed trait:
             getResponder().respondTo("Bobby"); // can be inlined by the compiler
         }
 

@@ -56,7 +56,7 @@ struct Root
 {
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node, trait::Something, trait::SomethingElse>;
+        using Traits = arc::Traits<trait::Something, trait::SomethingElse>;
 
         int impl(trait::Something::doSomething, int x, int y) const
         {

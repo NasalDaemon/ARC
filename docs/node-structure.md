@@ -28,7 +28,7 @@ There are two ways to define a node, each with different pros and cons:
          // by this node in every graph, then the trait can be specified as `trait::TraitName*`
          // in the Depends list, so that the dependency is only checked at the point of use.
 
-         using Traits = arc::Traits<PiCache, trait::Pi>;
+         using Traits = arc::Traits<trait::Pi>;
 
          // Context can only be deduced in member functions via an explicit object parameter (deducing-this)
          double impl(this auto& self, trait::Pi::calc)
@@ -55,7 +55,7 @@ There are two ways to define a node, each with different pros and cons:
          template<class Context>
          struct Node : arc::Node
          {
-            using Traits = arc::Traits<Node, trait::Pi>;
+            using Traits = arc::Traits<trait::Pi>;
 
             using Float = Context::Root::Float;
 
@@ -89,7 +89,7 @@ There are two ways to define a node, each with different pros and cons:
             template<class Context>
             struct Node : arc::Node
             {
-               using Traits = arc::Traits<Node, trait::Pi>;
+               using Traits = arc::Traits<trait::Pi>;
 
                using Float = Context::Root::Float;
 
@@ -139,25 +139,52 @@ There are two ways to define a node, each with different pros and cons:
          ```
          </details>
 
+## Fluent Builder API
+
+For most nodes, ARC provides a more ergonomic way to define dependencies and implemented traits using a fluent builder API. This avoids manual type aliasing and provides named accessors for dependencies.
+
+```cpp
+struct PiCache : arc::Node
+    ::Uses<trait::Pi>
+    ::Impl<trait::Pi>
+{
+    // Both 'Depends' and 'Traits' are automatically defined.
+    // getPi() is automatically provided as a named getter for the Pi dependency.
+
+    double impl(this auto& self, trait::Pi::calc)
+    {
+        if (std::isnan(self.piValue)) [[unlikely]]
+            self.piValue = self.getPi().calc();
+        return self.piValue;
+    }
+
+    double piValue = NAN;
+};
+```
+
+The `Node::Uses<...>::Impl<...>` chain performs several tasks:
+1.  **Dependency Registration**: Generates `using Depends = arc::Depends<...>;`.
+2.  **Trait Registration**: Generates `using Traits = arc::Traits<...>;`.
+3.  **Named Accessors**: For every dependency `trait::T`, it injects a `getT()` method into the node.
+4.  **Trait Converters**: Injects `asT()` methods for every implemented trait, enabling direct calls like `self.asPi().calc()`.
+5.  **Method Mapping**: Injects the trait's methods directly into the node's scope, allowing `self.calc()` to call `self.impl(trait::Pi::calc{})`. If multiple traits have a calc method, `self.Pi::calc()` can be used to disambiguate.
+
+Note that `Uses` and `Impl` can be used independently or chained in any order. For a node that only implements traits but has no dependencies, you can use `arc::NodeImpl<Trait1, Trait2>`. For a node that only has dependencies, use `arc::NodeUses<Dep1, Dep2>`.
+
 ## Listing implemented traits
 
-All nodes must define a nested `Traits` type, which provides the mapping of each trait to its methods and types in the node.
+All nodes must define a nested `Traits` type, which provides the mapping of each trait to its methods and types in the node. This is usually handled automatically by the `Impl<...>` base class, but can be specified manually.
 
-ARC provides a template to define this mapping in the form `arc::Types<{Node}, {TraitMapping}...>`
-
-|`{Node}` kind|`{State}`: node state type|`{DefaultImpl}`: default methods type|`{DefaultTypes}`: default types type|
-|:---|:---|:---|:---|
-|`State`|`State`|`State`|`State::Types`|
-|`State(Impl)`|`State`|`Impl`|`State::Types`|
+ARC provides a template to define this mapping in the form `arc::Traits<{TraitMapping}...>`
 
 |`{TraitMapping}` kind|`{Trait}`|`{Impl}`: methods type|`{Types}`: types type|
 |:---|:---|:---|:---|
-|`trait::Trait`|`trait::Trait`|`{DefaultImpl}`|`{DefaultTypes}`|
-|`trait::Trait(TraitImpl)`|`trait::Trait`|`TraitImpl`|`{DefaultTypes}`|
-|`trait::Trait*(TraitTypes)`|`trait::Trait`|`{DefaultImpl}`|`TraitTypes`|
+|`trait::Trait`|`trait::Trait`|`{Node}`|`{Node}::Types`|
+|`trait::Trait(TraitImpl)`|`trait::Trait`|`TraitImpl`|`{Node}::Types`|
+|`trait::Trait*(TraitTypes)`|`trait::Trait`|`{Node}`|`TraitTypes`|
 |`trait::Trait(TraitImpl, TraitTypes)`|`trait::Trait`|`TraitImpl`|`TraitTypes`|
 
-Most nodes will have a flat structure, with `Traits` in the shorthand form `arc::Traits<Node, trait::Trait1, trait::Trait2>`, i.e. `arc::Traits<{State}, {Trait}...>`. Using `{Impl} = {DefaultImpl} = {State}` and `{Types} = {DefaultTypes} = {State}::Types` for methods and types of all traits is usually sufficient unless the node is particularly complex.
+Most nodes will have a flat structure, with `Traits` in the shorthand form `arc::Traits<trait::Trait1, trait::Trait2>`, i.e. `arc::Traits<{Trait}...>`. THis is usually sufficient unless the node is particularly complex.
 
 <details>
 <summary>:eyes: Code: Exhaustive arc::Traits example</summary>
@@ -213,11 +240,11 @@ struct FruitBasket
       struct Tangerine; // overrides Node::impl(trait::Orange::take)
       struct TangerineTypes; // overrides Types::Orange
 
-      using Traits = arc::Traits<Node
-         , trait::Orange // methods: Node, types: Node::Types
-         , trait::Apple(Apple)  // m: Apple, t: Node::Types
-         , trait::Banana*(BananaTypes) // m: Node, t: BananaTypes
-         , trait::Tangerine(Tangerine, TangerineTypes) // m: Tangerine, t: TangerineTypes
+      using Traits = arc::Traits<
+         trait::Orange, // methods: Node, types: Node::Types
+         trait::Apple(Apple), // m: Apple, t: Node::Types
+         trait::Banana*(BananaTypes), // m: Node, t: BananaTypes
+         trait::Tangerine(Tangerine, TangerineTypes) // m: Tangerine, t: TangerineTypes
       >;
 
       struct Types
@@ -281,8 +308,13 @@ struct FruitBasket::Node<Context>::Tangerine : Node
 ```
 ```cpp
 struct Guest : arc::Node
+   ::Impl<trait::Guest>
+   ::Uses<trait::Apple, trait::Banana, trait::Orange, trait::Tangerine>
 {
-   using Traits = arc::Traits<Guest, trait::Guest>;
+   // Node::Impl<...>::Uses<...> builder generates:
+   // using Traits = arc::Traits<trait::Guest>;
+   // using Depends = arc::Depends<trait::Apple, trait::Banana, trait::Orange, trait::Tangerine>;
+   // As well as named getters: getApple(), getBanana(), getOrange(), getTangerine()
 
    template<class Self>
    void impl(this Self& self, trait::Guest::eat)
@@ -297,13 +329,13 @@ struct Guest : arc::Node
       using Tangerine = arc::ResolveTypes<Self, trait::Tangerine>::Orange;
 
       // FruitBasket::Node<...>::impl(trait::Orange::take{}, 3)
-      std::same_as<Orange> auto oranges = self.getNode(trait::orange).take(3);
+      std::same_as<Orange> auto oranges = self.getOrange().take(3); // Named getter
       // arc::DetachedImpl<FruitBasket::Node<...>, FruitBasket::Node<...>::Apple>::impl(trait::Apple::take{}, 3)
-      std::same_as<Apple> auto apples = self.getNode(trait::apple).take(3);
+      std::same_as<Apple> auto apples = self.getApple().take(3);
       // FruitBasket::Node<...>::impl(trait::Banana::take{}, 3)
-      std::same_as<Banana> auto bananas = self.getNode(trait::banana).take(3);
+      std::same_as<Banana> auto bananas = self.getBanana().take(3);
       // FruitBasket::Node<...>::Tangerine::impl(trait::Orange::take{}, 3)
-      std::same_as<Tangerine> auto tangerines = self.getNode(trait::tangerine).take(3);
+      std::same_as<Tangerine> auto tangerines = self.getTangerine().take(3);
 
       assert(apples == 2);
       assert(oranges == 1);
@@ -316,4 +348,4 @@ struct Guest : arc::Node
 
 ## Implicit traits
 
-It is possible for a node to implicitly implement traits, by using `arc::TraitsOpen<{Node}, {TraitMapping}...>`, which uses `{DefaultImpl}` and `{DefaultTypes}` for all traits not explicitly mapped.
+It is possible for a node to implicitly implement traits, by using `arc::TraitsOpen<{TraitMapping}...>`, which uses `{Node}` and `{Node}::Types` for all traits not explicitly mapped.

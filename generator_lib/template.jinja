@@ -85,7 +85,7 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
                 , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
                 {%- if trait.impl_named -%}
-                , class {{ trait.impl_name }} = std::remove_cvref_t<Self>::Traits::Node
+                , class {{ trait.impl_name }} = ::arc::ContextToNode<::arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
             >
             ARC_INLINE constexpr auto {{ method.name }}(this Self{{ " const&" if method.is_const else "&&" }} self

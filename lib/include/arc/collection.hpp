@@ -104,8 +104,8 @@ struct Collection
             template<class Caller, class Target>
             constexpr auto getPeers(detail::MemberPtr<Element, Target> elToNodeMemPtr) const
             {
-                using CallerNode = detail::UnderlyingNode<Caller>;
-                using TargetNode = detail::UnderlyingNode<Target>;
+                using CallerNode = UnderlyingNode<Caller>;
+                using TargetNode = UnderlyingNode<Target>;
                 // Remove dynamic environment components from Caller, as the peers are independent instances
                 using Environment = Caller::Environment::template RemoveDynamic<>;
                 using NodeState = TransferEnv<Environment, arc::ContextToNodeState<detail::Decompress<ContextOf<Caller>>>>;
@@ -246,7 +246,7 @@ struct Collection
             }
         }
 
-        using Traits = arc::TraitsTemplate<Node, TraitsTemplate>;
+        using Traits = arc::TraitsTemplate<TraitsTemplate>;
 
         [[nodiscard]] constexpr bool hasId(ID const& id) const
         {

@@ -201,7 +201,7 @@ export struct AuthService : arc::Node
     using Depends = arc::Depends<trait::TokenStore, arc::Global<trait::Logger>>;
 
     // `AuthService` implements the trait `my::trait::AuthService`
-    using Traits = arc::Traits<AuthService, trait::AuthService>;
+    using Traits = arc::Traits<trait::AuthService>;
     // shorthand for:
     //      arc::Traits<AuthService
     //          , trait::AuthService(AuthService, AuthService::Types)
@@ -297,7 +297,7 @@ export struct Sessions
         // we can simply depend on `trait::Logger` instead of `arc::Global<trait::Logger>`
         using Depends = arc::Depends<trait::AuthService, trait::Logger>;
 
-        using Traits = arc::Traits<Node, trait::TokenStore, trait::SessionManager>;
+        using Traits = arc::Traits<trait::TokenStore, trait::SessionManager>;
         // shorthand for:
         //      arc::Traits<Node
         //          , trait::TokenStore(Node, Node::Types)
@@ -403,7 +403,7 @@ namespace my {
 
 export struct Logger : arc::Node
 {
-    using Traits = arc::Traits<Logger, trait::Logger>;
+    using Traits = arc::Traits<trait::Logger>;
 
     template<class... Args>
     void impl(trait::Logger::log, Args&&... args) const
@@ -528,7 +528,7 @@ struct MockTypes
 // TestOnlyNode is a node that can only be used inside a test context
 struct MockLogger : arc::TestOnlyNode
 {
-    using Traits = arc::Traits<MockLogger, trait::Logger>;
+    using Traits = arc::Traits<trait::Logger>;
 
     void impl(trait::Logger::log, auto&&...) const
     {
@@ -577,7 +577,7 @@ static void testSessionManager(
 // Test doubles are reusable across tests in the whole project
 struct AuthServiceTestDouble : arc::TestOnlyNode
 {
-    using Traits = arc::Traits<AuthServiceTestDouble, my::trait::AuthService>;
+    using Traits = arc::Traits<my::trait::AuthService>;
 
     using Types = MockTypes;
 

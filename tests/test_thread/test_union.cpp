@@ -41,7 +41,7 @@ namespace arc::tests::thread::union_ {
 struct Node2;
 struct Node1 : arc::Node
 {
-    using Traits = arc::Traits<Node1, trait::Query, trait::Swap, arc::trait::DynamicNode>;
+    using Traits = arc::Traits<trait::Query, trait::Swap, arc::trait::DynamicNode>;
 
     int impl(trait::Query::query) const
     {
@@ -75,7 +75,7 @@ struct Node1 : arc::Node
 };
 struct Node2 : arc::Node
 {
-    using Traits = arc::Traits<Node2, trait::Query, trait::Swap, arc::trait::DynamicNode>;
+    using Traits = arc::Traits<trait::Query, trait::Swap, arc::trait::DynamicNode>;
 
     int impl(trait::Query::query) const
     {

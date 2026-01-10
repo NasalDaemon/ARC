@@ -47,7 +47,7 @@ struct BreadType;
 
 struct IApple : arc::INode
 {
-    using Traits = arc::Traits<IApple, trait::Apple>;
+    using Traits = arc::Traits<trait::Apple>;
     struct Types
     {
         using AppleType = virtual_::AppleType;
@@ -57,7 +57,7 @@ struct IApple : arc::INode
 };
 struct IBread : arc::INode
 {
-    using Traits = arc::Traits<IBread, trait::Bread>;
+    using Traits = arc::Traits<trait::Bread>;
     struct Types
     {
         using BreadType = virtual_::BreadType;
@@ -66,7 +66,7 @@ struct IBread : arc::INode
 };
 struct IEgg : arc::INode
 {
-    using Traits = arc::Traits<IEgg, trait::Egg>;
+    using Traits = arc::Traits<trait::Egg>;
     virtual int impl(trait::Egg::yolks) const = 0;
 };
 
@@ -75,7 +75,7 @@ struct AppleEgg
     template<class Context>
     struct Node : IApple, IEgg
     {
-        using Traits = arc::Traits<Node, trait::Apple, trait::Egg>;
+        using Traits = arc::Traits<trait::Apple, trait::Egg>;
 
         static_assert(std::is_same_v<BreadType, typename arc::ResolveTypes<Node, trait::Bread>::BreadType>);
 
@@ -130,10 +130,8 @@ struct AppleEgg
 struct Bread
 {
     template<class Context>
-    struct Node : arc::WithDepends<IBread, trait::Apple, trait::Egg, arc::Global<trait::Global>>
+    struct Node : arc::Uses<IBread, trait::Apple, trait::Egg, arc::Global<trait::Global>>
     {
-        using Traits = arc::RebindTraits<Node>;
-
         // Prove that withFactory works with copy/move elision
         Node() = default;
         Node(Node const&) = delete;
@@ -148,7 +146,7 @@ struct Bread
 
         void onGraphConstructed()
         {
-            // Proves getGlobal isn't a converter in WithDepends, as it clashes with Node::getGlobal
+            // Proves getGlobal isn't a converter in Uses, as it clashes with Node::getGlobal
             CHECK(getGlobal(trait::global).get() == 9);
             CHECK(getGlobalGlobal().get() == 9);
             CHECK(slices == 314);
@@ -161,7 +159,7 @@ struct Bread
 
 struct GlobalNode : arc::Node
 {
-    using Traits = arc::Traits<GlobalNode, trait::Global>;
+    using Traits = arc::Traits<trait::Global>;
 
     int impl(trait::Global::get) const
     {
@@ -261,7 +259,7 @@ struct StaticBread
     template<class Context>
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node, trait::Bread>;
+        using Traits = arc::Traits<trait::Bread>;
 
         int impl(trait::Bread::slices) const
         {
@@ -314,7 +312,7 @@ struct EggDouble
     template<class Context>
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node, trait::Egg>;
+        using Traits = arc::Traits<trait::Egg>;
 
         int impl(trait::Egg::yolks) const { return yolks; }
 
@@ -339,7 +337,7 @@ struct EggFacade
     template<class Context>
     struct Node final : IEgg
     {
-        using Traits = arc::Traits<Node, trait::Egg>;
+        using Traits = arc::Traits<trait::Egg>;
 
         int impl(trait::Egg::yolks) const
         {

@@ -88,7 +88,7 @@ struct Root
         template<class Context>
         struct Node : arc::Node
         {
-            using Traits = arc::NoTraits<Node>;
+            using Traits = arc::NoTraits;
             int i;
 
             bool writable() { return true; }

@@ -13,7 +13,7 @@ struct Node27
     struct Node : arc::Node
     {
         using Depends = arc::Depends<trait::Trait26>;
-        using Traits  = arc::Traits<Node, trait::Trait27>;
+        using Traits  = arc::Traits<trait::Trait27>;
 
         int impl(trait::Trait27::get) const;
 

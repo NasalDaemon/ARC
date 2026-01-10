@@ -24,12 +24,12 @@ struct Charlie
         struct AliceTypes;
         struct CharlieTypes;
 
-        using Traits = arc::Traits<Node
-            , trait::AliceRead(Alice, AliceTypes)
-            , trait::Charlie(Charlie, CharlieTypes)
-            , trait::Charlie2(Charlie2, CharlieTypes)
-            , trait::Charlie3(Charlie3, CharlieTypes)
-            , trait::Visitable
+        using Traits = arc::Traits<
+            trait::AliceRead(Alice, AliceTypes),
+            trait::Charlie(Charlie, CharlieTypes),
+            trait::Charlie2(Charlie2, CharlieTypes),
+            trait::Charlie3(Charlie3, CharlieTypes),
+            trait::Visitable
         >;
 
         struct AliceTypes

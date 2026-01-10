@@ -10,7 +10,7 @@ export
 struct Node89 : arc::Node
 {
     using Depends = arc::Depends<trait::Trait88>;
-    using Traits = arc::Traits<Node89, trait::Trait89>;
+    using Traits = arc::Traits<trait::Trait89>;
 
     int impl(this auto const& self, trait::Trait89::get)
     {

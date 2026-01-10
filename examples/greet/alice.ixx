@@ -14,7 +14,7 @@ export struct Alice : arc::Node
     using Depends = arc::Depends<trait::Responder>;
 
     // Declares which traits this node implements
-    using Traits = arc::Traits<Alice, trait::Greeter, trait::Responder>;
+    using Traits = arc::Traits<trait::Greeter, trait::Responder>;
 
     void impl(this auto const& self, trait::Greeter::greet)
     {

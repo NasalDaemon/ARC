@@ -16,12 +16,10 @@ export namespace abc {
 struct Bob
 {
     template<class Context>
-    struct Node : arc::Node::Build
-        ::WithDepends<trait::Alice, trait::Charlie>
-        ::WithTraits<trait::AliceRead, trait::Bob, trait::Charlie>
+    struct Node : arc::Node
+        ::Impl<trait::AliceRead, trait::Bob, trait::Charlie>
+        ::Uses<trait::Alice, trait::Charlie>
     {
-        ARC_REBIND_TRAITS();
-
         void onGraphConstructed() { std::cout << "Constructed Bob " << asBob().get() << "\n"; }
 
         int impl(trait::Alice::get) const

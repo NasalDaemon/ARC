@@ -56,7 +56,7 @@ struct Root
     };
     struct Logger : arc::Node
     {
-        using Traits = arc::Traits<Logger, trait::Log>;
+        using Traits = arc::Traits<trait::Log>;
 
         void impl(trait::Log::log, std::string_view message)
         {

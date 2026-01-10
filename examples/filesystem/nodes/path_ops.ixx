@@ -7,10 +7,8 @@ import std;
 namespace examples::filesystem {
 
 // PathOps node handles path parsing and manipulation
-export struct PathOps : arc::NodeWithTraits<trait::PathOps>
+export struct PathOps : arc::NodeImpl<trait::PathOps>
 {
-    using Traits = arc::RebindTraits<PathOps>;
-
     auto impl(trait::PathOps::normalise, std::string_view path) const -> std::string;
     auto impl(trait::PathOps::parent, std::string_view path) const -> std::string;
     auto impl(trait::PathOps::filename, std::string_view path) const -> std::string;

@@ -11,7 +11,7 @@ struct Node1
     template<class Context>
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node, trait::Trait1>;
+        using Traits = arc::Traits<trait::Trait1>;
 
         int impl(trait::Trait1::get) const;
 

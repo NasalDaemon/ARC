@@ -35,7 +35,7 @@ struct MouseType;
 
 struct Cat : arc::Node
 {
-    using Traits = arc::Traits<Cat, trait::Name>;
+    using Traits = arc::Traits<trait::Name>;
     struct Types
     {
         struct CatType;
@@ -51,7 +51,7 @@ struct Dog
     template<class Context>
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node, trait::Name>;
+        using Traits = arc::Traits<trait::Name>;
         struct Types
         {
             struct DogType;
@@ -65,31 +65,35 @@ struct Dog
         }
     };
 };
-template<class Context>
-struct Mouse : arc::Node
+struct Mouse
 {
-    using Traits = arc::Traits<Mouse, trait::Name>;
-    struct Types
+    template<class Context>
+    struct Node : arc::Node
     {
-        using MouseType = union_::MouseType;
-    };
+        using Traits = arc::Traits<trait::Name>;
+        struct Types
+        {
+            using MouseType = union_::MouseType;
+        };
 
-    int impl(trait::Name::get) const { return 42; }
+        int impl(trait::Name::get) const { return 42; }
+    };
 };
 
+
 template<class Context>
-struct Union : arc::Cluster
+struct Union_ : arc::Cluster
 {
     struct Onion;
     struct Mouse;
 
     ARC_LINK(trait::Name, Onion)
 
-    struct Onion : arc::Context<Union, arc::Union<Cat, Dog>>
+    struct Onion : arc::Context<Union_, arc::Union<Cat, Dog>>
     {
         ARC_LINK(trait::Name, Mouse)
     };
-    struct Mouse : arc::InlineContext<Union, union_::Mouse>
+    struct Mouse : arc::Context<Union_, union_::Mouse>
     {
         ARC_LINK(trait::Name, Onion)
     };
@@ -97,6 +101,8 @@ struct Union : arc::Cluster
     ARC_NODE(Onion, onion)
     ARC_NODE(Mouse, mouse)
 };
+
+using Union = arc::InlineNode<Union_>;
 
 constexpr bool testWithIndex()
 {
@@ -112,8 +118,8 @@ static_assert(testWithIndex());
 
 TEST_CASE("arc::Union")
 {
-    arc::InlineGraph<Union> cat{.onion{std::in_place_index<0>}};
-    arc::InlineGraph<Union> dog{.onion{arc::withFactory, [](auto c) { return c(std::in_place_type<Dog>); }}};
+    arc::Graph<Union> cat{.onion{std::in_place_index<0>}};
+    arc::Graph<Union> dog{.onion{arc::withFactory, [](auto c) { return c(std::in_place_type<Dog>); }}};
 
     using DogTypes = decltype(dog.onion.asTrait(trait::Name{}))::Types;
     static_assert(DogTypes::TypesCount == 2);
@@ -154,4 +160,4 @@ TEST_CASE("arc::Union")
 
 } // arc::tests::union_
 
-ARC_INSTANTIATE(arc::InlineGraph<arc::tests::union_::Union>, onion->get<1>())
+ARC_INSTANTIATE(arc::Graph<arc::tests::union_::Union>, onion->get<1>())

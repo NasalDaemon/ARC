@@ -8,7 +8,7 @@ namespace examples::animals_virtual {
 
 export struct IAnimal : arc::INode
 {
-    using Traits = arc::Traits<IAnimal, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     virtual std::string impl(trait::Animal::speak) const = 0;
     virtual void impl(trait::Animal::evolve) = 0;

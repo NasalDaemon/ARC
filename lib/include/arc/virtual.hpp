@@ -29,11 +29,10 @@
 
 namespace arc {
 
-struct detail::INodeBase : Node
+struct detail::INodeBase
+    : Node
+    , detail::DisableBuild // Disable using Build, must use arc::Build<VirtualNode> instead
 {
-    // Disable using Build, must use arc::Build<VirtualNode> instead
-    using Build = detail::DisableBuild;
-
     template<IsNodeHandle T, class Self>
     requires IsVirtualContext<ContextOf<Self>>
     constexpr auto exchangeImpl(this Self& self, auto&&... args)
@@ -86,7 +85,7 @@ struct Virtual
             [[no_unique_address]] detail::GlobalNodePtr<Context> globalNode;
         };
 
-        template<class ImplNode>
+        template<IsNodeHandle ImplNode>
         struct InnerContext : Context
         {
             static InnerContext isVirtualContext(detail::IsVirtualContextTag);
@@ -218,7 +217,7 @@ struct Virtual
         struct Resolver<Trait>
         {
             using TraitInterface = InterfaceOf<Trait>;
-            using Types = TraitInterface::Traits::template ResolveTypes<Trait>;
+            using Types = TraitInterface::Traits::template ResolveTypes<Trait, TraitInterface>;
             using Interface = AsInterface<TraitInterface>;
             ARC_ASSERT_IMPLEMENTS(TraitInterface, Types, Trait);
         };
@@ -248,7 +247,7 @@ struct Virtual
             using AssertSatisfied = void;
         };
 
-        using Traits = arc::TraitsTemplate<Node, Resolver>;
+        using Traits = arc::TraitsTemplate<Resolver>;
 
         template<IsNodeHandle T>
         requires (... and std::derived_from<ImplInterface<T>, Interfaces>)

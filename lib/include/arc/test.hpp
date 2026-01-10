@@ -55,7 +55,11 @@ struct MockKey : arc::key::Default
 ARC_MODULE_EXPORT
 struct TestOnlyNode : arc::Node
 {
-    using Build = arc::Build<TestOnlyNode>;
+    template<class... Traits>
+    using Impl = arc::Build<Node>::template Impl<Traits...>;
+
+    template<arc::detail::IsDependsItem... DependTraits>
+    using Uses = arc::Build<Node>::template Uses<DependTraits...>;
 
     template<class Self>
     static constexpr void assertNodeContext()
@@ -68,12 +72,12 @@ struct TestOnlyNode : arc::Node
 ARC_MODULE_EXPORT
 template<arc::detail::IsDependsItem... Traits>
 requires (sizeof...(Traits) > 0)
-using TestOnlyNodeWithDepends = WithDepends<TestOnlyNode, Traits...>;
+using TestOnlyNodeUses = Uses<TestOnlyNode, Traits...>;
 
 ARC_MODULE_EXPORT
 template<class... Traits>
 requires (sizeof...(Traits) > 0)
-using TestOnlyNodeWithTraits = WithTraits<TestOnlyNode, Traits...>;
+using TestOnlyNodeImpl = Impl<TestOnlyNode, Traits...>;
 
 namespace detail {
 

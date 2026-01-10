@@ -12,29 +12,42 @@
 #include <type_traits>
 #endif
 
-#define ARC_NODE_USE_PUBLIC_MEMBERS(Node) \
+#define ARC_NODE_USE_PUBLIC_MEMBERS(NodeT) \
+    using Node = detail::NodeOf<NodeT>; \
     /* Expose utility functions from the underlying node */ \
-    using Traits = Node::Traits; \
-    using Depends = Node::Depends; \
-    using Environment = Node::Environment; \
-    using Types = Node::Types; \
-    using Node::assertNodeContext; \
-    using Node::isUnary; \
-    using Node::getNode; \
-    using Node::canGetNode; \
-    using Node::getGlobal; \
-    using Node::asTrait; \
-    using Node::hasTrait; \
+    using Traits = NodeT::Traits; \
+    using Depends = NodeT::Depends; \
+    using Environment = NodeT::Environment; \
+    using Types = NodeT::Types; \
+    using NodeT::assertNodeContext; \
+    using NodeT::isUnary; \
+    using NodeT::getNode; \
+    using NodeT::canGetNode; \
+    using NodeT::getGlobal; \
+    using NodeT::asTrait; \
+    using NodeT::hasTrait; \
     /* Expose union and virtual node functions */ \
-    using Node::exchangeImpl; \
+    using NodeT::exchangeImpl; \
     /* Expose peer node functions */ \
-    using Node::getElementId; \
-    using Node::getElementHandle; \
+    using NodeT::getElementId; \
+    using NodeT::getElementHandle; \
 
 namespace arc {
 
 ARC_MODULE_EXPORT
 struct Node;
+
+namespace detail {
+    template<class T>
+    requires requires { typename T::Node; } and (not std::is_same_v<typename T::Node, arc::Node>)
+    auto getNodeOf() -> T::Node;
+    template<class T>
+    auto getNodeOf() -> T;
+
+    ARC_MODULE_EXPORT
+    template<class T>
+    using NodeOf = decltype(getNodeOf<T>());
+}
 
 ARC_MODULE_EXPORT
 template<class T>
@@ -65,27 +78,36 @@ ARC_MODULE_EXPORT
 template<IsNode NodeT>
 struct WrapNode;
 
-template<class Interface, class Context>
-struct WrappedImpl : Interface
-{
-    using Interface::Interface;
-
-    template<class F>
-    explicit constexpr WrappedImpl(Emplace<F>&& f)
-        : Interface(std::move(f))
-    {}
-
-    using Traits = WrapNode<typename Interface::Traits::Node>::template Traits<Context>;
-};
-
 namespace detail {
-    template<class Trait, class Context>
-    void isWrappedImpl(WrappedImpl<Trait, Context> const&);
+    template<class NodeT>
+    struct WrappedImplNode
+    {};
+
+    template<class NodeT>
+    NodeT getWrappedImplNode(WrappedImplNode<NodeT> const&);
 }
+
+template<class NodeT, class Interface>
+struct WrappedImpl
+{
+    template<class Context>
+    struct Node : Interface, detail::WrappedImplNode<NodeT>
+    {
+        using IsWrappedImpl = void;
+        using Interface::Interface;
+
+        template<class F>
+        explicit constexpr Node(Emplace<F>&& f)
+            : Interface(std::move(f))
+        {}
+
+        using Traits = WrapNode<NodeT>::template Traits<Context>;
+    };
+};
 
 ARC_MODULE_EXPORT
 template<class T>
-concept IsWrappedImpl = requires (T const& t) { detail::isWrappedImpl(t); };
+concept IsWrappedImpl = requires (T const& t) { detail::getWrappedImplNode(t); };
 
 ARC_MODULE_EXPORT
 template<class T>
@@ -96,7 +118,18 @@ namespace detail {
     auto toNodeWrapper() -> T;
     template<IsNode T>
     auto toNodeWrapper() -> WrapNode<T>;
+
+    template<class T>
+    auto toNodeUserClass() -> T;
+    template<IsWrappedImpl T>
+    auto toNodeUserClass() -> decltype(getWrappedImplNode(std::declval<T const&>()));
+    template<class T>
+    using NodeUserClass = decltype(toNodeUserClass<T>());
 }
+
+ARC_MODULE_EXPORT
+template<class T>
+using UnderlyingNode = detail::NodeUserClass<detail::NodeOf<T>>;
 
 ARC_MODULE_EXPORT
 template<IsNodeHandle T>
@@ -140,26 +173,6 @@ concept NodeDependencyListed = Node::Depends::template dependencyListed<Node, Tr
 ARC_MODULE_EXPORT
 template<class Node, bool Transitive = false>
 concept NodeDependenciesSatisfied = requires { typename Node::Depends::template AssertSatisfied<Node, Transitive>; };
-
-namespace detail {
-
-template<class T>
-auto getUnderlyingNode() -> T;
-template<class T>
-requires requires { typename T::Traits::Node; }
-auto getUnderlyingNode() -> T::Traits::Node;
-
-template<class T>
-using UnderlyingNode = decltype(getUnderlyingNode<T>());
-
-template<class Node>
-struct NodeHasUnderlyingNodePred
-{
-    template<class T>
-    static constexpr bool value = std::is_same_v<UnderlyingNode<T>, Node>;
-};
-
-}
 
 } // namespace arc
 

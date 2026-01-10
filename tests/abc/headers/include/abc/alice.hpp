@@ -31,11 +31,11 @@ struct Alice
 
         struct Types;
 
-        using Traits = arc::Traits<Node
-            , trait::Alice*(Types)
-            , trait::Bob
-            , trait::Charlie
-            , trait::Visitable
+        using Traits = arc::Traits<
+            trait::Alice*(Types),
+            trait::Bob,
+            trait::Charlie,
+            trait::Visitable
         >;
 
         struct Types

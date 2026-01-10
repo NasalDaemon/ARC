@@ -13,7 +13,7 @@ export struct Repl
     struct Node : arc::Node
     {
         using Depends = arc::Depends<trait::Filesystem, trait::DirectorySync*>;
-        using Traits = arc::NoTraits<Node>;
+        using Traits = arc::NoTraits;
 
         auto run(int argc, char* argv[]) -> int;
 

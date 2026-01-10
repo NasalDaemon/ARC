@@ -104,7 +104,7 @@ namespace detail {
             return staticThreadId;
 
         using DynThreadContext = ContextOf<Target>::Info::DynThreadContext;
-        using TargetNode = detail::UnderlyingNode<Target>;
+        using TargetNode = UnderlyingNode<Target>;
         return ContextOf<Target>{}.template getParentNode<DynThreadContext>(upCast<TargetNode>(target)).getThreadId();
     }
 

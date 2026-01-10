@@ -31,7 +31,7 @@ namespace detail {
             // Types not used as this is behind a facade which already concretises the types
             using Resolver = ResolvedTrait<WithTrait<Trait>, EmptyTypes>;
 
-            using Traits = arc::TraitsTemplate<Node, Resolver>;
+            using Traits = arc::TraitsTemplate<Resolver>;
 
             explicit constexpr Node(OuterNode* outerNode) : outerNode(outerNode) {}
 

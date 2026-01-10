@@ -22,7 +22,7 @@ struct Trait : arc::UnconstrainedTrait
 
 struct Node : arc::Node
 {
-    using Traits = arc::Traits<Node, Trait>;
+    using Traits = arc::Traits<Trait>;
 
     int impl(this auto& self, Trait::get)
     {

@@ -111,7 +111,7 @@ struct InnerNode : arc::PeerNode
 
 struct OuterNode : arc::Node
 {
-    using Traits = arc::Traits<OuterNode, trait::Outer>;
+    using Traits = arc::Traits<trait::Outer>;
     using Depends = arc::Depends<trait::Inner>;
 
     explicit OuterNode(int threadId) : i(threadId) {}

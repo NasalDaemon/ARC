@@ -55,7 +55,7 @@ struct Lazy
         using TraitsTemplate = arc::ResolvedTrait<Node, typename detail::ResolveTrait<NodeState, Trait>::template Types<>>;
 
     public:
-        using Traits = arc::TraitsTemplate<Node, TraitsTemplate>;
+        using Traits = arc::TraitsTemplate<TraitsTemplate>;
 
         ARC_INLINE constexpr decltype(auto) impl(this auto& self, auto&&... args)
         {

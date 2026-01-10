@@ -117,10 +117,6 @@
 
 #define ARC_COLD [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
 
-#define ARC_REBIND_TRAITS(...) ARC_OVERLOAD(ARC_REBIND_TRAITS, 0, ## __VA_ARGS__)(0, ## __VA_ARGS__)
-#define ARC_REBIND_TRAITS2(_, NodeName) using Traits = arc::RebindTraits<NodeName>
-#define ARC_REBIND_TRAITS1(_) ARC_REBIND_TRAITS2(_, Node)
-
 // Clang won't detail the failure in the build diagnostic when asserting the concept directly
 #if ARC_COMPILER_CLANG
 #   define ARC_ASSERT_IMPLEMENTS(Impl, Types, Trait) \
@@ -242,7 +238,7 @@
     }
 
 #define ARC_INSTANTIATE(graph, dotPath) \
-    template struct std::remove_pointer_t<std::remove_cvref_t<decltype(ARC_DEPAREN(graph)::dotPath)>>::Node< \
+    template struct ::arc::detail::NodeOf<std::remove_pointer_t<std::remove_cvref_t<decltype(ARC_DEPAREN(graph)::dotPath)>>>::Node< \
         ::arc::ContextOf<std::remove_pointer_t<std::remove_cvref_t<decltype(ARC_DEPAREN(graph)::dotPath)>>>>;
 
 #define ARC_INSTANTIATE_BOX(Main, InFacade, ... /* interfaces */) \

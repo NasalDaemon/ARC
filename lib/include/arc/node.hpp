@@ -28,7 +28,11 @@ namespace arc {
 
 struct Node
 {
-    using Build = arc::Build<Node>;
+    template<class... Traits>
+    using Impl = arc::Build<Node>::template Impl<Traits...>;
+
+    template<detail::IsDependsItem... DependTraits>
+    using Uses = arc::Build<Node>::template Uses<DependTraits...>;
 
     static constexpr bool isUnary() { return true; }
     using Types = EmptyTypes;
@@ -54,11 +58,12 @@ struct Node
         Self::template assertNodeContext<Self>();
         if constexpr (not detail::IsNodeState<Self>)
             static_assert(NodeDependencyListed<Self, Trait>, "Requested trait missing from node's arc::Depends list");
-        using ThisNode = Self::Traits::Node;
+        using Context = ContextOf<Self>;
+        using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
         if constexpr (not IsGlobalTrait<Trait>)
-            static_assert(detail::HasLink<ContextOf<Self>, Trait>, "Node missing link to a dependency");
-        auto target = ContextOf<Self>{}.getNode(node, trait);
+            static_assert(detail::HasLink<Context, Trait>, "Node missing link to a dependency");
+        auto target = Context{}.getNode(node, trait);
         return makeTraitView(self, target, trait, key, keys...);
     }
 #endif
@@ -79,7 +84,7 @@ struct Node
     constexpr auto canGetNode(this Self&, Trait = {})
     {
         constexpr bool value =
-            requires (ContextOf<Self> c, Self::Traits::Node n, Trait trait) {
+            requires (ContextOf<Self> c, ContextToNode<ContextOf<Self>> n, Trait trait) {
                 c.getNode(n, trait);
             };
         return std::bool_constant<value>{};
@@ -96,12 +101,12 @@ struct Node
     constexpr auto asTrait(this Self& self, detail::AsRef, Trait)
     {
         Self::template assertNodeContext<Self>();
-        using ThisNode = Self::Traits::Node;
+        using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
 
         static_assert(Self::Traits::template HasTrait<Trait>, "Trait not listed in node's arc::Traits");
-        using Interface = Self::Traits::template ResolveInterface<Trait>;
-        using Types = Self::Traits::template ResolveTypes<Trait>;
+        using Interface = Self::Traits::template ResolveInterface<Trait, ThisNode>;
+        using Types = Self::Traits::template ResolveTypes<Trait, ThisNode>;
         return detail::TargetRef{detail::downCast<Interface>(node), std::type_identity<Types>{}};
     }
 
@@ -141,24 +146,20 @@ template<IsNode NodeT>
 struct WrapNode
 {
     template<class Context>
-    requires std::same_as<NodeT, typename NodeT::Traits::Node>
-    using Node = WrappedImpl<NodeT, Context>;
+    using Node = WrappedImpl<NodeT, NodeT>::template Node<Context>;
 
     template<class Context>
     struct GetTraits
     {
-        template<std::same_as<NodeT> T>
-        using GetContext = Context;
-
         template<class Trait>
         requires detail::TraitsHasTrait<typename NodeT::Traits, Trait>
         struct Resolver
         {
-            using Types = NodeT::Traits::template ResolveTypes<Trait>;
-            using Interface = WrappedImpl<typename NodeT::Traits::template ResolveInterface<Trait>, Context>;
+            using Types = NodeT::Traits::template ResolveTypes<Trait, NodeT>;
+            using Interface = WrappedImpl<NodeT, typename NodeT::Traits::template ResolveInterface<Trait, NodeT>>::template Node<Context>;
         };
 
-        using Traits = detail::Traits<NodeT, GetContext, detail::TraitsTemplateDefault<Resolver>>;
+        using Traits = arc::TraitsTemplate<Resolver>;
     };
 
     template<class Context>
@@ -167,32 +168,30 @@ struct WrapNode
 
 namespace detail {
 
-    template<IsNode Node>
-    struct NodeState : private Node
+    template<IsNode NodeT>
+    struct NodeState : private NodeT
     {
-        static_assert(IsWrappedImpl<Node> or std::is_same_v<typename Node::Traits::Node, Node>);
-
-        using Node::Node;
+        using NodeT::NodeT;
 
         template<class F>
         explicit constexpr NodeState(Emplace<F>&& f)
-            : Node(std::move(f))
+            : NodeT(std::move(f))
         {}
 
-        ARC_NODE_USE_PUBLIC_MEMBERS(Node)
+        ARC_NODE_USE_PUBLIC_MEMBERS(NodeT)
 
         template<class Self>
         ARC_INLINE constexpr decltype(auto) visit(this Self& self, auto&& f)
         {
             ContextOf<Self>::Info::assertVisitable(self);
-            return upCast<Node>(self).visit(ARC_FWD(f));
+            return upCast<NodeT>(self).visit(ARC_FWD(f));
         }
 
         template<class Self>
         ARC_INLINE constexpr auto& getState(this Self& self)
         {
             ContextOf<Self>::Info::assertAccessible(self);
-            return upCast<Node>(self).getState();
+            return upCast<NodeT>(self).getState();
         }
 
         constexpr auto* operator->(this auto& self) { return std::addressof(self.getState()); }

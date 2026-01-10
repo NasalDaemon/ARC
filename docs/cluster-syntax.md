@@ -188,7 +188,7 @@ cluster MyCluster
 
 // Provider implementation
 struct Provider : arc::Node {
-    using Traits = arc::NoTraits<Provider>;
+    using Traits = arc::NoTraits;
     void doWork();
 };
 

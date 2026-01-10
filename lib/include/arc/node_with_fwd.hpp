@@ -4,6 +4,7 @@
 #include "arc/depends.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
+#include "arc/no_trait.hpp"
 
 namespace arc {
 
@@ -16,14 +17,16 @@ namespace detail {
         template<class... T>
         struct AssertNoBuild
         {
-            static_assert(alwaysFalse<T...>, "YourNode::Build is disabled for YourNode; use arc::Build<YourNode> instead");
+            static_assert(alwaysFalse<T...>,
+                "YourNode::Impl/YourNode::Uses is disabled for YourNode; "
+                "use arc::Build<YourNode>/arc::Uses<YourNode, ...>/arc::Impl<YourNode, ...> instead");
         };
 
         template<class... Traits>
-        using WithTraits = AssertNoBuild<Traits...>;
+        using Impl = AssertNoBuild<Traits...>;
 
         template<detail::IsDependsItem... DependTraits>
-        using WithDepends = AssertNoBuild<DependTraits...>;
+        using Uses = AssertNoBuild<DependTraits...>;
     };
 }
 
@@ -34,50 +37,54 @@ struct Build;
 ARC_MODULE_EXPORT
 template<IsNodeBase Node, detail::IsDependsItem... Traits>
 requires (sizeof...(Traits) > 0)
-using WithDepends = detail::NodeWith<Node, void(Traits...)>;
+using Uses = detail::NodeWith<Node, void(Traits...)>;
 
 ARC_MODULE_EXPORT
 template<IsNodeBase Node, class... Traits>
 requires (sizeof...(Traits) > 0)
-using WithTraits = detail::NodeWith<Node, void(), Traits...>;
+using Impl = detail::NodeWith<Node, void(), Traits...>;
 
 template<class Node>
-struct Build<Node>
+struct Build<Node> final
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
-    using WithTraits = Build<Node, void(), Traits...>;
+    using Impl = Build<Node, void(), Traits...>;
 
     template<detail::IsDependsItem... DependTraits>
     requires (sizeof...(DependTraits) > 0)
-    using WithDepends = Build<Node, void(DependTraits...)>;
+    using Uses = Build<Node, void(DependTraits...)>;
 };
 
 template<class Node, detail::IsDependsItem... DependTraits>
-struct Build<Node, void(DependTraits...)>
+struct Build<Node, void(DependTraits...)> final
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
-    using WithTraits = detail::NodeWith<Node, void(DependTraits...), Traits...>;
+    using Impl = detail::NodeWith<Node, void(DependTraits...), Traits...>;
+
+    using NoTraits = detail::NodeWith<Node, void(DependTraits...), arc::NoTraits>;
 };
 
 template<class Node, class... Traits>
-struct Build<Node, void(), Traits...>
+struct Build<Node, void(), Traits...> final
 {
     template<detail::IsDependsItem... DependTraits>
     requires (sizeof...(DependTraits) > 0)
-    using WithDepends = detail::NodeWith<Node, void(DependTraits...), Traits...>;
+    using Uses = detail::NodeWith<Node, void(DependTraits...), Traits...>;
+
+    using NoDeps = detail::NodeWith<Node, void(), Traits...>;
 };
 
 ARC_MODULE_EXPORT
 template<detail::IsDependsItem... Traits>
 requires (sizeof...(Traits) > 0)
-using NodeWithDepends = WithDepends<Node, Traits...>;
+using NodeUses = Uses<Node, Traits...>;
 
 ARC_MODULE_EXPORT
 template<class... Traits>
 requires (sizeof...(Traits) > 0)
-using NodeWithTraits = WithTraits<Node, Traits...>;
+using NodeImpl = Impl<Node, Traits...>;
 
 }
 

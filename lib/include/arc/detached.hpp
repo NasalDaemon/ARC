@@ -33,13 +33,13 @@ template<class T>
 concept HasDetachedContext = IsWrappedImpl<T> or IsDetachedImpl<T>;
 
 ARC_MODULE_EXPORT
-template<class Node, IsDetachedInterface Interface>
-struct DetachedImpl : Interface, private Node
+template<class NodeT, IsDetachedInterface Interface>
+struct DetachedImpl : Interface, private NodeT
 {
     static_assert(IsStateless<Interface>);
 
-    ARC_NODE_USE_PUBLIC_MEMBERS(Node)
-    using Node::finalise;
+    ARC_NODE_USE_PUBLIC_MEMBERS(NodeT)
+    using NodeT::finalise;
 
     // Use impl from the detached interface
     using Interface::impl;
@@ -48,14 +48,14 @@ struct DetachedImpl : Interface, private Node
     constexpr decltype(auto) visit(this Self& self, auto&&... args)
     {
         ContextOf<Self>::Info::assertVisitable(self);
-        return self.Node::visit(ARC_FWD(args)...);
+        return self.NodeT::visit(ARC_FWD(args)...);
     }
 
     template<class Self>
     constexpr auto& getState(this Self& self)
     {
         ContextOf<Self>::Info::assertAccessible(self);
-        return detail::upCast<Node>(self);
+        return detail::upCast<NodeT>(self);
     }
 
     constexpr auto* operator->(this auto& self) { return std::addressof(self.getState()); }

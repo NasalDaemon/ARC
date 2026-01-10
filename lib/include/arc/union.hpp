@@ -109,11 +109,7 @@ struct Union
             requires detail::HasLink<Context, Trait> or detail::IsGlobalTrait<Trait>
             static constexpr auto getNode(Option& option, Trait trait)
             {
-                using OptionNode = detail::SelectIf<
-                    detail::NodeHasUnderlyingNodePred<detail::UnderlyingNode<Option>>,
-                    ToNode<Options>...
-                >;
-                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode Node::*>(&Node::bytes));
+                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::bytes));
                 return Context{}.getNode(nodePtr.getClassFromMember(option), trait);
             }
 
@@ -138,11 +134,7 @@ struct Union
                 }
                 else
                 {
-                    using OptionNode = detail::SelectIf<
-                    detail::NodeHasUnderlyingNodePred<detail::UnderlyingNode<Option>>,
-                        ToNode<Options>...
-                    >;
-                    auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode Node::*>(&Node::bytes));
+                    auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::bytes));
                     return Context{}.template getParentNode<Parent>(nodePtr.getClassFromMember(node));
                 }
             }
@@ -150,6 +142,11 @@ struct Union
 
         template<class Option>
         using ToNode = Ensure<detail::ToNodeState<typename ToNodeWrapper<Option>::template Node<detail::CompressContext<InnerContext>>>>;
+
+        template<class Option>
+        using OptionNode = detail::InheritAll<
+            detail::EnableIf<std::is_base_of_v<detail::NodeUserClass<detail::NodeOf<Option>>, ToNode<Options>>, ToNode<Options>>...
+        >::type;
 
     public:
         struct Depends
@@ -185,7 +182,7 @@ struct Union
         requires HasTrait<NodeAt<0>, Trait>
         using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, TypesAtT<0, Trait>>;
 
-        using Traits = arc::TraitsTemplate<Node, TraitsTemplate>;
+        using Traits = arc::TraitsTemplate<TraitsTemplate>;
 
         template<std::invocable<Constructor<Node>> F>
         requires std::same_as<Node, std::invoke_result_t<F, Constructor<Node>>>

@@ -35,6 +35,7 @@ struct AutoCompleteTraitNodeView
 
     constexpr detail::Unknown visit(this auto&& self, auto&& visitor);
     constexpr detail::Unknown getElementId() const;
+    constexpr detail::Unknown getElementHandle() const;
 };
 
 ARC_MODULE_EXPORT
@@ -47,10 +48,10 @@ struct AutoCompleteTraitView final : Trait::Meta::Methods
     using Types = EmptyTypes;
     struct Traits
     {
-        template<IsTrait T>
+        template<IsTrait T, class>
         using ResolveInterface = AutoCompleteTraitView;
 
-        template<IsTrait T>
+        template<IsTrait T, class>
         using ResolveTypes = Types;
     };
 
@@ -106,21 +107,18 @@ struct TraitView final : Trait::Meta::Methods
             ARC_ASSERT_IMPLEMENTS(TraitView, Types, Trait);
     }
 
+    using Node = detail::NodeOf<typename ImplAlias::Impl>;
+
     static consteval std::true_type isTrait(MatchesTrait<Trait> auto) { return {}; }
     static consteval std::false_type isTrait(auto) { return {}; }
 
     using Types = detail::Decompress<Types_>;
     struct Traits
     {
-        using Node = ImplAlias::Impl;
-
-        template<std::same_as<TraitView> = TraitView>
-        using GetContext = ContextOf<Node>;
-
-        template<std::same_as<Trait> T>
+        template<std::same_as<Trait> T, std::same_as<TraitView> TV>
         using ResolveInterface = TraitView;
 
-        template<std::same_as<Trait> T>
+        template<std::same_as<Trait> T, std::same_as<TraitView> TV>
         using ResolveTypes = Types;
     };
 
@@ -156,7 +154,7 @@ private:
     template<class Method, class... Args>
     ARC_INLINE static constexpr decltype(auto) invoke(auto& node, Method method, Args&&... args)
     {
-        using Context = Traits::template GetContext<>;
+        using Context = ContextOf<typename ImplAlias::Impl>;
         if constexpr (ContextHasGlobalTrait<Context, Global<trait::SpyOnly<Trait>>>)
         {
             auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
@@ -182,20 +180,17 @@ struct TraitView<Trait, ImplAlias, Types_> final : Trait::Meta::Methods
         : alias(alias)
     {}
 
+    using Node = detail::NodeOf<typename ImplAlias::Impl>;
+
     static consteval std::false_type isTrait(auto) { return {}; }
 
     using Types = detail::Decompress<Types_>;
     struct Traits
     {
-        using Node = ImplAlias::Impl;
-
-        template<std::same_as<TraitView> = TraitView>
-        using GetContext = ContextOf<typename ImplAlias::Impl>;
-
-        template<std::same_as<Trait> T>
+        template<std::same_as<Trait> T, std::same_as<TraitView> TV>
         using ResolveInterface = TraitView;
 
-        template<std::same_as<Trait> T>
+        template<std::same_as<Trait> T, std::same_as<TraitView> TV>
         using ResolveTypes = Types;
     };
 

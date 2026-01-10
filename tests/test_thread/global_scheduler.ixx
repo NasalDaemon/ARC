@@ -17,7 +17,7 @@ namespace arc::tests::thread {
 
 struct GlobalScheduler_ : arc::Node
 {
-    using Traits = arc::Traits<GlobalScheduler_, arc::trait::Scheduler>;
+    using Traits = arc::Traits<arc::trait::Scheduler>;
 
     struct Types
     {

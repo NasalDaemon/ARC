@@ -21,7 +21,7 @@ namespace detail {
         using Trait = Trait_;
 
         template<std::same_as<Trait> TT = Trait>
-        using Types = Node::Traits::template ResolveTypes<TT>;
+        using Types = Node::Traits::template ResolveTypes<TT, Node>;
         template<std::same_as<Trait> TT = Trait>
         static constexpr bool HasTrait = Node::Traits::template HasTrait<TT>;
     };

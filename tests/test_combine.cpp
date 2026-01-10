@@ -40,7 +40,7 @@ namespace trait {
 
 struct A : arc::Node
 {
-    using Traits = arc::Traits<A, trait::A>;
+    using Traits = arc::Traits<trait::A>;
 
     int impl(trait::A::a) { return val; }
 
@@ -54,7 +54,7 @@ struct A : arc::Node
 
 struct B : arc::Node
 {
-    using Traits = arc::Traits<B, trait::B>;
+    using Traits = arc::Traits<trait::B>;
 
     int impl(trait::B::b) { return val; }
 
@@ -68,7 +68,7 @@ struct B : arc::Node
 
 struct C : arc::Node
 {
-    using Traits = arc::Traits<C, trait::C>;
+    using Traits = arc::Traits<trait::C>;
 
     int impl(trait::C::c) { return val; }
 

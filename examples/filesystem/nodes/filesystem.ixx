@@ -11,10 +11,10 @@ namespace examples::filesystem {
 export struct Filesystem
 {
     template<class Context>
-    struct Node : arc::NodeWithDepends<trait::Storage, trait::PathOps>
+    struct Node : arc::Node
+        ::Uses<trait::Storage, trait::PathOps>
+        ::Impl<trait::Filesystem>
     {
-        using Traits = arc::Traits<Node, trait::Filesystem>;
-
         struct Types
         {
             using StorageTypes = arc::ResolveTypes<Node, trait::Storage>;

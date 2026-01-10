@@ -17,7 +17,7 @@ struct TestNode : arc::Node
         self.getNode(trait::trait).function(i);
     }
 
-    using Traits = arc::Traits<TestNode, trait::Trait>;
+    using Traits = arc::Traits<trait::Trait>;
 };
 
 } // namespace arc::tests::repeater

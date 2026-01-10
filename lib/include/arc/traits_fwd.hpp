@@ -92,12 +92,11 @@ namespace detail {
         static constexpr bool value = TraitsHasTrait<typename Node::Traits, Trait>;
     };
 
-    template<class Node_, template<class> class GetContext_, class DefaultResolver, class... TraitTs>
+    template<class DefaultResolver, class... TraitTs>
     struct Traits;
 
     struct TraitsDefault;
 
-    template<class Node>
     struct TraitsOpenDefault;
 
     template<template<class> class TraitTemplate>
@@ -106,20 +105,16 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<class Node, class... TraitTs>
-using Traits = detail::Traits<Node, ContextParameterOf, detail::TraitsDefault, TraitTs...>;
+template<class... TraitTs>
+using Traits = detail::Traits<detail::TraitsDefault, TraitTs...>;
 
 ARC_MODULE_EXPORT
-template<class Node, class... TraitTs>
-using TraitsOpen = detail::Traits<Node, ContextParameterOf, detail::TraitsOpenDefault<detail::TraitNodeInterface<Node>>, TraitTs...>;
+template<class... TraitTs>
+using TraitsOpen = detail::Traits<detail::TraitsOpenDefault, TraitTs...>;
 
 ARC_MODULE_EXPORT
-template<class Node, template<class> class TraitTemplate, class... TraitTs>
-using TraitsTemplate = detail::Traits<Node, ContextParameterOf, detail::TraitsTemplateDefault<TraitTemplate>, TraitTs...>;
-
-ARC_MODULE_EXPORT
-template<class Self, class... TraitTs>
-using RebindTraits = Self::Traits::template Rebind<Self, ContextParameterOf, TraitTs...>;
+template<template<class> class TraitTemplate, class... TraitTs>
+using TraitsTemplate = detail::Traits<detail::TraitsTemplateDefault<TraitTemplate>, TraitTs...>;
 
 } // namespace arc
 

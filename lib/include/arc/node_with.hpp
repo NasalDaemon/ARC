@@ -9,18 +9,11 @@
 namespace arc::detail {
 
 template<class... TraitTs>
-struct UnboundTraits
-{
-    template<class OtherNode, template<class> class NewGetContext, class... ExtraTraits>
-    using Rebind = Traits<OtherNode, NewGetContext, detail::TraitsDefault, TraitTs..., ExtraTraits...>;
-};
-
-template<class... TraitTs>
 struct AsTrait
     : TraitsItem<TraitTs>::Trait::Meta::Converter...
     , TraitsItem<TraitTs>::Trait::Meta::NamedMethods...
 {
-    using Traits = UnboundTraits<TraitTs...>;
+    using Traits = arc::Traits<TraitTs...>;
 };
 template<>
 struct AsTrait<>
@@ -38,6 +31,18 @@ struct Resolve<>
     using Depends = Node::Depends;
 };
 
+template<class... T>
+struct AssertNoImpl
+{
+    static_assert(alwaysFalse<T...>, "Cannot use Impl more than once when building a node");
+};
+
+template<class... T>
+struct AssertNoUses
+{
+    static_assert(alwaysFalse<T...>, "Cannot use Uses more than once when building a node");
+};
+
 template<IsNodeBase Node, class... DependTraits, class... TraitTs>
 struct NodeWith<Node, void(DependTraits...), TraitTs...>
     : Node
@@ -45,6 +50,12 @@ struct NodeWith<Node, void(DependTraits...), TraitTs...>
     , AsTrait<TraitTs...>
 {
     using Depends = NodeWith::Resolve::Depends;
+
+    template<class... Ts>
+    using Impl = AssertNoImpl<Ts...>;
+
+    template<detail::IsDependsItem... Ts>
+    using Uses = AssertNoUses<Ts...>;
 };
 
 }

@@ -42,8 +42,8 @@ namespace detail {
     }
 
     template<class T>
-    requires requires { typename T::Traits; }
-    auto getContext() -> T::Traits::template GetContext<>;
+    requires requires { typename T::Node; }
+    auto getContext() -> decltype(getContextParameter(std::declval<typename T::Node const&>()));
 
     template<class T>
     auto getContext() -> decltype(getContextParameter(std::declval<T const&>()));

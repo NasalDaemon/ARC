@@ -10,10 +10,10 @@ namespace examples::greet {
 export struct Bob
 {
     template<class Context>
-    struct Node : arc::NodeWithDepends<trait::Responder>
+    struct Node : arc::Node
+        ::Uses<trait::Responder>
+        ::Impl<trait::Greeter, trait::Responder>
     {
-        using Traits = arc::Traits<Node, trait::Greeter, trait::Responder>;
-
         Node(int age) : age(age) {}
 
         void impl(trait::Greeter::greet) const

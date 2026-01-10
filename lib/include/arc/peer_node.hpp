@@ -20,14 +20,18 @@ namespace arc {
 ARC_MODULE_EXPORT
 struct PeerNode : Node
 {
-    using Build = arc::Build<PeerNode>;
+    template<class... Traits>
+    using Impl = arc::Build<Node>::template Impl<Traits...>;
+
+    template<detail::IsDependsItem... DependTraits>
+    using Uses = arc::Build<Node>::template Uses<DependTraits...>;
 
     // Also exposed in TraitNodeView
     template<class Self>
     requires IsElementContext<ContextOf<Self>>
     constexpr auto const& getElementId(this Self& self)
     {
-        using ThisNode = detail::UnderlyingNode<Self>;
+        using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
         using ElementContext = ContextOf<Self>::Info::ElementContext;
         auto& element = ContextOf<Self>{}.template getParentNode<ElementContext>(node);
@@ -40,7 +44,7 @@ struct PeerNode : Node
     requires IsElementContext<ContextOf<Self>>
     constexpr auto getElementHandle(this Self const& self)
     {
-        using ThisNode = detail::UnderlyingNode<Self>;
+        using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
         using ElementContext = ContextOf<Self>::Info::ElementContext;
         auto& element = ContextOf<Self>{}.template getParentNode<ElementContext>(node);
@@ -53,7 +57,7 @@ struct PeerNode : Node
     requires IsElementContext<ContextOf<Self>> and HasTrait<Self, trait::Peer>
     constexpr auto getPeers(this Self& self)
     {
-        using ThisNode = detail::UnderlyingNode<Self>;
+        using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
         using ElementContext = ContextOf<Self>::Info::ElementContext;
         // Deliberately use getParentMemPtr as it only works for nodes with a stable memory location compared to the parent
@@ -82,12 +86,12 @@ namespace detail {
 ARC_MODULE_EXPORT
 template<detail::IsDependsItem... Traits>
 requires (sizeof...(Traits) > 0)
-using PeerNodeWithDepends = WithDepends<PeerNode, Traits...>;
+using PeerNodeUses = Uses<PeerNode, Traits...>;
 
 ARC_MODULE_EXPORT
 template<class... Traits>
 requires (sizeof...(Traits) > 0)
-using PeerNodeWithTraits = WithTraits<PeerNode, Traits...>;
+using PeerNodeImpl = Impl<PeerNode, Traits...>;
 
 ARC_MODULE_EXPORT
 struct PeerDetached : DetachedInterface

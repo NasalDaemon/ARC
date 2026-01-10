@@ -16,10 +16,10 @@ struct Bob
     {
         using Depends = arc::Depends<trait::Alice, trait::Charlie>;
 
-        using Traits = arc::Traits<Node
-            , trait::AliceRead
-            , trait::Bob
-            , trait::Charlie
+        using Traits = arc::Traits<
+            trait::AliceRead,
+            trait::Bob,
+            trait::Charlie
         >;
 
         int impl(trait::Alice::get) const;

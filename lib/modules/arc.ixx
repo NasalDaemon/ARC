@@ -196,6 +196,7 @@ export namespace arc {
     using arc::WrapNode;
     using arc::IsWrappedImpl;
     using arc::IsNodeHandle;
+    using arc::UnderlyingNode;
     using arc::ToNodeWrapper;
     using arc::InlineNode;
     using arc::NodeHasDepends;
@@ -203,10 +204,10 @@ export namespace arc {
     using arc::NodeDependenciesSatisfied;
     // node_with_fwd.hpp
     using arc::Build;
-    using arc::WithDepends;
-    using arc::WithTraits;
-    using arc::NodeWithDepends;
-    using arc::NodeWithTraits;
+    using arc::Uses;
+    using arc::Impl;
+    using arc::NodeUses;
+    using arc::NodeImpl;
     // no_trait.hpp
     using arc::NoTrait;
     using arc::noTrait;
@@ -215,8 +216,8 @@ export namespace arc {
     using arc::NoTraits;
     // peer_node.hpp
     using arc::PeerNode;
-    using arc::PeerNodeWithDepends;
-    using arc::PeerNodeWithTraits;
+    using arc::PeerNodeUses;
+    using arc::PeerNodeImpl;
     using arc::PeerDetached;
     using arc::PeerDetachedOpen;
     // traits/peer.hxx
@@ -254,8 +255,8 @@ export namespace arc {
         using test::MockTrait;
         using test::MockKey;
         using test::TestOnlyNode;
-        using test::TestOnlyNodeWithDepends;
-        using test::TestOnlyNodeWithTraits;
+        using test::TestOnlyNodeUses;
+        using test::TestOnlyNodeImpl;
         using test::Cluster;
         using test::Graph;
         using test::GraphWithGlobal;
@@ -298,7 +299,6 @@ export namespace arc {
     using arc::Traits;
     using arc::TraitsOpen;
     using arc::TraitsTemplate;
-    using arc::RebindTraits;
     // type_id.hpp
     using arc::TypeId;
     using arc::typeId;

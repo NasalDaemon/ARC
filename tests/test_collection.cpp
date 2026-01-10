@@ -63,7 +63,7 @@ arc-embed-end */
 struct ElementNode : arc::PeerNode
 {
     using Depends = arc::Depends<trait::Outside>;
-    using Traits = arc::Traits<ElementNode, trait::Element, arc::trait::Peer>;
+    using Traits = arc::Traits<trait::Element, arc::trait::Peer>;
 
     template<class Self>
     int impl(this Self const& self, trait::Element::get)
@@ -105,7 +105,7 @@ struct OutsideNode
     struct Node : arc::Node
     {
         using Depends = arc::Depends<trait::Element>;
-        using Traits = arc::Traits<Node, trait::Outside>;
+        using Traits = arc::Traits<trait::Outside>;
 
         int impl(trait::Outside::get) const
         {
@@ -123,7 +123,7 @@ struct OutsideNode
 
 struct GlobalNode : arc::Node
 {
-    using Traits = arc::Traits<GlobalNode, trait::Global>;
+    using Traits = arc::Traits<trait::Global>;
 
     int impl(trait::Global::get) const
     {

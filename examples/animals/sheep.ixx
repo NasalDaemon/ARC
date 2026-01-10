@@ -7,7 +7,7 @@ namespace examples::animals {
 
 export struct Sheep : arc::Node
 {
-    using Traits = arc::Traits<Sheep, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     std::string impl(trait::Animal::speak) const { return "baa!"; }
 };

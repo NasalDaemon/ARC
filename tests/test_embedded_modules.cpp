@@ -30,7 +30,7 @@ namespace arc::tests {
 
 struct EmbeddedNode : arc::Node
 {
-    using Traits = arc::Traits<EmbeddedNode, trait::Embedded>;
+    using Traits = arc::Traits<trait::Embedded>;
 
     int impl(trait::Embedded::get) const { return 42; }
 };

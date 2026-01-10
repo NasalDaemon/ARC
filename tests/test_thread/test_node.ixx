@@ -41,7 +41,7 @@ struct TestNode : arc::Node
         }
     };
 
-    using Traits = arc::Traits<TestNode(Interface), trait::A, trait::B, trait::C>;
+    using Traits = arc::Traits<TestNode(Interface), trait::A(Interface), trait::B(Interface), trait::C(Interface)>;
 
     TestNode(int i) : i(i) {}
 

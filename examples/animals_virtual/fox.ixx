@@ -8,7 +8,7 @@ namespace examples::animals_virtual {
 // Fox is a static node which we can adapt to IAnimal using arc::Adapt<Fox, IAnimalFacade>
 export struct Fox : arc::Node
 {
-    using Traits = arc::Traits<Fox, trait::Animal>;
+    using Traits = arc::Traits<trait::Animal>;
 
     std::string impl(trait::Animal::speak) const { return "yip"; }
 

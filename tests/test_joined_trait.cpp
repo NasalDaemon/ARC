@@ -49,7 +49,7 @@ struct Root
 {
     struct A : arc::Node
     {
-        using Traits = arc::Traits<A, trait::A>;
+        using Traits = arc::Traits<trait::A>;
 
         int impl(trait::A::fnA) const
         {
@@ -59,7 +59,7 @@ struct Root
 
     struct B : arc::Node
     {
-        using Traits = arc::Traits<B, trait::B>;
+        using Traits = arc::Traits<trait::B>;
 
         int impl(trait::B::fnB) const
         {
@@ -67,10 +67,8 @@ struct Root
         }
     };
 
-    struct AB : arc::Node::Build::WithTraits<trait::AB>::WithDepends<trait::A, trait::B>
+    struct AB : arc::Node::Impl<trait::AB>::Uses<trait::A, trait::B>
     {
-        using Traits = arc::RebindTraits<AB>;
-
         int impl(this auto const& self, trait::AB::fnA)
         {
             static_assert(requires { self.asA(); });
@@ -107,7 +105,7 @@ struct Root
     struct AandB : arc::Node
     {
         using Depends = arc::Depends<trait::A, trait::B>;
-        using Traits = arc::Traits<AandB, trait::A, trait::B>;
+        using Traits = arc::Traits<trait::A, trait::B>;
 
         int impl(this auto const& self, trait::AB::fnA)
         {

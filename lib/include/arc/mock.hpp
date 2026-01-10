@@ -813,8 +813,8 @@ struct Mock : detail::MockBase
 {
     using Traits = std::conditional_t<
         sizeof...(MockedTraits) == 0,
-        arc::TraitsOpen<Mock>,
-        arc::Traits<Mock, MockedTraits...>
+        arc::TraitsOpen<>,
+        arc::Traits<MockedTraits...>
     >;
 
     using detail::MockBase::MockBase;

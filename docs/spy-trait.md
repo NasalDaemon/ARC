@@ -68,7 +68,7 @@ To intercept **all** trait method calls, implement `arc::trait::Spy`:
 ```cpp
 struct GlobalSpy : arc::Node
 {
-    using Traits = arc::Traits<GlobalSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
     decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
@@ -99,7 +99,7 @@ To intercept only calls to a **specific trait**, use `arc::trait::SpyOnly<Trait>
 ```cpp
 struct StorageSpy : arc::Node
 {
-    using Traits = arc::Traits<StorageSpy,
+    using Traits = arc::Traits<
         arc::trait::SpyOnly<trait::Storage>
     >;
 
@@ -130,7 +130,7 @@ struct MultiSpy : arc::Node
     struct StorageSpyImpl;
     struct FilesystemSpyImpl;
 
-    using Traits = arc::Traits<MultiSpy,
+    using Traits = arc::Traits<
         arc::trait::SpyOnly<trait::Storage>(StorageSpyImpl),
         arc::trait::SpyOnly<trait::Filesystem>(FilesystemSpyImpl)
     >;
@@ -181,7 +181,7 @@ std::println("Total calls: {}", graph.global->callCount);
 ```cpp
 struct CallCounterSpy : arc::Node
 {
-    using Traits = arc::Traits<CallCounterSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method>
     decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args)
@@ -210,7 +210,7 @@ TEST_CASE("Verify method call counts")
 ```cpp
 struct ProfilingSpy : arc::Node
 {
-    using Traits = arc::Traits<ProfilingSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method>
     decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args)
@@ -247,7 +247,7 @@ struct ProfilingSpy : arc::Node
 ```cpp
 struct ValidationSpy : arc::Node
 {
-    using Traits = arc::Traits<ValidationSpy,
+    using Traits = arc::Traits<
         arc::trait::SpyOnly<trait::Filesystem>
     >;
 
@@ -278,7 +278,7 @@ struct ValidationSpy : arc::Node
 ```cpp
 struct LoggingSpy : arc::Node
 {
-    using Traits = arc::Traits<LoggingSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
     decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
@@ -305,7 +305,7 @@ struct LoggingSpy : arc::Node
 ```cpp
 struct TestingSpy : arc::Node
 {
-    using Traits = arc::Traits<TestingSpy,
+    using Traits = arc::Traits<
         arc::trait::SpyOnly<trait::Storage>
     >;
 
@@ -343,7 +343,7 @@ Combine multiple spy behaviors within a single node using inheritance or aggrega
 ```cpp
 struct CompositeSpy : arc::Node
 {
-    using Traits = arc::Traits<CompositeSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
     decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
@@ -388,7 +388,7 @@ Each spy in the chain should check if there is a next spy to call using `arc::Ca
 ```cpp
 struct LoggerSpy : arc::Node
 {
-    using Traits = arc::Traits<LoggerSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
     using Depends = arc::Depends<arc::trait::Spy*>; // Optional dependency
 
     template<class Method, class... Args>
@@ -412,7 +412,7 @@ Enable/disable spying at runtime:
 ```cpp
 struct ConditionalSpy : arc::Node
 {
-    using Traits = arc::Traits<ConditionalSpy, arc::trait::Spy>;
+    using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
     decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
@@ -462,7 +462,7 @@ TEST_CASE("Filesystem caches path operations")
 {
     struct CacheSpy : arc::Node
     {
-        using Traits = arc::Traits<CacheSpy,
+        using Traits = arc::Traits<
             arc::trait::SpyOnly<trait::PathOps>
         >;
 

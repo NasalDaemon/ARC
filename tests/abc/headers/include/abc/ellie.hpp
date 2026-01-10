@@ -20,11 +20,11 @@ struct Ellie : arc::Node
     struct Charlie2;
     struct Ellie3Types;
 
-    using Traits = arc::Traits<Ellie
-        , trait::Ellie
-        , trait::Ellie3*(Ellie3Types)
-        , trait::Charlie(Charlie)
-        , trait::Charlie2(Charlie2)
+    using Traits = arc::Traits<
+        trait::Ellie,
+        trait::Ellie3*(Ellie3Types),
+        trait::Charlie(Charlie),
+        trait::Charlie2(Charlie2)
     >;
 
     // Degenerate case, but just to prove that it works...
