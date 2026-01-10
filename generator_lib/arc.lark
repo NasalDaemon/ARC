@@ -113,9 +113,11 @@ connection_alias: NAME "=" cpp_type
 
 connection_trait: "[" connection_trait_type [BARROW connection_trait_type] "]"
 
-connection_trait_type: NO_TRAIT | cpp_type
+connection_trait_type: SPECIAL_TRAIT | cpp_type
 
 NO_TRAIT: "~" | "@notrait"
+GLOBAL_TRAIT: "^" | "@global"
+SPECIAL_TRAIT: NO_TRAIT | GLOBAL_TRAIT
 
 connection: node_names (arrow node_names)+
 
@@ -174,7 +176,9 @@ node_name: NODE_SPECIAL | NAME
 node_names: "{" node_name ("," node_name)+ "}" -> node_names_fanout
           |     node_name ("," node_name)*     -> node_names_list
 
-NODE_SPECIAL: ".." | "@parent" | "^" | "@global"
+PARENT_NODE: ".." | "@parent"
+GLOBAL_NODE: "^" | "@global"
+NODE_SPECIAL: PARENT_NODE | GLOBAL_NODE
 NAMESPACE: NAME ("::" NAME)*
 FQNAME: ["::"] NAMESPACE+
 

@@ -229,6 +229,9 @@
 #define ARC_LINK2(traitName, targetContext) \
     ARC_LINK3(traitName, targetContext, T)
 
+#define ARC_LINK_TO_GLOBAL() \
+    static void canLinkToGlobal();
+
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
     [[no_unique_address]] ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \
     friend consteval auto getNodePointer(arc::AdlTag<Context>) \

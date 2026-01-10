@@ -11,64 +11,59 @@
 
 #if !ARC_IMPORT_STD
 #include <type_traits>
-#include <utility>
 #include <memory>
 #endif
 
 namespace arc {
 
 namespace detail {
-    template<class GlobalNode, class Root>
-    struct GlobalHost;
-
-    template<IsNodeHandle GlobalNodeHandle, class Root>
-    struct GlobalHost<GlobalNodeHandle*, Root>
+    template<IsNodeHandle MainCluster, IsNodeHandle GlobalNodeHandle>
+    struct GraphWithGlobal
     {
-        using Type = ToNodeWrapper<GlobalNodeHandle>::template Node<GetRootContext<Root>>;
-        using Member = ToNodeState<Type>*;
-    };
-
-    template<IsNodeHandle GlobalNodeHandle, class Root>
-    struct GlobalHost<GlobalNodeHandle, Root>
-    {
-        using Type = ToNodeWrapper<GlobalNodeHandle>::template Node<GetRootContext<Root>>;
-        using Member = ToNodeState<Type>;
-    };
-
-    template<class GlobalNodeHandle, class Root, class RootContext>
-    struct GlobalInfo : RootContext::Info
-    {
-        using GlobalNode = GlobalHost<GlobalNodeHandle, Root>::Type;
-    };
-
-    template<IsNodeHandle MainCluster, class GlobalNodeHandle, class Root/* = void*/>
-    struct GraphWithGlobalNode
-    {
-        using GlobalNode = GlobalHost<GlobalNodeHandle, Root>::Type;
-
         template<class RootContext>
-        struct Node : arc::Cluster
+        class Cluster : public arc::Cluster
         {
-            struct MainContext : arc::Context<Node, MainCluster>
+            struct GlobalContext;
+            struct MainContext;
+
+            struct GlobalContextInfo;
+            struct MainContextInfo;
+
+            struct GlobalContext : arc::Context<Cluster, GlobalNodeHandle>
             {
-                using Info = GlobalInfo<GlobalNodeHandle, Root, RootContext>;
+                using Info = GlobalContextInfo;
+
+                template<class Trait>
+                requires (not IsGlobalTrait<Trait>)
+                static ResolvedLink<MainContext, Trait> resolveLink(Trait, arc::LinkPriorityMin);
+
+                template<class N>
+                static constexpr auto& getGlobalNode(N& node)
+                {
+                    return downCast<decltype(Cluster::global)>(node);
+                }
+            };
+
+            struct MainContext : arc::Context<Cluster, MainCluster>
+            {
+                using Info = MainContextInfo;
+
                 template<class N>
                 static constexpr auto& getGlobalNode(N& node)
                 {
                     auto memPtr = getNodePointer(AdlTag<MainContext>{});
-                    auto& global = memPtr.getClassFromMember(node).global;
-                    if constexpr (std::is_pointer_v<decltype(Node::global)>)
-                        return std::forward_like<N&>(*global);
-                    else
-                        return global;
+                    return memPtr.getClassFromMember(node).global;
                 }
             };
 
+        public:
             template<class T>
             static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<MainContext, T>;
 
-            [[no_unique_address]] GlobalHost<GlobalNodeHandle, Root>::Member global{};
+            ARC_NODE(GlobalContext, global)
             ARC_NODE(MainContext, main)
+
+            static_assert(IsCluster<decltype(main)>, "MainCluster must be a cluster type");
 
             constexpr auto* operator->(this auto& self)
             {
@@ -78,20 +73,29 @@ namespace detail {
             template<class Self>
             constexpr void visit(this Self& self, auto&& visitor)
             {
-                if constexpr (std::is_pointer_v<decltype(Node::global)>)
-                    std::forward_like<Self&>(*self.global).visit(visitor);
-                else
-                    self.global.visit(visitor);
+                self.global.visit(visitor);
                 self.main.visit(visitor);
             }
+
+        private:
+            struct MainContextInfo : RootContext::Info
+            {
+                using GlobalNode = ContextToNode<GlobalContext>;
+            };
+            struct GlobalContextInfo : MainContextInfo
+            {
+                static void isGlobalContext(detail::GlobalContextTag);
+            };
         };
+
+        template<class Context>
+        using Node = Cluster<Context>;
     };
 }
 
 ARC_MODULE_EXPORT
-template<IsNodeHandle MainCluster, class GlobalNode, class Root = void>
-requires IsNodeHandle<std::remove_pointer_t<GlobalNode>>
-using GraphWithGlobal = Graph<detail::GraphWithGlobalNode<MainCluster, GlobalNode, Root>, Root>;
+template<IsNodeHandle MainCluster, IsNodeHandle GlobalNode, class Root = void>
+using GraphWithGlobal = Graph<detail::GraphWithGlobal<MainCluster, GlobalNode>, Root>;
 
 } // namespace arc
 

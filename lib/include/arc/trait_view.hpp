@@ -154,8 +154,8 @@ private:
     template<class Method, class... Args>
     ARC_INLINE static constexpr decltype(auto) invoke(auto& node, Method method, Args&&... args)
     {
-        using Context = ContextOf<typename ImplAlias::Impl>;
-        if constexpr (ContextHasGlobalTrait<Context, Global<trait::SpyOnly<Trait>>>)
+        using Context = ContextOf<Node>;
+        if constexpr (not IsGlobalContext<Context> and ContextHasGlobalTrait<Context, Global<trait::SpyOnly<Trait>>>)
         {
             auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
             {

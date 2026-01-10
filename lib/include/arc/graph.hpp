@@ -27,7 +27,7 @@ namespace detail {
 
 ARC_MODULE_EXPORT
 template<template<class> class RootCluster, class Root = void>
-requires std::derived_from<RootCluster<detail::GetRootContext<Root>>, Cluster>
+requires IsCluster<RootCluster<detail::GetRootContext<Root>>>
 using InlineGraph = RootCluster<detail::GetRootContext<Root>>;
 
 ARC_MODULE_EXPORT

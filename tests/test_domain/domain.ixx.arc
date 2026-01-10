@@ -12,6 +12,11 @@ trait trait::Parent
     get()
 }
 
+trait trait::Global
+{
+    get()
+}
+
 trait trait::Unary
 {
     get()
@@ -49,6 +54,10 @@ domain Domain [R = Root]
     [trait::Unary]
     nexus --> unary1
     nexus <-- unary1
+
+    [trait::Global]
+    nexus --> @global
+    unary1 --> @global
 
     [trait::Unary2]
     unary1 <<<--->>> unary2

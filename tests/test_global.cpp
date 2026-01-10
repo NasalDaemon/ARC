@@ -25,6 +25,10 @@ cluster MainCluster [R = Root]
     node = R::Node
     cluster = InnerCluster
 
+    [@global] @all --> @global
+
+    [~] .. --> node
+
     [trait::Log]
     node --> ^
 }
@@ -40,7 +44,11 @@ cluster GlobalCluster [R = Root]
 {
     logger = R::Logger
 
-    [trait::Log] logger
+    [trait::Log]
+    @parent --> logger
+
+    [arc::NoTrait<typename R::Node>]
+    @parent <-- logger
 }
 
 }
@@ -51,17 +59,22 @@ struct Root
 {
     struct Node : arc::Node
     {
-        using Traits = arc::Traits<Node>;
+        using Traits = arc::NoTraits;
         using Depends = arc::Depends<trait::Log, arc::Global<trait::Log>>;
+
+        int hello() { return value; }
+
+        int value = 999;
     };
     struct Logger : arc::Node
     {
         using Traits = arc::Traits<trait::Log>;
 
-        void impl(trait::Log::log, std::string_view message)
+        void impl(this auto& self, trait::Log::log, std::string_view message)
         {
+            REQUIRE(self.getNode(arc::noTrait<Root::Node>)->hello() == 999);
             std::println("Log: {}", message);
-            count++;
+            self.count++;
         }
 
         int count = 0;
@@ -70,18 +83,16 @@ struct Root
 
 TEST_CASE("arc::Global")
 {
-    arc::Graph<GlobalCluster, Root> global;
 
-    arc::GraphWithGlobal<MainCluster, GlobalCluster*, Root> graph{
-        .global = &global,
+    arc::GraphWithGlobal<MainCluster, GlobalCluster, Root> graph{
         .main{
             .node{},
             .cluster{},
         }
     };
-    CHECK(global.logger->count == 0);
+    CHECK(graph.global.logger->count == 0);
     graph->node.getGlobal(trait::log).log("Hello, Global!");
-    CHECK(global.logger->count == 1);
+    CHECK(graph.global.logger->count == 1);
 }
 
 TEST_CASE("arc::Global hosted locally")

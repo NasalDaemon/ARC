@@ -37,11 +37,14 @@ cluster Element [R = Root]
 {
     element = R::Element
 
+    // Explicitly allow getGlobal(trait::global)
+    [trait::Global] @global
+
     [trait::Outside <-> trait::Element]
     .. <-> element
 
-    [trait::Global]
-    element --> ^
+    // [trait::Global]
+    // element --> ^
 }
 
 cluster Collection [R = Root]

@@ -43,7 +43,7 @@ According to various studies, iteratively growing networks tend to become scale-
 * Every `domain` must have a _single_ traitful unary nexus-node which acts as the central hub or coordinator for the `domain`
 * Sub-`cluster`s or sub-`domain`s must have names in ALL_CAPS
 * Unary nodes (including the nexus) in the `domain` that have state must have names starting with a capital letter (e.g., CamelCase), and stateless nodes must have names starting with a lowercase letter (e.g., pascalCase)
-* The nexus-node is the only node allowed any connection to or from the parent `..` of the `domain`
+* The nexus-node is the only node allowed any connection to or from the parent `@parent` of the `domain`
   * In general, the nexus-node has no restrictions on which nodes it is connected to
 * Sub-`clusters` and sub-`domain`s may connect directly to each other
   * sub-`domain`-to-sub-`domain` connections are effectively indirect nexus-to-nexus connections hosted in the greater `domain`
@@ -54,7 +54,7 @@ According to various studies, iteratively growing networks tend to become scale-
   * It encourages tightly-coupled unary sub-nodes to be either merged into one sub-node or put into a sub-`domain`
 * All sub-nodes must have their dependencies specified via a `arc::Depends` list in the node definition, even if the list is empty
   * In clusters, this is optional, but in domains it is mandatory to ensure that nodes are held to the higher standards of the domain
-* Sink traits are not allowed in domains
+* Sink traits are not allowed in domains except when connecting to the `@global` node
   * All connections between nodes in the `domain` must be explicitly defined in the `domain` block
 
 # Domain syntax
@@ -68,7 +68,7 @@ The domain syntax is identical to the cluster syntax, with a few key differences
     * Stateful unary: CamelCase
     * Non-unary (sub-domain or sub-cluster): ALL_CAPS
 * Unary-to-unary sub-node connections must use strong arrows `--->>>`, all of which will be made to get stronger as the total number of these connections increases
-* Sink traits are not allowed in domains
+* Sink traits are not allowed in domains unless it is to the `@global` node
 
 ## Example
 ```

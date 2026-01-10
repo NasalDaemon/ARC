@@ -133,6 +133,9 @@ cluster Cluster
     sessions = Sessions
     authService = AuthService
 
+    // Enable connections to the global node for all nodes via getGlobal
+    [@global] @all --> @global
+
     [trait::TokenStore <-> trait::AuthService]
     sessions <-> authService
 
@@ -140,7 +143,8 @@ cluster Cluster
     // [trait::TokenStore]  sessions <-- authService
     // [trait::AuthService] sessions --> authService
 
-    // Explicitly redirect sessions to the global logger so it can be resolved like a normal dependency (optional)
+    // Explicitly redirect sessions to the global logger so it can be resolved
+    // like a normal dependency with getNode(trait::logger) (optional)
     [trait::Logger]
     sessions --> @global
 }
@@ -203,9 +207,7 @@ export struct AuthService : arc::Node
     // `AuthService` implements the trait `my::trait::AuthService`
     using Traits = arc::Traits<trait::AuthService>;
     // shorthand for:
-    //      arc::Traits<AuthService
-    //          , trait::AuthService(AuthService, AuthService::Types)
-    //      >
+    // arc::Traits<trait::AuthService(AuthService, AuthService::Types)>
 
     struct Types
     {
@@ -236,7 +238,7 @@ export struct AuthService : arc::Node
             // which directly calls
             // <my::Cluster>.sessions.impl(trait::TokenStore::store{}, user, PassHash(...), Token(...));
         }
-        // Global dependencies resolved via `getGlobal` can be omitted from the graph
+        // Global dependencies resolved via `getGlobal` were enabled at the top of the cluster definition
         self.getGlobal(trait::logger).log("User {} logged in successfully: {}", user, success);
         co_return success;
     }
@@ -299,9 +301,9 @@ export struct Sessions
 
         using Traits = arc::Traits<trait::TokenStore, trait::SessionManager>;
         // shorthand for:
-        //      arc::Traits<Node
-        //          , trait::TokenStore(Node, Node::Types)
-        //          , trait::SessionManager(Node, Node::Types)
+        //      arc::Traits<
+        //          trait::TokenStore(Node, Node::Types),
+        //          trait::SessionManager(Node, Node::Types)
         //      >
 
         struct Types
@@ -438,7 +440,7 @@ int main()
             .authService{"super token secret", std::chrono::seconds{600}},
         },
     };
-    // `arc::Graph<my::Cluster, Root>` is an alias to `my::Cluster<arc::RootContext<Root>>`, which is roughly:
+    // `GraphWithGlobal<my::Cluster, my::Logger, Root>::main` is roughly:
     //  struct my::PseudoGeneratedCluster
     //  {
     //      struct SessionsContext { ... };

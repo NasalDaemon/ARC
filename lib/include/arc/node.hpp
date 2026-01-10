@@ -61,8 +61,15 @@ struct Node
         using Context = ContextOf<Self>;
         using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
-        if constexpr (not IsGlobalTrait<Trait>)
+        if constexpr (IsGlobalTrait<Trait>)
+        {
+            if constexpr (not ContextHasGlobalConnection<Context> and not detail::ImplicitDependencyAllowed<Context, Trait>)
+                static_assert(detail::HasGlobalLink<Context, Trait>, "Node missing link to a global node dependency");
+        }
+        else
+        {
             static_assert(detail::HasLink<Context, Trait>, "Node missing link to a dependency");
+        }
         auto target = Context{}.getNode(node, trait);
         return makeTraitView(self, target, trait, key, keys...);
     }

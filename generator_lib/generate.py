@@ -122,16 +122,23 @@ def get_value(t: Tree | Token) -> str:
         raise TypeError(f"Expected Tree or Token, got {type(t)}")
 
 NO_TRAIT = ("~", "@notrait")
-DEFAULT_GROUP = ("~", "@nogroup")
+NO_GROUP = ("~", "@nogroup")
 PARENT_NODE = ("..", "@parent")
 GLOBAL_NODE = ("^", "@global")
+GLOBAL_TRAIT = ("^", "@global")
 ALL_NODES = ("*", "@all")
 SPECIAL_NODES = PARENT_NODE + GLOBAL_NODE + ALL_NODES
 
 def is_no_trait(trait: str | None) -> bool:
     if trait is None:
         return False
-    return trait in NO_TRAIT or "::arc::NoTrait<" in trait
+    return trait in NO_TRAIT or "arc::NoTrait<" in trait
+
+
+def is_global_trait(trait: str | None) -> bool:
+    if trait is None:
+        return False
+    return trait in GLOBAL_TRAIT or "arc::Global<" in trait
 
 
 class CppType:
@@ -165,7 +172,7 @@ class CppType:
 
 class Repeater:
     def __init__(self, name: str, trait: str, repeater_id: int):
-        if name == "..":
+        if name in PARENT_NODE:
             name = "parent"
         assert name[0].islower(), name
         self.name = f'_{name}Repeater{repeater_id}'
@@ -243,6 +250,7 @@ class Node:
         self.is_global = False
         self.is_sink_node = False
         self.no_traits = False
+        self.connected_to_global = False
         if name in PARENT_NODE:
             self.is_parent = True
             self.context = "Context"
@@ -271,7 +279,7 @@ class Node:
         if to_node == self:
             raise SyntaxError(f"{pos} cannot connect '{self.name}' to itself")
         if self.is_global:
-            raise SyntaxError(f"{pos} cannot connect from global node '^' to any other node")
+            raise SyntaxError(f"{pos} cannot connect from @global to any other node")
         if self.is_sink_node and not to_node.is_sink_node:
             raise SyntaxError(f"{pos} cannot connect from sink node '{self.name}' to a non-sink node")
         if not is_no_trait(trait) and trait in self.cluster.sink_traits:
@@ -286,12 +294,25 @@ class Node:
             raise SyntaxError(f"{pos} Cannot connect '{self.name}' to '{to_node.name}' in {self.cluster.cluster_class} '{self.cluster.full_name}':\n{error}")
 
         effective_to_trait = trait if to_trait is None else to_trait
+
         if effective_to_trait in NO_TRAIT:
             if to_node.is_global or to_node.is_parent:
-                raise SyntaxError(f"{pos} Cannot use no-trait shorthand '~' to connect to global '^' or parent '..' node in {self.cluster.cluster_class} '{self.cluster.full_name}'. "
+                raise SyntaxError(f"{pos} Cannot use no-trait shorthand '~' to connect to @global or @parent node in {self.cluster.cluster_class} '{self.cluster.full_name}'. "
                                   "Use a named trait like 'arc::NoTrait<TargetNode>' instead.")
-        if to_node.is_global:
-            to_trait = f"::arc::Global<{effective_to_trait}>"
+
+        if effective_to_trait in GLOBAL_TRAIT:
+            if not to_node.is_global:
+                raise SyntaxError(f"{pos} Cannot use @global trait to connect to non-global node '{to_node.name}' in {self.cluster.cluster_class} '{self.cluster.full_name}'")
+            self.connected_to_global = True
+            # Nothing left to do if this is just a blanket connection to the global node
+            return
+
+        if is_global_trait(effective_to_trait):
+            if not to_node.is_global:
+                raise SyntaxError(f"{pos} Cannot use global trait '{effective_to_trait}' to connect to non-global node '{to_node.name}' in {self.cluster.cluster_class} '{self.cluster.full_name}'")
+        elif to_node.is_global:
+                to_trait = f"::arc::Global<{effective_to_trait}>"
+
         to_node.add_client(pos, self, effective_to_trait)
         connection = Connection(pos, to_node, trait=trait, to_trait=to_trait, traitblock_id=traitblock_id, fanout_id=fanout_id)
 
@@ -352,8 +373,8 @@ class Cluster:
         self.context_name: str = "Context"
         self.root_name: str | None = None
         self.info_name: str | None = None
-        self.parent_node = Node("..", None, self.name, cluster=self, is_first=False)
-        self.global_node = Node("^", None, self.name, cluster=self, is_first=False)
+        self.parent_node = Node("@parent", None, self.name, cluster=self, is_first=False)
+        self.global_node = Node("@global", None, self.name, cluster=self, is_first=False)
         self.user_nodes: list[Node] = []
         self.repeaters: list[Repeater] = []
         self.nodes: list[Node | Repeater] = []
@@ -421,39 +442,56 @@ class Cluster:
 
     def normalise_name(self, name: str) -> str:
         if name in PARENT_NODE:
-            return '..'
+            return '@parent'
         if name in GLOBAL_NODE:
-            return '^'
+            return '@global'
         if name in ALL_NODES:
-            return '*'
+            return '@all'
 
         return name
 
     def walk(self, children):
         aliases: dict[str, str] = {}
         nodes: dict[str, Node] = {}
-        nodes[".."] = self.parent_node
-        nodes["^"] = self.global_node
+        nodes["@parent"] = self.parent_node
+        nodes["@global"] = self.global_node
         explicit_connection_seen = False
+        sink_connection_seen = False
         left_trait: str
         right_trait: str
         bi_trait: bool
         traitblock_id = 0
         fanout_id = 0
 
-        def make_sink(name: str, token: Tree | Token):
-            node = nodes[name]
-            if self.cluster_class == "domain":
-                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' not permitted in domain '{self.full_name}'")
-            if explicit_connection_seen:
-                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' must be declared before any explicit connections")
-            if bi_trait:
-                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' cannot have bi-directional trait")
-            if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
-                raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in cluster '{self.full_name}' is using the trait '{left_trait}' "
-                                  f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
-            node.is_sink_node = True
-            self.sink_traits[left_trait].append((node, get_pos(token)))
+        def make_sink(name: str, token: Tree | Token, explicit: bool):
+            nonlocal explicit_connection_seen, sink_connection_seen
+
+            if left_trait in GLOBAL_TRAIT:
+                if name not in GLOBAL_NODE:
+                    raise SyntaxError(f"{get_pos(token)} Sink global node in {self.cluster_class} '{self.full_name}' must be named '@global'")
+                if not explicit:
+                    raise SyntaxError(f"{get_pos(token)} Sink global node in {self.cluster_class} '{self.full_name}' must use an explicit `@all -->` connection")
+                if explicit_connection_seen or sink_connection_seen:
+                    raise SyntaxError(f"{get_pos(token)} Sink global node in {self.cluster_class} '{self.full_name}' must be the very first connection in the cluster")
+                for name, node in nodes.items():
+                    if name not in GLOBAL_NODE:
+                        node.connected_to_global = True
+            else:
+                sink_connection_seen = True
+                if self.is_domain and name not in GLOBAL_NODE:
+                    raise SyntaxError(f"{get_pos(token)} Sink node '{name}' not permitted in domain '{self.full_name}'")
+                if explicit_connection_seen:
+                    raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in {self.cluster_class} '{self.full_name}' must be declared before any explicit connections")
+                if bi_trait:
+                    raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in {self.cluster_class} '{self.full_name}' cannot have bi-directional trait")
+                if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
+                    raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in {self.cluster_class} '{self.full_name}' is using the trait '{left_trait}' "
+                                    f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
+                node = nodes[name]
+                node.is_sink_node = True
+                self.sink_traits[left_trait].append((node, get_pos(token)))
+                if node.is_global and not is_global_trait(left_trait):
+                    self.sink_traits[f"::arc::Global<{left_trait}>"].append((node, get_pos(token)))
 
         current_token: Tree | Token = children
 
@@ -474,7 +512,7 @@ class Cluster:
                 elif child.data == imported('node'):
                     name = child.children[0].value
                     if name in nodes:
-                        raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in cluster '{self.full_name}'")
+                        raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in {self.cluster_class} '{self.full_name}'")
                     impl = reconstructor.reconstruct(child.children[1])
                     intermediate_aliases: list[tuple[str, str]] = []
                     if len(child.children) > 2:
@@ -513,28 +551,42 @@ class Cluster:
                             else:
                                 bi_trait = True
                                 right_trait = reconstructor.reconstruct(child.children[-1])
+
+                            if left_trait in GLOBAL_TRAIT or right_trait in GLOBAL_TRAIT:
+                                if bi_trait:
+                                    raise SyntaxError(f"{get_pos(child)} Bi-directional connections cannot use @global trait in {self.cluster_class} '{self.full_name}'")
+                                if self.is_domain:
+                                    raise SyntaxError(f"{get_pos(child)} Global sink trait '{left_trait}' not permitted in domain '{self.full_name}'. "
+                                                      f"Use only qualified traits in domains, like `[arc::Global<app::Trait>] node --> @global`.")
+
                             if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
                                 raise SyntaxError(f"{get_pos(child.children[0])} Trait '{left_trait}' already allocated to sink node "
-                                                f"'{self.sink_traits[left_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[left_trait][0][1]}")
+                                                  f"'{self.sink_traits[left_trait][0][0].name}' in {self.cluster_class} '{self.full_name}' here {self.sink_traits[left_trait][0][1]}")
                             if right_trait not in NO_TRAIT and right_trait in self.sink_traits:
                                 raise SyntaxError(f"{get_pos(child.children[-1])} Trait '{right_trait}' already allocated to sink node "
-                                                f"'{self.sink_traits[right_trait][0][0].name}' in cluster '{self.full_name}' here {self.sink_traits[right_trait][0][1]}")
+                                                  f"'{self.sink_traits[right_trait][0][0].name}' in {self.cluster_class} '{self.full_name}' here {self.sink_traits[right_trait][0][1]}")
                         elif child.data in (imported('sink_node_implicit'), imported('sink_node_larrow')):
-                            if child.children[0].data == imported('node_names_fanout'):
+                            if isinstance(child.children[0], Tree) and child.children[0].data == imported('node_names_fanout'):
                                 raise SyntaxError(f"{get_pos(child.children[0])} Sink nodes cannot use explicit fan-out syntax '{{node1, node2}}'")
                             for c in child.children[0].children:
                                 current_token = c
                                 name = self.normalise_name(get_value(c))
-                                make_sink(name, c)
+                                make_sink(name, c, explicit=child.data.endswith('arrow'))
                         elif child.data == imported('sink_node_rarrow'):
-                            if child.children[0].data == imported('node_names_fanout'):
+                            if isinstance(child.children[0], Tree) and child.children[0].data == imported('node_names_fanout'):
                                 raise SyntaxError(f"{get_pos(child.children[0])} Sink nodes cannot use explicit fan-out syntax '{{node1, node2}}'")
                             for c in child.children[-1].children:
                                 current_token = c
                                 name = self.normalise_name(get_value(c))
-                                make_sink(name, c)
+                                make_sink(name, c, explicit=True)
                         elif child.data == imported('connection'):
-                            explicit_connection_seen = True
+                            if left_trait in GLOBAL_TRAIT:
+                                if explicit_connection_seen or sink_connection_seen:
+                                    raise SyntaxError(f"{get_pos(child)} @global trait connections must be the very first connections in {self.cluster_class} '{self.full_name}'")
+                            else:
+                                # Treat only non-global connections as explicit connections
+                                explicit_connection_seen = True
+
                             for i in range(0, len(child.children) - 1, 2):
                                 current_token = child.children[i]
                                 lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
@@ -619,7 +671,7 @@ class Cluster:
                         else:
                             raise SyntaxError(f'{get_pos(child)} Unknown connection section: {child.data}')
                 else:
-                    raise SyntaxError(f'{get_pos(child)} Unknown cluster section: {child.data}')
+                    raise SyntaxError(f'{get_pos(child)} Unknown {self.cluster_class} section: {child.data}')
         except SyntaxError:
             raise
         except Exception as e:
@@ -711,15 +763,15 @@ class Domain(Cluster):
         return is_override
 
     def get_connection_error(self, from_node: Node, to_node: Node, is_override: bool) -> str | None:
-        # nexus can connect to anything in any direction
-        if from_node.is_nexus or to_node.is_nexus:
+        # nexus can connect to anything in any direction, and anything can connect to global
+        if from_node.is_nexus or to_node.is_nexus or to_node.is_global:
             if is_override:
                 return "No override is needed for this connection, but an override was specified"
             return None
 
         # non-nexus nodes may not connect to parent in any direction
         if from_node.is_parent or to_node.is_parent:
-            return "Only nexus node may be connected to parent in domains"
+            return "Only nexus node may be connected to @parent in domains"
 
         # unary peers may not connect to anything
         if from_node.is_unary or to_node.is_unary:
@@ -887,7 +939,8 @@ class Policy:
         self.groups: list[Group] = []
 
     def walk(self, children):
-        aliases: dict[str, str] = {g: "::arc::NoGroup" for g in DEFAULT_GROUP}
+        NO_GROUP_NAME = "::arc::NoGroup"
+        aliases: dict[str, str] = {g: NO_GROUP_NAME for g in NO_GROUP}
         groups: dict[str, Group] = {}
         for c in children:
             current_token = c
@@ -908,18 +961,24 @@ class Policy:
                         current_token = c.children[i]
                         lnames, arrow, rnames = (c.children[i], c.children[i+1], c.children[i+2])
                         pos = get_pos(arrow)
-                        lnodes: list[str | Group] = [groups.get(get_value(name), aliases.get(get_value(name), str(get_value(name)))) for name in lnames.children]
-                        rnodes: list[str | Group] = [groups.get(get_value(name), aliases.get(get_value(name), str(get_value(name)))) for name in rnames.children]
+                        lnodes = [get_value(name) for name in lnames.children]
+                        lnodes = [groups.get(names, aliases.get(names, names)) for names in lnodes]
+                        rnodes = [get_value(name) for name in rnames.children]
+                        rnodes = [groups.get(names, aliases.get(names, names)) for names in rnodes]
 
                         def addConnection(source: str | Group, target: str | Group, write: bool):
+                            if not isinstance(target, Group) and target != NO_GROUP_NAME:
+                                raise SyntaxError(f"{pos} Cannot target external group '{target}' in policy '{self.name}'. "
+                                                  f"External groups can only gain access to the groups in the current policy '{self.name}'."
+                                                  f"To allow access to {target}, a connection must be added in the target's policy.")
+                            if not isinstance(source, Group) and not isinstance(target, Group):
+                                raise SyntaxError(f"{pos} Cannot connect two aliases '{source}' and '{target}' in group '{self.name}'")
                             if isinstance(source, Group):
                                 target_name = target if isinstance(target, str) else target.name
                                 source.connectionsTo.append((target_name, write))
                             if isinstance(target, Group):
                                 source_name = source if isinstance(source, str) else source.name
                                 target.connectionsFrom.append((source_name, write))
-                            if not isinstance(source, Group) and not isinstance(target, Group):
-                                raise SyntaxError(f"{pos} Cannot connect two aliases '{source}' and '{target}' in group '{self.name}'")
 
                         lrnodes = ((lnode, rnode) for rnode in rnodes for lnode in lnodes)
                         if arrow.data.startswith(imported('group_l_r_arrow')) or arrow.data == imported('group_l_w_arrow'):
@@ -996,7 +1055,7 @@ class Namespace:
 
     def add_cluster(self, name: str, tree: Tree, is_domain: bool) -> Cluster | Domain:
         if name in self.cluster_names:
-            raise SyntaxError(f"{get_pos(tree)} cluster by name '{name}' already defined in namespace '{self.name}'")
+            raise SyntaxError(f"{get_pos(tree)} {'domain' if is_domain else 'cluster'} by name '{name}' already defined in namespace '{self.name}'")
         self.cluster_names.add(name)
         cluster = Domain(name, self) if is_domain else Cluster(name, self)
         self.clusters.append(cluster)

@@ -57,7 +57,7 @@ namespace detail {
     struct Boxed
     {
         template<IsRootContext Context>
-        struct Node : arc::Cluster
+        struct Cluster : arc::Cluster
         {
             struct Main_;
             struct InFacade_;
@@ -65,38 +65,38 @@ namespace detail {
 
             constexpr auto* asInterface(this auto& self) { return std::addressof(self.inFacade); }
 
-            struct Main_ : arc::Context<Node, Main>
+            struct Main_ : arc::Context<Cluster, Main>
             {
                 template<class Trait>
                 static ResolvedLink<OutVirtual_, Trait> resolveLink(Trait, LinkPriorityMin);
             };
 
-            struct InFacade_ : arc::Context<Node, InFacade>
+            struct InFacade_ : arc::Context<Cluster, InFacade>
             {
                 template<class Trait>
                 static ResolvedLink<Main_, Trait> resolveLink(Trait, LinkPriorityMin);
             };
 
-            struct OutVirtual_ : arc::Context<Node, arc::Virtual<OutInterfaces...>>
+            struct OutVirtual_ : arc::Context<Cluster, arc::Virtual<OutInterfaces...>>
             {};
 
             ARC_NODE(Main_, main)
 
             detail::ToVirtualNodeImpl<InFacade, InFacade_> inFacade{};
-            friend consteval auto getNodePointer(arc::AdlTag<InFacade_>) { return ARC_MEM_PTR(Node, inFacade); }
+            friend consteval auto getNodePointer(arc::AdlTag<InFacade_>) { return ARC_MEM_PTR(Cluster, inFacade); }
             static_assert(IsInterface<decltype(inFacade)>);
 
             ARC_NODE(OutVirtual_, outVirtual)
 
             template<class OutNode, class... Ts>
             requires (... and not IsArgs<Ts>)
-            constexpr explicit Node(OutNode* outNode, Ts&&... args)
+            constexpr explicit Cluster(OutNode* outNode, Ts&&... args)
                 : main{ARC_FWD(args)...}
                 , outVirtual{std::in_place_type<Adapt<OutNode>>, outNode}
             {}
 
             template<class OutNode, class... MArgs, class... IArgs>
-            explicit constexpr Node(OutNode* outNode, Args<Main, MArgs...> const& margs, Args<InFacade, IArgs...> const& iargs)
+            explicit constexpr Cluster(OutNode* outNode, Args<Main, MArgs...> const& margs, Args<InFacade, IArgs...> const& iargs)
                 : main{margs.template get<MArgs>()...}
                 , inFacade{iargs.template get<IArgs>()...}
                 , outVirtual{std::in_place_type<Adapt<OutNode>>, outNode}
@@ -127,6 +127,9 @@ namespace detail {
             template<class OutNode>
             using Adapt = decltype(getAdapt<OutNode>());
         };
+
+        template<class Context>
+        using Node = Cluster<Context>;
     };
 
 } // namespace detail

@@ -8,18 +8,7 @@ namespace arc {
 
 ARC_MODULE_EXPORT
 template<IsTrait T>
-struct Global : T
-{
-    using Trait = T;
-
-    struct Meta : T::Meta
-    {
-        using Resolver = T::Meta::GlobalResolver;
-    };
-
-    static Global expects();
-    static void canProvide(Trait);
-};
+struct Global;
 
 namespace detail {
     template<class T>
@@ -39,6 +28,23 @@ concept IsGlobalTrait = IsTrait<T> and detail::IsGlobalTrait<T>;
 ARC_MODULE_EXPORT
 template<class T>
 concept IsNonGlobalTrait = IsTrait<T> and not detail::IsGlobalTrait<T>;
+
+ARC_MODULE_EXPORT
+template<IsTrait T>
+struct Global : T
+{
+    static_assert(IsNonGlobalTrait<T>, "Global trait must wrap a non-global trait");
+
+    using Trait = T;
+
+    struct Meta : T::Meta
+    {
+        using Resolver = T::Meta::GlobalResolver;
+    };
+
+    static Global expects();
+    static void canProvide(Trait);
+};
 
 ARC_MODULE_EXPORT
 template<IsGlobalTrait Trait>

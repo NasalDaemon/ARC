@@ -32,7 +32,14 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     date = Date
     elderberry = Elderberry
 
-    // 2. Sink connection block (must come before normal connection blocks)
+    // 2. (Optional) enable connections to @global node (must come first)
+    [@global] @all --> @global
+    // Allows any node in this cluster to connect to the global node
+    // by any trait it implements via getGlobal(trait).
+    // Alternatively, you can specify a subset of nodes:
+    // [@global] apple, banana --> @global
+
+    // 3. Sink connection block (must come before normal connection blocks)
     [trait::Elderberry] @all --> elderberry
     // Shorthand (omitting the arrow):
     // [trait::Elderberry] elderberry
@@ -44,7 +51,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // connections to global nodes and other sink nodes
     // Sink traits cannot be used in any further connection blocks
 
-    // 3. Connection block (using both arrow directions)
+    // 4. Connection block (using both arrow directions)
     [trait::Apple]
     banana --> apple
     apple <-- cherry
@@ -55,17 +62,17 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // where banana.getNode(trait::apple) ~= apple.asTrait(trait::apple)
     // and cherry.getNode(trait::apple) ~= apple.asTrait(trait::apple)
 
-    // 4. Aliases for traits
+    // 5. Aliases for traits
     using B = trait::Banana, C = trait::cherry, D = trait::Date
 
-    // 5. Many-to-one (and using trait alias)
+    // 6. Many-to-one (and using trait alias)
     [B] apple, cherry --> banana
     // equivalent to:
     // [trait::Banana]
     // apple --> banana
     // cherry --> banana
 
-    // 6. Bi-directional connections
+    // 7. Bi-directional connections
     [C <-> D]
     cherry <-> date
     cherry <-- apple, banana
@@ -80,7 +87,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // [trait::Date]
     // apple, banana --> date
 
-    // 7. Trait disambiguation (using trait renaming)
+    // 8. Trait disambiguation (using trait renaming)
     [trait::Cherry]
     apple, banana (trait::SourCherry) --> sourCherry
     // equivalent to:
@@ -91,7 +98,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // This disambiguates cherry and sourCherry from the point of view of apple and banana,
     // although cherry and sourCherry are both just cherries from their own points of view
 
-    // 8. Daisy-chain
+    // 9. Daisy-chain
     [trait::FruitSalad]
     @parent --> apple --> banana --> cherry --> sourCherry --> date
     // equivalent to:
@@ -105,7 +112,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // Note: when FruitSalad is used as a node in a parent cluster,
     // trait::FruitSalad transparently connects to apple
 
-    // 9. Explicit fan-out connections (one-to-many)
+    // 10. Explicit fan-out connections (one-to-many)
     [trait::ChopFruit]
     @parent --> {apple, banana, cherry, date, sourCherry}
     // which automatically generates a special intermediate node
@@ -124,7 +131,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // Note: when FruitSalad is used as a node in a parent cluster,
     // trait::ChopFruit transparently connects to _parentRepeater0
 
-    // 9.2. Implicit fan-out connections (one-to-many over multiple lines)
+    // 10.2. Implicit fan-out connections (one-to-many over multiple lines)
     [trait::CrushFruit]
     @parent --> apple
     @parent --> banana
@@ -137,13 +144,13 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // 2. All targets of a repeated trait connection from the same node must
     //    be listed in a single connection block
 
-    // Explicitly redirecting trait to the global node
+    // 11. Explicitly redirecting trait to the global node
     [trait::Log]
     apple --> @global
     // which resolves trait::Log to the respective global node
     // Equivalent to:
     // [trait::Log]
-    // apple --> (arc::Global<trait::Log>) @parent
+    // apple --> (arc::Global<trait::Log>) @global
     // This is only necessary if `apple` expects `trait::Log` to be resolved
     // using `getNode` instead of `getGlobal`
 }
@@ -203,5 +210,5 @@ p->doWork();
 ```
 ## Caveats
 - **No Mixing:** Do not mix no-trait and named trait connections for the same target node.
-- **Special Nodes:** `@notrait` (`~`) is not supported for `@global` (`^`) or `@parent` (`..`); use `arc::NoTrait<NodeHandle>` or a named trait.
+- **Special Nodes:** `@notrait` (`~`) is not supported for `@global` (`^`) or `@parent` (`..`) nodes; use `arc::NoTrait<NodeHandle>` or a named trait.
 - **Migration:** To formalize an interface, replace `[@notrait]` with `[trait::Name]` and update `getNode` calls.

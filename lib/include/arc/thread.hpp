@@ -312,9 +312,9 @@ template<IsNodeHandle NodeHandle>
 struct OnDynThread
 {
     template<class Context>
-    class Node : public Cluster
+    class Cluster : public arc::Cluster
     {
-        struct Inner : arc::Context<Node, NodeHandle>
+        struct Inner : arc::Context<Cluster, NodeHandle>
         {
             static constexpr std::size_t Depth = Context::Depth;
 
@@ -392,7 +392,7 @@ struct OnDynThread
 
         std::size_t getThreadId() const { return threadId; }
 
-        constexpr explicit Node(std::size_t threadId, auto&&... args)
+        constexpr explicit Cluster(std::size_t threadId, auto&&... args)
             : node(ARC_FWD(args)...), threadId(threadId)
         {
             if (threadId == ThreadEnvironment::DynamicThreadId)
@@ -427,6 +427,9 @@ struct OnDynThread
                     });
         }
     };
+
+    template<class Context>
+    using Node = Cluster<Context>;
 };
 
 namespace key {

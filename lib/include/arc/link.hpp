@@ -54,6 +54,9 @@ struct LinkExact : LinkPriorityMax
 namespace detail {
 
     template<class T, class Trait>
+    concept HasGlobalLink = IsGlobalTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { T::resolveLink(trait, linkExact) } -> IsResolvedLink; };
+
+    template<class T, class Trait>
     concept HasLink = IsNonGlobalTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { T::resolveLink(trait, linkExact) } -> IsResolvedLink; };
 
     template<class T, class Trait>

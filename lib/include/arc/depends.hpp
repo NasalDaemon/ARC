@@ -52,6 +52,9 @@ namespace detail {
         template<class, bool>
         using AssertSatisfied = void;
     };
+
+    template<class Context, class Trait>
+    concept ImplicitDependencyAllowed = IsTrait<Trait> and requires { Context::Info::implicitDependencyAllowed(Trait{}); };
 }
 
 ARC_MODULE_EXPORT
@@ -62,7 +65,7 @@ struct Depends
 
     // When dependencies are specified, all dependencies must be listed explicitly
     template<class Node, IsTrait Trait>
-    static constexpr bool dependencyListed = requires { ContextOf<Node>::Info::implicitDependencyAllowed(Trait{}); } or (... or MatchesTrait<Trait, detail::DependsTrait<Traits>>);
+    static constexpr bool dependencyListed = detail::ImplicitDependencyAllowed<ContextOf<Node>, Trait> or (... or MatchesTrait<Trait, detail::DependsTrait<Traits>>);
 
     // On failure, the missing required trait types are named in a list for better error messages
     template<class Node, bool Transitive>

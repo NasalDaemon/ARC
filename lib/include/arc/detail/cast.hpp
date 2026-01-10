@@ -131,7 +131,6 @@ private:
     template<class C, class M>
     ARC_INLINE static MemberPtr<C, M> fromOffset(std::integral auto offset)
     {
-
         // Not constexpr, but well defined (ABI implementation defined)
         // Safe to assume that the member pointer is represented as an offset
         // since we guarantee it does not point to a member of a virtual base class.

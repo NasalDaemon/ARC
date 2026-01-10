@@ -21,7 +21,7 @@ template<IsNodeHandle Target, IsNodeHandle Facade>
 struct Adapt
 {
     template<IsVirtualContext Context>
-    struct Node : arc::Cluster
+    struct Cluster : arc::Cluster
     {
         struct Facade_;
         struct Target_;
@@ -31,7 +31,7 @@ struct Adapt
 
         constexpr auto* asInterface(this auto& self) { return std::addressof(self.facade); }
 
-        struct Facade_ : arc::Context<Node, Facade>
+        struct Facade_ : arc::Context<Cluster, Facade>
         {
             static constexpr std::size_t Depth = Context::Depth;
 
@@ -44,13 +44,13 @@ struct Adapt
             requires (not std::is_const_v<N>)
             static constexpr auto exchangeImpl(N& facade, auto&&... args)
             {
-                auto memPtr = ARC_MEM_PTR(Node, facade);
+                auto memPtr = ARC_MEM_PTR(Cluster, facade);
                 auto& cluster = memPtr.getClassFromMember(facade);
                 return Context::template exchangeImpl<T>(cluster, ARC_FWD(args)...);
             }
         };
 
-        struct Target_ : arc::Context<Node, Target>
+        struct Target_ : arc::Context<Cluster, Target>
         {
             static constexpr std::size_t Depth = Context::Depth;
 
@@ -62,15 +62,15 @@ struct Adapt
         ARC_NODE(Target_, target)
 
         detail::ToVirtualNodeImpl<Facade, Facade_> facade{};
-        friend consteval auto getNodePointer(arc::AdlTag<Facade_>) { return ARC_MEM_PTR(Node, facade); }
+        friend consteval auto getNodePointer(arc::AdlTag<Facade_>) { return ARC_MEM_PTR(Cluster, facade); }
         static_assert(IsInterface<decltype(facade)>);
 
         template<class... Ts>
         requires (... and not IsArgs<Ts>)
-        explicit constexpr Node(Ts&&... args) : target{ARC_FWD(args)...} {}
+        explicit constexpr Cluster(Ts&&... args) : target{ARC_FWD(args)...} {}
 
         template<class... FArgs, class... TArgs>
-        explicit constexpr Node(Args<Target, TArgs...> const& targs, Args<Facade, FArgs...> const& fargs)
+        explicit constexpr Cluster(Args<Target, TArgs...> const& targs, Args<Facade, FArgs...> const& fargs)
             : target{targs.template get<TArgs>()...}
             , facade{fargs.template get<FArgs>()...}
         {}
@@ -81,6 +81,9 @@ struct Adapt
             self.facade.visit(visitor);
         }
     };
+
+    template<class Context>
+    using Node = Cluster<Context>;
 };
 
 ARC_MODULE_EXPORT

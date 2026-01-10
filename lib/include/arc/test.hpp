@@ -104,6 +104,8 @@ namespace detail {
 
             struct Node : arc::Context<Impl, NodeT>
             {
+                ARC_LINK_TO_GLOBAL()
+
                 static constexpr std::size_t Depth = Context::Depth;
 
                 // Resolve to parent by default
@@ -124,6 +126,8 @@ namespace detail {
 
             struct Mocks : arc::Context<Impl, MocksT>
             {
+                ARC_LINK_TO_GLOBAL()
+
                 static constexpr std::size_t Depth = Context::Depth;
 
                 // Resolve to parent by default

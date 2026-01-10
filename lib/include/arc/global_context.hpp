@@ -21,6 +21,18 @@ template<class Context, class GlobalTrait>
 concept ContextHasGlobalTrait = ContextHasGlobal<Context> and IsGlobalTrait<GlobalTrait> and HasTrait<typename Context::Info::GlobalNode, typename GlobalTrait::Trait>;
 
 namespace detail {
+    struct GlobalContextTag{};
+}
+
+ARC_MODULE_EXPORT
+template<class Context>
+concept IsGlobalContext = IsContext<Context> and requires { Context::Info::isGlobalContext(detail::GlobalContextTag{}); };
+
+ARC_MODULE_EXPORT
+template<class Context>
+concept ContextHasGlobalConnection = IsContext<Context> and (IsGlobalContext<Context> or requires { Context::canLinkToGlobal(); });
+
+namespace detail {
 
     template<IsContext Context, IsGlobalTrait GlobalTrait>
     consteval void assertContextHasGlobalTrait()
