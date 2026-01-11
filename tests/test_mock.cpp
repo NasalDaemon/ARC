@@ -158,7 +158,7 @@ TEST_CASE("arc::test::Mock")
     CHECK(1 == g.mocks->methodCallCount<trait::Trait::takesInt>());
     CHECK(2 == g.mocks->traitCallCount<trait::Trait>());
 
-    CHECK(1 == takesIntCalls.size());
+    REQUIRE(1 == takesIntCalls.size());
     CHECK(std::tuple(8) == takesIntCalls.popFront().value());
 
     g.mocks->setThrowIfMissing();

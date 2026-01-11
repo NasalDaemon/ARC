@@ -4,13 +4,11 @@
 #include "arc/trait_view_fwd.hpp"
 
 #include "arc/empty_types.hpp"
-#include "arc/global_context.hpp"
-#include "arc/global_trait.hpp"
+#include "arc/invoke_method.hpp"
 #include "arc/key.hpp"
 #include "arc/macros.hpp"
 #include "arc/no_trait.hpp"
 #include "arc/trait.hpp"
-#include "arc/traits/spy.hpp"
 
 #if !ARC_IMPORT_STD
 #include <functional>
@@ -125,7 +123,7 @@ struct TraitView final : Trait::Meta::Methods
     template<IsMethodOf<Trait> Method>
     ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method method, auto&&... args)
     {
-        return invoke(self.alias.get(), method, ARC_FWD(args)...);
+        return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
     }
 
     template<class Self, IsMethodOf<Trait> Method>
@@ -147,28 +145,9 @@ private:
 
         ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
         {
-            return invoke(self.alias.get(), Method{}, ARC_FWD(args)...);
+            return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), Method{}, ARC_FWD(args)...);
         }
     };
-
-    template<class Method, class... Args>
-    ARC_INLINE static constexpr decltype(auto) invoke(auto& node, Method method, Args&&... args)
-    {
-        using Context = ContextOf<Node>;
-        if constexpr (not IsGlobalContext<Context> and ContextHasGlobalTrait<Context, Global<trait::SpyOnly<Trait>>>)
-        {
-            auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
-            {
-                return node.impl(Method{}, static_cast<Args&&>(spyArgs)...);
-            };
-
-            return node.getGlobal(trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
-        }
-        else
-        {
-            return node.impl(method, ARC_FWD(args)...);
-        }
-    }
 
     ImplAlias alias;
 };

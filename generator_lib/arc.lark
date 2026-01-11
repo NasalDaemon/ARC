@@ -146,7 +146,7 @@ BARROW: "<"+ "-"+ ">"+
 !cpp_type: [TYPENAME] (NAME | "::" cpp_type_no_typename) cpp_type_cont*
 !cpp_type_no_typename: (NAME | "::" cpp_type_no_typename) cpp_type_cont*
 
-!cpp_type_cont: CPP_REF | "const" | "volatile" | "auto" | "..."
+!cpp_type_cont: CPP_REF | "const" | "volatile" | "auto" | "decltype" | "..."
               | "::" [TEMPLATE] cpp_type_no_typename
               | cpp_func_args
               | cpp_templ_args

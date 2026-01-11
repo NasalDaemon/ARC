@@ -17,6 +17,12 @@
 
 namespace arc::detail {
 
+template<bool Const = true, class T>
+ARC_INLINE constexpr std::conditional_t<Const, T const&, T&> asConst(T& value)
+{
+    return value;
+}
+
 template<class Derived, class Base>
 ARC_INLINE constexpr Derived& downCast(Base& base)
 {

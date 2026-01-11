@@ -9,7 +9,7 @@ export struct Farmer : arc::NodeUses<trait::Animal>
 {
     void greetAnimal(this auto const& self)
     {
-        auto animal = self.getNode(trait::animal);
+        auto animal = self.getAnimal();
         std::println("Animal says: {}", animal.speak());
     }
 };

@@ -3,6 +3,7 @@
 
 #include "arc/context_fwd.hpp"
 #include "arc/global_trait.hpp"
+#include "arc/invoke_method_fwd.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"

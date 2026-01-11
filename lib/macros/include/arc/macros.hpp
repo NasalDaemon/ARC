@@ -126,8 +126,10 @@
     static_assert(::arc::Implements<Impl, Types, Trait>)
 #endif
 
-#define ARC_FWD(...) ARC_OVERLOAD(ARC_FWD, __VA_ARGS__)(__VA_ARGS__)
+#define ARC_DECLVAL(...) static_cast<auto(*)() -> __VA_ARGS__>(nullptr)()
+#define ARC_TYPENAME(...) decltype(ARC_DECLVAL(__VA_ARGS__))
 
+#define ARC_FWD(...) ARC_OVERLOAD(ARC_FWD, __VA_ARGS__)(__VA_ARGS__)
 #define ARC_FWD2(T, name) static_cast<T&&>(name)
 #define ARC_FWD1(name)    ARC_FWD2(decltype(name), name)
 
@@ -139,9 +141,14 @@
     friend constexpr TraitName traitOf(::arc::IsMethodOf<TraitName> auto) { return {}; } \
     struct Meta \
     { \
+        using ARC_This_Trait = TraitName; \
         struct Applicable \
         { \
             METHOD_LIST(ARC_METHOD_TAG_APPLICABLE) \
+        }; \
+        struct SignaturesByTag \
+        { \
+            static auto impl(auto&&... args) -> ::arc::NullNormalInvoker; \
         }; \
         struct Methods \
         { \
@@ -176,7 +183,7 @@
     static void applicable(method);
 
 #define ARC_AS_FUNCTOR_METHOD(method) \
-    template<::arc::IsTraitViewOrNode Self> \
+    template<::arc::IsTraitView Self> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, ::arc::AsFunctor asFunctor) \
     { \
         return self.impl(method ## _c, asFunctor); \
@@ -186,8 +193,27 @@
     template<::arc::IsTraitViewOrNode Self> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, auto&&... args) \
     { \
-        return self.impl(method ## _c, ARC_FWD(args)...); \
+        return ::arc::invokeMethod(self, method ## _c, ARC_FWD(args)...); \
     }
+
+#define ARC_SIGNATURE_METHOD(method) \
+    template<::arc::IsTraitViewOrNode Self, class... Args> \
+    ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
+    { \
+        if constexpr (::arc::IsTraitView<Self>) \
+        { \
+            using Invoker = decltype(Meta::Signatures::method(self, static_cast<Args&&>(args)...)); \
+            return Invoker::invoke(self, method ## _c, static_cast<Args&&>(args)...); \
+        } \
+        else \
+        { \
+            /* If calling internally within a node, don't enforce the signature which may require graph context */ \
+            return ::arc::invokeMethod(self, method ## _c, static_cast<Args&&>(args)...); \
+        } \
+    }
+
+#define ARC_SIGNATURE_METHOD_TAG(method) \
+    static auto impl(auto& self, Meta::ARC_This_Trait::method, auto&&... args) -> decltype(Meta::Signatures::method(self, ARC_FWD(args)...));
 
 #define ARC_TRAIT_RESOLVER(...) ARC_OVERLOAD(ARC_TRAIT_RESOLVER, __VA_ARGS__)(__VA_ARGS__)
 #define ARC_TRAIT_RESOLVER2(function, Trait) \
@@ -230,7 +256,7 @@
     ARC_LINK3(traitName, targetContext, T)
 
 #define ARC_LINK_TO_GLOBAL() \
-    static void canLinkToGlobal();
+    static void linkToGlobal();
 
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
     [[no_unique_address]] ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \

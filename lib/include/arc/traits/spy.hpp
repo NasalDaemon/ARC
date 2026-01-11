@@ -16,6 +16,15 @@ ARC_MODULE_EXPORT
 template<class Trait>
 struct SpyOnly : detail::SpyBase
 {
+    struct Meta : detail::SpyBase::Meta
+    {
+        struct Named
+        {
+            struct SpyOnly : detail::SpyBase::Meta::Methods {};
+        };
+        using NamedMethods = Named::SpyOnly;
+    };
+
     static void canProvide(SpyOnly);
     static SpyOnly expects();
 };
@@ -27,6 +36,15 @@ inline constexpr SpyOnly<Trait> spyOnly{};
 ARC_MODULE_EXPORT
 struct Spy : detail::SpyBase
 {
+    struct Meta : detail::SpyBase::Meta
+    {
+        struct Named
+        {
+            struct Spy : detail::SpyBase::Meta::Methods {};
+        };
+        using NamedMethods = Named::Spy;
+    };
+
     template<class Trait>
     static void canProvide(SpyOnly<Trait>);
     static void canProvide(Spy);

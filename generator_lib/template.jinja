@@ -16,6 +16,20 @@
     {%- endif -%}
 {%- endmacro -%}
 
+{%- macro capitalise(name) -%}
+    {{ name[0].upper() + name[1:] }}
+{%- endmacro -%}
+
+{%- macro cppbool(b) -%}
+    {{ "true" if b else "false" }}
+{%- endmacro -%}
+
+{%- macro argdecltypes(method) -%}
+    {%- for type, name in method.params -%}
+    , decltype({{ name }}){{ type.pack }}
+    {%- endfor -%}
+{%- endmacro -%}
+
 {% for namespace in repr.namespaces %}
 
 namespace {{ namespace.name }} {
@@ -58,20 +72,30 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
 
     struct Meta
     {
+        using ARC_This_Trait = {{ trait.name }};
         struct Applicable
         {
             {% for method_name in trait.method_names %}
             ARC_METHOD_TAG_APPLICABLE({{ method_name }})
             {% endfor %}
         };
-        struct Methods
+        struct Constraints
         {
-            {% for method_name in trait.method_names %}
-            ARC_AS_FUNCTOR_METHOD({{ method_name }})
-            {% endfor %}
-
             {% for method in trait.methods %}
-            template<::arc::IsTraitViewOrNode Self
+            {% if method.return_type.is_auto and method.return_type.str != "decltype(auto)" %}
+            struct {{ capitalise(method.name) }}{{ loop.index }}
+            {
+                template<class T>
+                static consteval {{ method.return_type.str }} Return() { return ARC_DECLVAL(T); }
+                static constexpr bool DecltypeAuto = {{ cppbool(method.return_type.str.endswith("decltype(auto)")) }};
+            };
+            {% endif %}
+            {% endfor %}
+        };
+        struct Signatures
+        {
+            {% for method in trait.methods %}
+            template<class Self
                 {%- for prefix, name in method.templates -%}
                 , {{ prefix }}{{ prefix.pack }} {{ name }}
                 {%- endfor -%}
@@ -88,18 +112,31 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
                 , class {{ trait.impl_name }} = ::arc::ContextToNode<::arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
             >
-            ARC_INLINE constexpr auto {{ method.name }}(this Self{{ " const&" if method.is_const else "&&" }} self
+            static constexpr auto {{ method.name }}(Self{{ " const&" if method.is_const else "&" }}
                 {%- for type, name in method.params -%}
                 , {{ type }}{{ type.pack }} {{ name }}
                 {%- endfor -%}
-            ){{ " -> " + method.return_type.str if method.return_type.str != "auto" else "" }}
-            {
-                {{ "return " if method.return_type.str != "void" else "" }}self.impl({{ method.name }}_c
-                    {%- for type, name in method.params -%}
-                    , ARC_FWD({{ name }}){{ type.pack }}
-                    {%- endfor -%}
-                );
-            }
+            ){% if method.return_type.is_auto %}
+            {% if method.return_type.str == "decltype(auto)" %} -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}{{ argdecltypes(method) }}>;
+            {% else %} -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+            {% endif %}
+            {% else %} -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
+            {% endif %}
+            {% endfor %}
+        };
+        struct SignaturesByTag
+        {
+            {% for method_name in trait.method_names %}
+            ARC_SIGNATURE_METHOD_TAG({{ method_name }})
+            {% endfor %}
+        };
+        struct Methods
+        {
+            {% for method_name in trait.method_names %}
+            ARC_AS_FUNCTOR_METHOD({{ method_name }})
+            {% endfor %}
+            {% for method_name in trait.method_names %}
+            ARC_SIGNATURE_METHOD({{ method_name }})
             {% endfor %}
         };
         struct Named
@@ -155,16 +192,13 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
             {%- for type, name in method.params -%}
             {{ comma() }}{{ type }} {{ name }}
             {%- endfor -%}
-            {%- if not method.is_unconstrained_return and not method.is_auto_return -%}
-            {{ comma() }}{{ method.return_type }} _return_type_
-            {%- endif -%}
             ) {
         {% if method.is_unconstrained_return %}
             {{ require_invoke() }};
         {% elif method.is_auto_return %}
-            { {{ require_invoke() }} } -> {{ method.return_type.str.removesuffix("auto") }};
+            { {{ require_invoke() }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}>;
         {% else %}
-            { {{ require_invoke() }} } -> std::convertible_to<decltype(_return_type_)>;
+            { {{ require_invoke() }} } -> std::convertible_to<ARC_TYPENAME({{ method.return_type }})>;
         {% endif %}
         };
         {% endfor %}

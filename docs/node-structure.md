@@ -144,9 +144,9 @@ There are two ways to define a node, each with different pros and cons:
 For most nodes, ARC provides a more ergonomic way to define dependencies and implemented traits using a fluent builder API. This avoids manual type aliasing and provides named accessors for dependencies.
 
 ```cpp
-struct PiCache : arc::Node
-    ::Uses<trait::Pi>
-    ::Impl<trait::Pi>
+struct PiCache : arc::Node::
+   Uses<trait::Pi>::
+   Impl<trait::Pi>
 {
     // Both 'Depends' and 'Traits' are automatically defined.
     // getPi() is automatically provided as a named getter for the Pi dependency.
@@ -307,9 +307,9 @@ struct FruitBasket::Node<Context>::Tangerine : Node
 };
 ```
 ```cpp
-struct Guest : arc::Node
-   ::Impl<trait::Guest>
-   ::Uses<trait::Apple, trait::Banana, trait::Orange, trait::Tangerine>
+struct Guest : arc::Node::
+   Impl<trait::Guest>::
+   Uses<trait::Apple, trait::Banana, trait::Orange, trait::Tangerine>
 {
    // Node::Impl<...>::Uses<...> builder generates:
    // using Traits = arc::Traits<trait::Guest>;

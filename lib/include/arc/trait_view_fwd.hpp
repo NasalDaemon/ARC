@@ -67,4 +67,4 @@ constexpr IsTraitViewOf<Trait, Key> auto makeTraitView(auto& source, auto target
 } // namespace arc
 
 
-#endif // INCLUDE_ARC_TRAIT_VIEW_HPP
+#endif // INCLUDE_ARC_TRAIT_VIEW_FWD_HPP

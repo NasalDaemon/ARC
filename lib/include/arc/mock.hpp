@@ -6,6 +6,7 @@
 #include "arc/type_name.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/function.hpp"
+#include "arc/invoke_method.hpp"
 #include "arc/macros.hpp"
 #include "arc/mock_fwd.hpp"
 #include "arc/node.hpp"
@@ -24,6 +25,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #endif
 
@@ -291,7 +293,8 @@ namespace detail {
         template<class Method, class... Args, std::invocable<std::remove_cvref_t<Args> const&...> F = ArgsTuple>
         auto visitCallLogs(std::size_t startIndex, F&& visitor = {})
         {
-            static_assert(sizeof...(Args) > 0, "Cannot visit last call with no arguments");
+            static_assert((... and not std::is_reference_v<Args>), "Only value types are supported arg types for visitCallLogs");
+            static_assert(sizeof...(Args) > 0, "Cannot visit calls with no arguments");
             static_assert((std::is_copy_constructible_v<std::remove_cvref_t<Args>> and ...),
                 "All argument types must be copy constructible to be logged");
             if (not loggingAllCalls)
@@ -305,27 +308,30 @@ namespace detail {
         template<class Self, class Method, class... Args>
         constexpr MockReturn impl(this Self& self, Method method, Args&&... args)
         {
-            auto const implType_ = implType<Method, Args...>();
+            return arc::detail::normaliseMethodArgs(
+                self,
+                method,
+                [&self](auto&&... normalArgs) -> decltype(auto)
+                {
+                    return self.implNormalised(Method{}, ARC_FWD(normalArgs)...);
+                },
+                ARC_FWD(args)...);
+        }
 
+        template<class Self, class Method, class... Args>
+        constexpr MockReturn implNormalised(this Self& self, Method method, Args&&... args)
+        {
             if (self.counting) [[unlikely]]
                 self.recordCall(method, ARC_FWD(args)...);
 
+            auto const implType_ = implType<Method, Args...>();
+            auto const implTypeValues_ = implType<Method, std::decay_t<Args>...>();
+
             UniversalFn* impl = nullptr;
             if (auto const it = self.impls.find(implType_); it != self.impls.end())
-            {
-                if constexpr (std::is_const_v<Self>)
-                {
-                    if (it->second.con)
-                        impl = &it->second.con;
-                }
-                else
-                {
-                    if (it->second.mut)
-                        impl = &it->second.mut;
-                    else if (it->second.con)
-                        impl = &it->second.con;
-                }
-            }
+                impl = self.getMockDef(it->second);
+            else if (auto const it = self.impls.find(implTypeValues_); it != self.impls.end())
+                impl = self.getMockDef(it->second);
 
             if (impl != nullptr)
             {
@@ -343,6 +349,9 @@ namespace detail {
             }
 
             if (auto const retIt = self.returnsMap.find(implType_); retIt != self.returnsMap.end())
+                return std::as_const(retIt->second);
+
+            if (auto const retIt = self.returnsMap.find(implTypeValues_); retIt != self.returnsMap.end())
                 return std::as_const(retIt->second);
 
             if (auto const retIt = self.returnsMap.find(methodType<Method>()); retIt != self.returnsMap.end())
@@ -421,10 +430,24 @@ namespace detail {
             return arc::typeId<ImplTag, Method, Args...>;
         }
 
+        template<class Self>
+        UniversalFn* getMockDef(this Self&, MockDefs& defs)
+        {
+            if constexpr (not std::is_const_v<Self>)
+            {
+                if (defs.mut)
+                    return std::addressof(defs.mut);
+            }
+            if (defs.con)
+                return std::addressof(defs.con);
+            return nullptr;
+        }
+
         template<class Self, class Method, class... Args>
         ARC_COLD void recordCall(this Self& self, Method, Args&&... args)
         {
-            auto const implType_ = implType<Method, Args...>();
+            // We only record values, not reference types
+            auto const implType_ = implType<Method, std::decay_t<Args>...>();
             auto const methodType_ = methodType<Method>();
             auto const traitType_ = traitType<TraitOf<Method>>();
             auto& implTracker = self.trackerMap[implType_];
@@ -496,12 +519,12 @@ namespace detail {
                         if constexpr (std::is_void_v<R>)
                         {
                             result.reset();
-                            std::invoke(f, Tag{}, static_cast<Args&&>(*static_cast<std::remove_cvref_t<Args>*>(args[I]))...);
+                            std::invoke(f, Tag{}, static_cast<Args>(*static_cast<std::remove_cvref_t<Args>*>(args[I]))...);
                         }
                         else
                         {
                             result.emplace<R>(
-                                std::invoke(f, Tag{}, static_cast<Args&&>(*static_cast<std::remove_cvref_t<Args>*>(args[I]))...));
+                                std::invoke(f, Tag{}, static_cast<Args>(*static_cast<std::remove_cvref_t<Args>*>(args[I]))...));
                         }
                     }(std::index_sequence_for<Args...>{});
                 };

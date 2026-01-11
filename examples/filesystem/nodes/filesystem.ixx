@@ -11,9 +11,9 @@ namespace examples::filesystem {
 export struct Filesystem
 {
     template<class Context>
-    struct Node : arc::Node
-        ::Uses<trait::Storage, trait::PathOps>
-        ::Impl<trait::Filesystem>
+    struct Node : arc::Node::
+        Uses<trait::Storage, trait::PathOps>::
+        Impl<trait::Filesystem>
     {
         struct Types
         {

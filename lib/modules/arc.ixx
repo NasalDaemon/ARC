@@ -160,6 +160,13 @@ export namespace arc {
     using arc::IsWritePermittedNode;
     using arc::IsReadOnlyPermittedNode;
     using arc::InGroup;
+    // invoke_method_fwd.hpp
+    using arc::invokeMethod;
+    using arc::NullNormalInvoker;
+    using arc::InvokeMethod;
+    using arc::InvokeMethodR;
+    using arc::MatchesReturnConstraint;
+    using arc::InvokeMethodC;
     // key.hpp
     namespace key {
         using key::Default;

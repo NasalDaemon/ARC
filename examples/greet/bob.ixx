@@ -10,9 +10,9 @@ namespace examples::greet {
 export struct Bob
 {
     template<class Context>
-    struct Node : arc::Node
-        ::Uses<trait::Responder>
-        ::Impl<trait::Greeter, trait::Responder>
+    struct Node : arc::Node::
+        Uses<trait::Responder>::
+        Impl<trait::Greeter, trait::Responder>
     {
         Node(int age) : age(age) {}
 

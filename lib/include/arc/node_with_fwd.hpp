@@ -46,7 +46,7 @@ struct Build<Node, void(DependTraits...)> final
     requires (sizeof...(Traits) > 0)
     using Impl = detail::NodeWith<Node, void(DependTraits...), Traits...>;
 
-    using NoTraits = Impl<arc::NullTrait>;
+    using NoTraits = detail::NodeWith<Node, void(DependTraits...)>;
 };
 
 template<class Node, class... Traits>
