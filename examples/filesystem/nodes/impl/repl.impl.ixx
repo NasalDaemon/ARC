@@ -17,34 +17,41 @@ import std;
 
 namespace examples::filesystem {
 
-void parseLine(std::string_view line, std::vector<std::string>& argsOut)
+void parseLine(std::string_view line, std::vector<std::string_view>& argsOut)
 {
     argsOut.clear();
-    std::string current;
 
-    for (char c : line)
-    {
-        if (c == ' ' || c == '\t')
+    std::string_view remaining = line;
+    while (!remaining.empty()) {
+        // Find the next whitespace
+        std::size_t const pos = remaining.find_first_of(" \t");
+        if (pos == std::string_view::npos)
         {
-            if (!current.empty())
-            {
-                argsOut.push_back(std::move(current));
-            }
+            // No more whitespace, add the remaining part if not empty
+            if (!remaining.empty())
+                argsOut.push_back(remaining);
+            break;
         }
         else
         {
-            current += c;
+            // Add the part before whitespace if not empty
+            if (pos > 0)
+                argsOut.push_back(remaining.substr(0, pos));
+
+            // Skip the whitespace
+            std::size_t const nextPos = remaining.find_first_not_of(" \t", pos);
+            if (nextPos == std::string_view::npos)
+                break; // only writespaces left
+            remaining.remove_prefix(nextPos);
         }
     }
-
-    if (!current.empty())
-        argsOut.push_back(std::move(current));
 }
 
 REPL::run(int argc, char* argv[]) -> int
 {
-    std::vector<std::string> args;
+    std::vector<std::string_view> args;
     std::string line;
+    std::vector<std::string> history;
     if (argc > 1)
     {
         for (int i = 1; i < argc; ++i)
@@ -61,8 +68,7 @@ REPL::run(int argc, char* argv[]) -> int
         std::println("");
     }
 
-    std::vector<std::string> history;
-    while (true)
+    for (;; line.clear())
     {
         if (line.empty())
         {
@@ -75,18 +81,17 @@ REPL::run(int argc, char* argv[]) -> int
         history.push_back(line);
 
         parseLine(line, args);
-        line.clear();
         if (args.empty())
             continue;
 
-        if (not runCommand(args))
+        if (not runCommand(std::span(args)))
             break;
     }
 
     return 0;
 }
 
-REPL::runCommand(std::vector<std::string>& args) -> bool
+REPL::runCommand(std::span<std::string_view> args) -> bool
 {
     auto filesystem = getNode(trait::filesystem);
 

@@ -1,0 +1,56 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/examples/greet/Debug/arc_example_greet",
+            // "program": "${workspaceFolder}/build/examples/animals/Debug/arc_example_animals",
+            // "program": "${workspaceFolder}/build/examples/animals_virtual/Debug/arc_example_animals_virtual",
+            // "program": "${workspaceFolder}/build/examples/filesystem/Debug/arc_example_filesystem_tests",
+            // "program": "${workspaceFolder}/build/tests/Debug/arc_tests_headers",
+            // "program": "${workspaceFolder}/build/tests/Debug/arc_tests_module",
+            // "program": "${workspaceFolder}/build/tests/Debug/arc_tests_mock",
+            // "program": "${workspaceFolder}/build/tests/Debug/arc_tests_thread",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Skip all inline functions in files under lib/include",
+                    "text": "skip -gfi ${workspaceFolder}/lib/include/**/*.hpp",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Enable step-mode to skip inlined functions",
+                    "text": "set step-mode on",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Hide artificial frames in backtraces",
+                    "text": "set backtrace past-main off",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Hide inlined frames in backtraces",
+                    "text": "set backtrace inline off",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

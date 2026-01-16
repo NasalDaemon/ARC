@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <iterator>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <stdexcept>
 #include <type_traits>
@@ -34,14 +35,14 @@ namespace arc::test {
 ARC_MODULE_EXPORT
 enum class MockDefault
 {
-    ReturnDefault,
     ThrowIfMissing,
+    ReturnDefault,
 };
 
 ARC_MODULE_EXPORT
 struct MockParams
 {
-    MockDefault defaultBehaviour = MockDefault::ReturnDefault;
+    MockDefault defaultBehaviour = MockDefault::ThrowIfMissing;
     bool counting = false;
     bool logAllCalls = false;
     std::size_t logBufferMaxSize = 1024;
@@ -120,7 +121,7 @@ namespace detail {
         constexpr void emplace(auto&& arg)
         {
             if constexpr (std::is_reference_v<T>)
-                value.emplace<Ref>(std::addressof(arg), TypeId::of<std::remove_cvref_t<T>>(), std::is_lvalue_reference_v<T>, std::is_const_v<std::remove_reference_t<T>>);
+                value.emplace<Ref>(std::addressof(arg), typeId<std::remove_cvref_t<T>>, std::is_lvalue_reference_v<T>, std::is_const_v<std::remove_reference_t<T>>);
             else
                 value.emplace<std::any>(std::in_place_type<T>, ARC_FWD(arg));
         }
@@ -175,10 +176,11 @@ namespace detail {
         {
             counting = true;
         }
-        constexpr void disableCallCounting()
+        void disableCallCounting()
         {
             counting = false;
             loggingAllCalls = false;
+            resetTracking();
         }
         constexpr void logAllCalls(bool enable = true, std::optional<std::size_t> newCapacity = std::nullopt)
         {
@@ -214,12 +216,14 @@ namespace detail {
                     tracker.logIndices->clear();
             }
             callLog.clear();
+            // don't clear trackerMap to preserve per-method tracking settings
             ++trackingVersion;
         }
 
         void resetImpls()
         {
             impls.clear();
+            returnsMap.clear();
         }
 
         void resetTrackingAndImpls()
@@ -231,6 +235,7 @@ namespace detail {
         void reinitialise(MockParams params = {})
         {
             resetTrackingAndImpls();
+            trackerMap.clear(); // clear all per-method tracking settings
             defaultBehaviour = params.defaultBehaviour;
             counting = params.counting;
             loggingAllCalls = params.logAllCalls;
@@ -330,8 +335,9 @@ namespace detail {
             UniversalFn* impl = nullptr;
             if (auto const it = self.impls.find(implType_); it != self.impls.end())
                 impl = self.getMockDef(it->second);
-            else if (auto const it = self.impls.find(implTypeValues_); it != self.impls.end())
-                impl = self.getMockDef(it->second);
+            if (impl == nullptr)
+                if (auto const it = self.impls.find(implTypeValues_); it != self.impls.end())
+                    impl = self.getMockDef(it->second);
 
             if (impl != nullptr)
             {
@@ -339,11 +345,11 @@ namespace detail {
                 if constexpr (sizeof...(args) > 0)
                 {
                     void* a[] = {std::addressof(args)...};
-                    std::invoke(*impl, std::addressof(result), a);
+                    (*impl)(std::addressof(result), a);
                 }
                 else
                 {
-                    std::invoke(*impl, std::addressof(result), nullptr);
+                    (*impl)(std::addressof(result), nullptr);
                 }
                 return result;
             }
@@ -684,44 +690,50 @@ namespace detail {
                 , tracker(tracker)
                 , implType(implType)
                 , startIndex(startIndex)
-                , trackerIt(tracker.logIndices->cbegin())
                 , trackingVersion(mockBase.trackingVersion)
+                , trackerIt(tracker.logIndices->cbegin())
                 , visitorWrapper(std::move(visitorWrapper))
             {
-                reset();
+                restart();
             }
 
-            void validate(bool checkEvicted = false) const
+            void assertNotEvicted() const
+            {
+                if (not trackerIt.is_valid_id()) [[unlikely]]
+                    throw std::runtime_error("CallLogVisitor: Some logged calls have been evicted from the mock's call log, please reset if this is expected");
+            }
+
+            void assertValid(bool checkEvicted = true) const
             {
                 if (trackingVersion != mockBase.trackingVersion) [[unlikely]]
-                    throw std::runtime_error("CallLogVisitor: Mock call counting state has been invalidated, please rebind if this is expected");
+                    throw std::runtime_error("CallLogVisitor: Mock call counting state has been invalidated. Call rebind if this is expected");
                 if (not mockBase.loggingAllCalls) [[unlikely]]
                     throw std::runtime_error("CallLogVisitor: Call logging is no longer enabled for this mock");
-                if (checkEvicted and not trackerIt.is_valid_id()) [[unlikely]]
-                    throw std::runtime_error("CallLogVisitor: Some logged calls have been evicted from the mock's call log, please reset if this is expected");
+                if (checkEvicted)
+                    assertNotEvicted();
             }
 
             // Rebind the visitor to a new start index (useful if the mock's call log was cleared)
             void rebind(std::size_t newStartIndex = 0)
             {
                 trackingVersion = mockBase.trackingVersion;
-                reset(newStartIndex);
+                restartFrom(newStartIndex);
             }
 
             // Start reading from startIndex again
-            void reset()
+            void restart()
             {
-                validate();
+                assertValid(false);
                 std::size_t beginning = std::max(startIndex, mockBase.callLog.begin_id());
                 trackerIt = std::find_if(tracker.logIndices->cbegin(), tracker.logIndices->cend(), [beginning] (std::size_t index) { return index >= beginning; });
                 lastVisited.reset();
             }
 
             // Start reading from a different startIndex
-            void reset(std::size_t newStartIndex)
+            void restartFrom(std::size_t newStartIndex)
             {
                 startIndex = newStartIndex;
-                reset();
+                restart();
             }
 
             // Visit the next matching call and advance the index. Changes lastVisitedIndex.
@@ -729,7 +741,7 @@ namespace detail {
             {
                 if (trackerIt == tracker.logIndices->cend())
                     return std::nullopt;
-                validate(true);
+                assertValid();
                 lastVisited = *trackerIt;
                 CallDesc& callDesc = mockBase.callLog.at_id_unchecked(*lastVisited);
                 ++trackerIt;
@@ -749,8 +761,9 @@ namespace detail {
             // Get the number of remaining matching calls from current index
             std::size_t size() const
             {
-                validate();
-                return std::distance(trackerIt, tracker.logIndices->cend());
+                std::size_t const dist = std::distance(trackerIt, tracker.logIndices->cend());
+                assertValid(dist != 0);
+                return dist;
             }
 
             bool empty() const { return size() == 0; }
@@ -758,7 +771,7 @@ namespace detail {
             // Returns the index after the last popped
             std::optional<std::size_t> currentIndex() const
             {
-                validate();
+                assertValid(false);
                 if (trackerIt == tracker.logIndices->cend())
                     return std::nullopt;
                 return *trackerIt;
@@ -774,7 +787,7 @@ namespace detail {
             // Does not advance the index
             std::optional<std::size_t> findNext(Result const& value) const
             {
-                validate(true);
+                assertValid();
                 std::optional<std::size_t> foundIndex;
                 for (auto it = trackerIt; it != tracker.logIndices->cend(); ++it)
                 {
@@ -792,9 +805,10 @@ namespace detail {
             // Does not advance the index
             std::optional<std::size_t> findLast(Result const& value) const
             {
-                validate();
+                assertValid(false); // only check for evicted if we don't find anything
                 std::optional<std::size_t> foundIndex;
-                for (auto it = tracker.logIndices->cend() - 1; it > trackerIt; --it)
+                auto const reversed = std::views::reverse(*tracker.logIndices);
+                for (auto it = reversed.begin(); it != reversed.end() and it.base().id() >= trackerIt.id(); ++it)
                 {
                     decltype(auto) result = mockBase.callLog.at_id_unchecked(*it).visit(visitorWrapper);
                     if (result == value)
@@ -803,6 +817,8 @@ namespace detail {
                         break;
                     }
                 }
+                if (not foundIndex.has_value())
+                    assertNotEvicted(); // we didn't find anything, so check nothing was evicted
                 return foundIndex;
             }
 
@@ -811,9 +827,9 @@ namespace detail {
             CallTracker& tracker;
             TypeId implType;
             std::size_t startIndex;
-            CircularBuffer<std::size_t>::const_iterator trackerIt;
             std::size_t trackingVersion;
             std::optional<std::size_t> lastVisited;
+            CircularBuffer<std::size_t>::const_iterator trackerIt;
             CallDesc::Visitor<OptionalResult> visitorWrapper;
         };
 

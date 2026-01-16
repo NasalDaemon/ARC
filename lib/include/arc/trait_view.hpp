@@ -96,7 +96,7 @@ ARC_MODULE_EXPORT
 template<IsTrait Trait, class ImplAlias, class Types_ /*= EmptyTypes*/>
 struct TraitView final : Trait::Meta::Methods
 {
-    constexpr TraitView(Trait, ImplAlias alias, std::type_identity<Types_>)
+    ARC_INLINE constexpr TraitView(Trait, ImplAlias alias, std::type_identity<Types_>)
         : alias(alias)
     {
         static_assert(not IsTrait<TraitView>);
@@ -184,7 +184,7 @@ private:
 
 ARC_MODULE_EXPORT
 template<IsTrait Trait, key::IsKey Key, key::IsKey... Keys>
-constexpr IsTraitViewOf<Trait, Key> auto makeTraitView(auto& source, auto target, Trait, Key const& key, Keys const&... keys)
+ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto makeTraitView(auto& source, auto target, Trait, Key const& key, Keys const&... keys)
 {
     return TraitView(key::Trait<Key, Trait>{}, target.ptr->finalise(source, key, keys...), target.types());
 }

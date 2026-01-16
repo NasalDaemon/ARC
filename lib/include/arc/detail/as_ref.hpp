@@ -44,10 +44,11 @@ namespace detail {
     struct TargetRef
     {
         using Interface = Interface_;
-        explicit constexpr TargetRef(Interface& ref, std::type_identity<Types>) : ptr(std::addressof(ref)) {}
+        ARC_INLINE explicit constexpr TargetRef(Interface& ref, std::type_identity<Types>) : ptr(std::addressof(ref)) {}
+        ARC_INLINE static constexpr std::type_identity<CompressTypes<Types>> types() { return {}; };
+        ARC_INLINE static constexpr std::type_identity<EmptyTypes> types() requires std::is_same_v<Types, EmptyTypes> { return {}; };
+
         Interface* ptr;
-        static constexpr std::type_identity<CompressTypes<Types>> types() { return {}; };
-        static constexpr std::type_identity<EmptyTypes> types() requires std::is_same_v<Types, EmptyTypes> { return {}; };
     };
 
     template<class Interface, class Types>

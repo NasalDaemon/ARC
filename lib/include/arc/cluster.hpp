@@ -49,7 +49,7 @@ struct Cluster
     using Environment = arc::Environment<>;
     using Depends = detail::DependsImplicitly;
 
-    constexpr auto* operator->(this auto& self)
+    ARC_INLINE constexpr auto* operator->(this auto& self)
     {
         return std::addressof(self);
     }
@@ -63,26 +63,26 @@ struct Cluster
 
     template<class Self, IsTrait Trait, class Visitor>
     requires IsRootContext<ContextParameterOf<Self>>
-    void visitTrait(this Self& self, Trait, Visitor&& visitor)
+    ARC_INLINE void visitTrait(this Self& self, Trait, Visitor&& visitor)
     {
         self.visit(detail::TraitVisitor<Trait, std::remove_cvref_t<Visitor>>{visitor});
     }
 
     template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
-    constexpr IsTraitViewOf<Trait, Key> auto getNode(this Self& cluster, Trait trait = {}, Key key = {}, auto const&... keys)
+    ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto getNode(this Self& cluster, Trait trait = {}, Key key = {}, auto const&... keys)
     {
         auto target = cluster.getNode(detail::AsRef{}, trait);
         return makeTraitView(cluster, target, trait, key, keys...);
     }
 
     template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
-    constexpr IsTraitViewOf<Trait, Key> auto getGlobal(this Self& cluster, Trait trait = {}, Key key = {}, auto const&... keys)
+    ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto getGlobal(this Self& cluster, Trait trait = {}, Key key = {}, auto const&... keys)
     {
         return cluster.getNode(arc::global(trait), key, keys...);
     }
 
     template<IsTrait Trait, class Self>
-    constexpr auto getNode(this Self& cluster, detail::AsRef, Trait trait = {})
+    ARC_INLINE constexpr auto getNode(this Self& cluster, detail::AsRef, Trait trait = {})
     {
         return detail::getContextParameter(cluster).getNode(cluster, trait);
     }
@@ -99,7 +99,7 @@ struct Cluster
 
     template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
     requires detail::HasLink<Self, Trait>
-    constexpr IsTraitViewOf<Trait, Key> auto asTrait(this Self& self, Trait trait = {}, Key key = {}, auto const&... keys)
+    ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto asTrait(this Self& self, Trait trait = {}, Key key = {}, auto const&... keys)
     {
         auto target = self.asTrait(detail::AsRef{}, trait);
         return makeTraitView(self, target, trait, key, keys...);
@@ -107,7 +107,7 @@ struct Cluster
 
     template<class Self, IsTrait Trait>
     requires detail::HasLink<Self, Trait>
-    constexpr auto asTrait(this Self& cluster, detail::AsRef asRef, Trait)
+    ARC_INLINE constexpr auto asTrait(this Self& cluster, detail::AsRef asRef, Trait)
     {
         Self::template ensureDepth<ContextParameterOf<Self>>();
         using Target = detail::ResolveLink<Self, Trait>;

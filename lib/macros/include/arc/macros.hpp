@@ -148,7 +148,7 @@
         }; \
         struct SignaturesByTag \
         { \
-            static auto impl(auto&&... args) -> ::arc::NullNormalInvoker; \
+            static auto impl(auto&&...) -> ::arc::NullNormalInvoker; \
         }; \
         struct Methods \
         { \
@@ -197,12 +197,13 @@
     }
 
 #define ARC_SIGNATURE_METHOD(method) \
+    ARC_AS_FUNCTOR_METHOD(method) \
     template<::arc::IsTraitViewOrNode Self, class... Args> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
     { \
         if constexpr (::arc::IsTraitView<Self>) \
         { \
-            using Invoker = decltype(Meta::Signatures::method(self, static_cast<Args&&>(args)...)); \
+            using Invoker = decltype(ARC_This_Trait::Meta::Signatures::method(self, static_cast<Args&&>(args)...)); \
             return Invoker::invoke(self, method ## _c, static_cast<Args&&>(args)...); \
         } \
         else \
@@ -213,7 +214,7 @@
     }
 
 #define ARC_SIGNATURE_METHOD_TAG(method) \
-    static auto impl(auto& self, Meta::ARC_This_Trait::method, auto&&... args) -> decltype(Meta::Signatures::method(self, ARC_FWD(args)...));
+    static auto impl(auto& self, ARC_This_Trait::method, auto&&... args) -> decltype(ARC_This_Trait::Meta::Signatures::method(self, ARC_FWD(args)...));
 
 #define ARC_TRAIT_RESOLVER(...) ARC_OVERLOAD(ARC_TRAIT_RESOLVER, __VA_ARGS__)(__VA_ARGS__)
 #define ARC_TRAIT_RESOLVER2(function, Trait) \
@@ -256,7 +257,7 @@
     ARC_LINK3(traitName, targetContext, T)
 
 #define ARC_LINK_TO_GLOBAL() \
-    static void linkToGlobal();
+    static void resolveLinkGlobal();
 
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
     [[no_unique_address]] ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \

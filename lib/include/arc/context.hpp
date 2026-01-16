@@ -30,7 +30,7 @@ namespace detail {
     {
         // Delegate to parent cluster to get the global node
         template<IsContext Self_, class N>
-        constexpr auto& getGlobalNode(this Self_, N& node)
+        ARC_INLINE constexpr auto& getGlobalNode(this Self_, N& node)
         {
             using Self = detail::Decompress<Self_>;
             auto memPtr = getNodePointer(AdlTag<Self>{});
@@ -38,7 +38,7 @@ namespace detail {
         }
 
         template<IsContext Self, IsGlobalTrait GlobalTrait>
-        constexpr auto getNode(this Self self, auto& node, GlobalTrait)
+        ARC_INLINE constexpr auto getNode(this Self self, auto& node, GlobalTrait)
         {
             detail::assertContextHasGlobalTrait<Self, GlobalTrait>();
             return self.getGlobalNode(node).asTrait(detail::AsRef{}, typename GlobalTrait::Trait{});
@@ -47,7 +47,7 @@ namespace detail {
         // Get sibling node
         template<IsContext Self_, IsTrait Trait>
         requires detail::HasLink<Self_, Trait>
-        constexpr auto getNode(this Self_, auto& node, Trait)
+        ARC_INLINE constexpr auto getNode(this Self_, auto& node, Trait)
         {
             using Self = detail::Decompress<Self_>;
             using Other = detail::ResolveLink<Self, Trait>;
@@ -72,7 +72,7 @@ namespace detail {
         // Delegate to parent cluster to get the node
         template<IsContext Self_, IsTrait Trait>
         requires detail::LinksToParent<Self_, Trait>
-        constexpr auto getNode(this Self_, auto& node, Trait)
+        ARC_INLINE constexpr auto getNode(this Self_, auto& node, Trait)
         {
             using Self = detail::Decompress<Self_>;
             auto memPtr = getNodePointer(AdlTag<Self>{});
@@ -81,7 +81,7 @@ namespace detail {
 
         // Get member pointer from the perspective of a parent to this node
         template<IsContext Parent, IsContext Self_>
-        constexpr auto getParentMemPtr(this Self_)
+        ARC_INLINE constexpr auto getParentMemPtr(this Self_)
         {
             using Self = detail::Decompress<Self_>;
             auto memPtr = getNodePointer(AdlTag<Self>{});
@@ -98,7 +98,7 @@ namespace detail {
 
         // Get the reference to a parent node by its context
         template<IsContext Parent, IsContext Self_>
-        constexpr auto& getParentNode(this Self_, auto& node)
+        ARC_INLINE constexpr auto& getParentNode(this Self_, auto& node)
         {
             using Self = detail::Decompress<Self_>;
             if constexpr (std::is_same_v<Self, detail::Decompress<Parent>>)
@@ -139,8 +139,8 @@ struct NullContext : detail::ContextBase
             return arc::finalise(source, target, key, keys...);
         }
 
-        static constexpr void assertAccessible(auto&) {}
-        static constexpr void assertVisitable(auto&) {}
+        ARC_INLINE static constexpr void assertAccessible(auto&) {}
+        ARC_INLINE static constexpr void assertVisitable(auto&) {}
 
         template<class Source, class Target>
         static consteval std::tuple<> requiresKeysToTarget()

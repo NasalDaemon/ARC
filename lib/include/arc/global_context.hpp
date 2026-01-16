@@ -30,7 +30,7 @@ concept IsGlobalContext = IsContext<Context> and requires { Context::Info::isGlo
 
 ARC_MODULE_EXPORT
 template<class Context>
-concept ContextHasGlobalConnection = IsContext<Context> and (IsGlobalContext<Context> or requires { Context::linkToGlobal(); });
+concept ContextHasGlobalConnection = IsContext<Context> and (IsGlobalContext<Context> or requires { Context::resolveLinkGlobal(); });
 
 namespace detail {
 

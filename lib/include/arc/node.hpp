@@ -98,14 +98,14 @@ struct Node
     }
 
     template<IsTrait Trait, class Self, class Key = ContextOf<Self>::Info::DefaultKey>
-    constexpr IsTraitViewOf<Trait, Key> auto asTrait(this Self& self, Trait trait = {}, Key const& key = {}, auto const&... keys)
+    ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto asTrait(this Self& self, Trait trait = {}, Key const& key = {}, auto const&... keys)
     {
         auto impl = self.asTrait(detail::AsRef{}, trait);
         return makeTraitView(self, impl, trait, key, keys...);
     }
 
     template<class Self, IsTrait Trait>
-    constexpr auto asTrait(this Self& self, detail::AsRef, Trait)
+    ARC_INLINE constexpr auto asTrait(this Self& self, detail::AsRef, Trait)
     {
         Self::template assertNodeContext<Self>();
         using ThisNode = UnderlyingNode<Self>;
@@ -124,7 +124,7 @@ struct Node
     }
 
     template<class Self, class Key = ContextOf<Self>::Info::DefaultKey>
-    constexpr auto finalise(this Self& self, auto& source, Key const& key = {}, auto const&... keys)
+    ARC_INLINE constexpr auto finalise(this Self& self, auto& source, Key const& key = {}, auto const&... keys)
     {
         return ContextOf<Self>::Info::finalise(source, self, key, keys...);
     }
@@ -201,7 +201,7 @@ namespace detail {
             return upCast<NodeT>(self).getState();
         }
 
-        constexpr auto* operator->(this auto& self) { return std::addressof(self.getState()); }
+        ARC_INLINE constexpr auto* operator->(this auto& self) { return std::addressof(self.getState()); }
     };
 
 } // namespace detail

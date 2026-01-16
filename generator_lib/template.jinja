@@ -116,11 +116,15 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
                 {%- for type, name in method.params -%}
                 , {{ type }}{{ type.pack }} {{ name }}
                 {%- endfor -%}
-            ){% if method.return_type.is_auto %}
-            {% if method.return_type.str == "decltype(auto)" %} -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}{{ argdecltypes(method) }}>;
-            {% else %} -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+            )
+            {% if method.return_type.is_auto %}
+            {% if method.return_type.str == "decltype(auto)" %}
+                -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}{{ argdecltypes(method) }}>;
+            {% else %}
+                -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% endif %}
-            {% else %} -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
+            {% else %}
+                -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
             {% endif %}
             {% endfor %}
         };
@@ -132,9 +136,6 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
         };
         struct Methods
         {
-            {% for method_name in trait.method_names %}
-            ARC_AS_FUNCTOR_METHOD({{ method_name }})
-            {% endfor %}
             {% for method_name in trait.method_names %}
             ARC_SIGNATURE_METHOD({{ method_name }})
             {% endfor %}

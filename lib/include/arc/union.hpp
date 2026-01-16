@@ -272,19 +272,19 @@ struct Union
 
     private:
         template<std::size_t Index>
-        constexpr auto* get() &
+        ARC_INLINE constexpr auto* get() &
         {
             return std::launder(reinterpret_cast<NodeAt<Index>*>(bytes));
         }
 
         template<std::size_t Index>
-        constexpr auto const* get() const &
+        ARC_INLINE constexpr auto const* get() const &
         {
             return std::launder(reinterpret_cast<NodeAt<Index> const*>(bytes));
         }
 
         template<class F>
-        constexpr decltype(auto) withNode(this auto& self, F&& f)
+        ARC_INLINE constexpr decltype(auto) withNode(this auto& self, F&& f)
         {
             return withIndex(
                 self.index,
@@ -323,14 +323,14 @@ template<class Trait>
 struct Union<Options...>::Node<Context>::AsTrait : Node
 {
     template<class Source, class Key = ContextOf<Source>::Info::DefaultKey>
-    constexpr auto finalise(this auto& self, Source& source, Key const& key = {}, auto const&... keys)
+    ARC_INLINE constexpr auto finalise(this auto& self, Source& source, Key const& key = {}, auto const&... keys)
     {
         // Don't consume the key, as it needs to be applied once we know the active option
         return arc::finalise<false>(source, self, key, keys...);
     }
 
     template<class Self, class... Args>
-    constexpr decltype(auto) implWithKey(this Self& self, auto const& key, auto const& keys, Args&&... args)
+    ARC_INLINE constexpr decltype(auto) implWithKey(this Self& self, auto const& key, auto const& keys, Args&&... args)
     {
         using Environment = Self::Environment;
         return self.withNode(
@@ -346,7 +346,7 @@ struct Union<Options...>::Node<Context>::AsTrait : Node
     }
 
     template<class Self>
-    constexpr decltype(auto) impl(this Self& self, auto&&... args)
+    ARC_INLINE constexpr decltype(auto) impl(this Self& self, auto&&... args)
     {
         return self.implWithKey(typename ContextOf<Self>::Info::DefaultKey{}, std::tuple(), ARC_FWD(args)...);
     }

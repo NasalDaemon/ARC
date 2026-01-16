@@ -122,7 +122,7 @@ TEST_CASE("arc::test::Mock")
     CHECK(1 == takesIntCalls.lastVisitedIndex().value());
 
     // Reset visitor to initial state
-    takesIntCalls.reset();
+    takesIntCalls.restart();
     CHECK(not takesIntCalls.lastVisitedIndex().has_value());
     CHECK(1 == takesIntCalls.currentIndex().value());
     CHECK(1 == takesIntCalls.size());
@@ -136,9 +136,10 @@ TEST_CASE("arc::test::Mock")
     REQUIRE(g.mocks->throwsIfMissing());
     REQUIRE(not g.mocks->returnsDefault());
 
-    CHECK_THROWS_MESSAGE(takesIntCalls.validate(), "CallVisitor: Mock call counting state has been invalidated, please rebind if this is expected");
+    CHECK_THROWS_MESSAGE(takesIntCalls.assertValid(false), "CallVisitor: Mock call counting state has been invalidated, please rebind if this is expected");
     takesIntCalls.rebind();
-    CHECK_NOTHROW(takesIntCalls.validate());
+    CHECK_NOTHROW(takesIntCalls.assertValid(false));
+    CHECK_THROWS(takesIntCalls.assertValid(true)); // calls have been evicted
     CHECK(not takesIntCalls.currentIndex().has_value());
     CHECK(takesIntCalls.empty());
 

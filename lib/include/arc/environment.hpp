@@ -141,7 +141,7 @@ namespace detail {
 
 ARC_MODULE_EXPORT
 template<EnvironmentPart... Es, class Target>
-constexpr auto& mergeEnvParts(Target& t)
+ARC_INLINE constexpr auto& mergeEnvParts(Target& t)
 {
     static_assert(sizeof...(Es) > 0);
     using NewEnv = Target::Environment::template Merge<Es...>;
@@ -154,7 +154,7 @@ constexpr auto& mergeEnvParts(Target& t)
 ARC_MODULE_EXPORT
 template<class Environment, class Target>
 requires (not EnvironmentPart<Environment>)
-constexpr auto& withEnv(Target& t)
+ARC_INLINE constexpr auto& withEnv(Target& t)
 {
     static_assert(Target::Environment::IsEmpty);
     if constexpr (Environment::IsEmpty)

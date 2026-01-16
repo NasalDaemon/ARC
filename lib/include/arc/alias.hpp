@@ -22,7 +22,7 @@ struct Alias final
     using Impl = T;
     using Interface = T;
 
-    explicit constexpr Alias(Impl& impl, Key...) : impl(std::addressof(impl)) {}
+    ARC_INLINE explicit constexpr Alias(Impl& impl, Key...) : impl(std::addressof(impl)) {}
 
     template<class Self>
     ARC_INLINE constexpr auto& get(this Self&& self) { return std::forward_like<Self&>(*self.impl); }
@@ -39,12 +39,12 @@ struct Alias<T, Key, Keys...> final
     using Interface = Alias;
     using Traits = Impl::Traits;
 
-    constexpr Alias(auto& alias, Key const& key, Keys const&... keys)
+    ARC_INLINE constexpr Alias(auto& alias, Key const& key, Keys const&... keys)
         : alias(alias), key(key), keys(keys...)
     {}
 
-    constexpr auto& get(this auto&& self) { return self; }
-    constexpr auto* operator->(this auto&& self) { return std::addressof(self); }
+    ARC_INLINE constexpr auto& get(this auto&& self) { return self; }
+    ARC_INLINE constexpr auto* operator->(this auto&& self) { return std::addressof(self); }
 
     ARC_INLINE constexpr auto impl(this auto&& self, auto&&... args)
         -> decltype(self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...))
@@ -67,7 +67,7 @@ template<class T, class... Key>
 Alias(T&, Key...) -> Alias<T, Key...>;
 
 ARC_MODULE_EXPORT
-constexpr auto makeAlias(auto& impl, auto const&... keys)
+ARC_INLINE constexpr auto makeAlias(auto& impl, auto const&... keys)
 {
     return Alias(detail::compressImpl(impl), keys...);
 }

@@ -15,7 +15,7 @@ export struct Repl
         auto run(int argc, char* argv[]) -> int;
 
     private:
-        auto runCommand(std::vector<std::string>& args) -> bool;
+        auto runCommand(std::span<std::string_view> args) -> bool;
         auto printTree(std::string_view path, std::string_view prefix) -> void;
         auto readLineWithHistory(std::vector<std::string>& history) -> std::string;
         auto getPathCompletions(std::string_view prefix) -> std::vector<std::string>;

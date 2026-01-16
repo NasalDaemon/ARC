@@ -26,7 +26,7 @@ struct NullNormalInvoker
     {
         ARC_INLINE static constexpr decltype(auto) normalise(auto&& f, auto&&... args)
         {
-            return f(ARC_FWD(args)...);
+            return ARC_FWD(f)(ARC_FWD(args)...);
         }
     };
 };
@@ -37,7 +37,7 @@ struct NormalInvoker
     template<std::invocable<NormalArgs...> F>
     ARC_INLINE static constexpr decltype(auto) normalise(F&& f, NormalArgs... args)
     {
-        return f(ARC_FWD(args)...);
+        return ARC_FWD(f)(ARC_FWD(args)...);
     }
 };
 

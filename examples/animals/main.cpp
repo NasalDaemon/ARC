@@ -21,7 +21,7 @@ int main()
 
     // Change impl at runtime by index
     graph.animal->emplace<0>(false);
-    std::println("Unhappy cow says {}", graph.farmer->getNode(trait::animal).speak());
+    std::println("Unhappy cow says {}", graph.farmer.getNode(trait::animal).speak());
 
     // Change impl at runtime by type
     graph.animal->emplace<Sheep>();

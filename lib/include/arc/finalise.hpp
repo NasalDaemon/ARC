@@ -69,7 +69,7 @@ ARC_INLINE constexpr auto finalise(Source&, Target& target)
 // If ConsumeKey is false, the first key not needed to acquire access will be included in the alias
 ARC_MODULE_EXPORT
 template<bool ConsumeKey = true, class Source, class Target, class Key, class... Keys>
-constexpr auto finalise(Source& source, Target& target, Key const& key, Keys const&... keys)
+ARC_INLINE constexpr auto finalise(Source& source, Target& target, Key const& key, Keys const&... keys)
 {
     if constexpr (detail::shouldAcquireAccess<Source, Target, Key>())
     {

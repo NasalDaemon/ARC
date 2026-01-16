@@ -39,13 +39,13 @@ struct WithIndexInvokeTag
 };
 
 template<class Result, std::size_t Index, class Visitor>
-constexpr Result withIndexInvoke(WithIndexInvokeTag<0, Index>, std::size_t, Visitor&&)
+ARC_INLINE constexpr Result withIndexInvoke(WithIndexInvokeTag<0, Index>, std::size_t, Visitor&&)
 {
     std::unreachable();
 }
 
 template<class Result, std::size_t Index, class Visitor>
-constexpr Result withIndexInvoke(WithIndexInvokeTag<1, Index> tag, std::size_t, Visitor&& visitor)
+ARC_INLINE constexpr Result withIndexInvoke(WithIndexInvokeTag<1, Index> tag, std::size_t, Visitor&& visitor)
 {
     return std::invoke(ARC_FWD(visitor), tag.getIndexTag());
 }
@@ -93,7 +93,7 @@ struct WithIndex
     using Result = decltype(commonType<Visitor>(std::make_index_sequence<Count>{}));
 
     template<class Visitor>
-    constexpr Result<Visitor> operator()(std::size_t i, Visitor&& visitor) const
+    ARC_INLINE constexpr Result<Visitor> operator()(std::size_t i, Visitor&& visitor) const
     {
         return withIndexInvoke<Result<Visitor>>(
             WithIndexInvokeTag<Count, 0>(),

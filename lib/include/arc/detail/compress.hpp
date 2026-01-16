@@ -1,6 +1,8 @@
 #ifndef ARC_DETAIL_COMPRESS_HPP
 #define ARC_DETAIL_COMPRESS_HPP
 
+#include "arc/macros.hpp"
+
 #if ARC_COMPRESS_TYPES
 
 #include "arc/detail/cast.hpp"
@@ -60,7 +62,7 @@ namespace arc::detail {
 
     template<class T>
     requires (not IsCompressed<T>)
-    constexpr auto& compressImpl(T& impl)
+    ARC_INLINE constexpr auto& compressImpl(T& impl)
     {
         if constexpr (not std::is_final_v<T>)
             return downCast<CompressImpl<T>>(impl);
@@ -97,7 +99,7 @@ namespace arc::detail {
     using CompressTypes = std::remove_cvref_t<T>;
 
     template<class T>
-    constexpr T& compressImpl(T& impl)
+    ARC_INLINE constexpr T& compressImpl(T& impl)
     {
         return impl;
     }
