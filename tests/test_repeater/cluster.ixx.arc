@@ -7,11 +7,11 @@ namespace arc::tests::repeater {
 
 cluster Cluster
 {
-    a = TestNode
-    b = TestNode
-    c = TestNode
+    a = SourceNode
+    b = TargetNode
+    c = TargetNode
 
-    [trait::Trait]
+    [trait::Target]
     .., a --> {b, c}
 }
 

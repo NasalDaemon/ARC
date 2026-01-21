@@ -7,6 +7,7 @@
 #include "arc/box.hpp"
 #include "arc/collection.hpp"
 #include "arc/combine.hpp"
+#include "arc/data_store.hpp"
 #include "arc/lazy.hpp"
 #include "arc/mock.hpp"
 #include "arc/narrow.hpp"

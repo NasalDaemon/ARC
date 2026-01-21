@@ -219,7 +219,7 @@ struct Union
         template<class Option>
         requires (... || std::same_as<Option, Options>)
         explicit(false) constexpr Node(std::in_place_type_t<Option>, auto&&... args)
-            : index(findIndex<Option>())
+            : index(indexOf<Option>())
         {
             new (bytes) ToNode<Option>(ARC_FWD(args)...);
         }
@@ -234,7 +234,7 @@ struct Union
                     throw std::runtime_error("arc::Union::emplace can only be called when the scheduler is in exclusive mode");
             }
             destroy();
-            index = findIndex<Option>();
+            index = indexOf<Option>();
             ToNode<Option>& next = *new (bytes) ToNode<Option>{ARC_FWD(args)...};
             next.visit(detail::OnGraphConstructedVisitor{});
             return next;
@@ -262,7 +262,7 @@ struct Union
         requires (... || std::same_as<Option, Options>)
         constexpr auto* getIf(this auto& self)
         {
-            return self.template getIf<findIndex<Option>()>();
+            return self.template getIf<indexOf<Option>()>();
         }
 
         constexpr ~Node()
@@ -300,13 +300,9 @@ struct Union
         }
 
         template<class Option>
-        static consteval std::size_t findIndex()
+        static consteval std::size_t indexOf()
         {
-            std::size_t i = 0, c = 0;
-            (((i |= std::is_same_v<Option, Options>, (c += i))), ...);
-            if (c == 0)
-                throw "Not a valid Option";
-            return sizeof...(Options) - c;
+            return arc::indexOf<Option, Options...>();
         }
 
         static constexpr std::size_t Align = std::max({alignof(ToNode<Options>)...});

@@ -30,6 +30,22 @@
     {%- endfor -%}
 {%- endmacro -%}
 
+{%- macro template(templates) -%}
+template<
+    {%- set comma = joiner(", ") -%}
+    {%- for prefix, name in templates -%}
+    {{ comma() }}{{ prefix }}{{ prefix.pack }} {{ name }}
+    {%- endfor -%}
+>
+{%- endmacro -%}
+
+{%- macro template_params(templates) -%}
+    {%- set comma = joiner(", ") -%}
+    {%- for prefix, name in templates -%}
+    {{ comma() }}{{ name }}{{ prefix.pack }}
+    {%- endfor -%}
+{%- endmacro -%}
+
 {% for namespace in repr.namespaces %}
 
 namespace {{ namespace.name }} {
@@ -61,7 +77,19 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
 {% endfor %}
 {% for trait in namespace.traits %}
 
-{{ export }}struct {{ trait.name }} : ::arc::Trait
+{% if trait.templates %}
+{{ export }}{{ template(trait.templates) }}
+struct {{ trait.name }};
+{% else %}
+{{ export }}struct {{ trait.name }};
+{% endif %}
+{% endfor %}
+{% for trait in namespace.traits %}
+
+{% if trait.templates %}
+{{ template(trait.templates) }}
+{% endif %}
+struct {{ trait.name }} : ::arc::Trait
 {
     {% for method_name in trait.method_names %}
     ARC_METHOD_TAG({{ method_name }})
@@ -205,7 +233,14 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
         {% endfor %}
     }
     using Implements = void;
-} inline constexpr {{ trait.variable }}{};
+};
+
+{% if trait.templates %}
+{{ export }}{{ template(trait.templates) }}
+inline constexpr {{ trait.name }}<{{ template_params(trait.templates) }}> {{ trait.variable }}{};
+{% else %}
+{{ export }}inline constexpr {{ trait.name }} {{ trait.variable }}{};
+{% endif %}
 {% endfor %}
 {% for alias in namespace.trait_aliases %}
 
@@ -267,16 +302,11 @@ template<class Context>
 struct {{ cluster.node_name() }};
 {{ export }}using {{ cluster.name }} = ::arc::InlineNode<{{ cluster.node_name() }}>;
 {% else %}
-{{ export }}template<
-    {%- set comma = joiner(", ") -%}
-    {%- for prefix, name in cluster.templates -%}
-    {{ comma() }}{{ prefix }}{{ prefix.pack }} {{ name }}
-    {%- endfor -%}
->
+{{ export }}{{ template(cluster.templates) }}
 struct {{ cluster.name }}
 {
     template<class Context>
-    struct {{ cluster.node_name() }};
+    struct Node;
 };
 {% endif %}
 {% endfor %}
@@ -289,19 +319,9 @@ namespace {{ namespace.name }} {
 {% for cluster in namespace.clusters %}
 
 {% if cluster.templates %}
-template<
-    {%- set comma = joiner(", ") -%}
-    {%- for prefix, name in cluster.templates -%}
-    {{ comma() }}{{ prefix }}{{ prefix.pack }} {{ name }}
-    {%- endfor -%}
->
+{{ template(cluster.templates) }}
 template<class {{ cluster.context_name }}>
-struct {{ cluster.name }}<
-    {%- set comma = joiner(", ") -%}
-    {%- for prefix, name in cluster.templates -%}
-    {{ comma() }}{{ name }}{{ prefix.pack }}
-    {%- endfor -%}
->::Node : {{ cluster.cluster_type }}
+struct {{ cluster.name }}<{{ template_params(cluster.templates) }}>::Node : {{ cluster.cluster_type }}
 {% else %}
 template<class {{ cluster.context_name }}>
 struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}

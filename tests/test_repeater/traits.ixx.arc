@@ -2,13 +2,14 @@ export module arc.tests.repeater.traits;
 
 namespace arc::tests::repeater::trait {
 
-trait Trait
+trait Source
 {
-    defer(int& i) const -> void
-    function(int& i) const -> void
+    defer(int& i) -> void
+}
 
-    // defer(...)
-    // function(...)
+trait Target
+{
+    function(int& i) -> void
 }
 
 }

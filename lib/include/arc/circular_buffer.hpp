@@ -3,6 +3,7 @@
 
 #include "arc/macros.hpp"
 #include "arc/detail/concepts.hpp"
+#include "arc/detail/storage.hpp"
 
 #if !ARC_IMPORT_STD
 #include <algorithm>
@@ -643,10 +644,7 @@ private:
         buffer = Buffer(std::move(buffer), newMask, readIndex, writeIndex, readIndex);
     }
 
-    struct alignas(T) Storage
-    {
-        std::byte bytes[sizeof(T)];
-    };
+    using Storage = detail::Storage<T>;
 
     struct Buffer
     {
@@ -721,8 +719,7 @@ private:
         template<class Self>
         constexpr auto* storage_at(this Self& self, std::size_t index) noexcept
         {
-            using Ptr = std::conditional_t<std::is_const_v<Self>, T const*, T*>;
-            return reinterpret_cast<Ptr>(self.data[index & self.mask].bytes);
+            return self.data[index & self.mask].storage();
         }
     };
 

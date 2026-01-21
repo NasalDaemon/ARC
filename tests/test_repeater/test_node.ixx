@@ -1,3 +1,10 @@
+module;
+#include "arc/macros.hpp"
+
+#if !ARC_IMPORT_STD
+#include <cstddef>
+#endif
+
 export module arc.tests.repeater.test_node;
 
 import arc.tests.repeater.traits;
@@ -6,18 +13,27 @@ import arc;
 
 export namespace arc::tests::repeater {
 
-struct TestNode : arc::Node
+struct SourceNode : arc::Node
 {
-    void impl(trait::Trait::function, int& i) const
+    using Traits = arc::Traits<trait::Source>;
+
+    void impl(this auto& self, trait::Source::defer, int& i)
+    {
+        self.getNode(trait::target).function(i);
+    }
+};
+
+struct TargetNode : arc::Node
+{
+    using Traits = arc::Traits<trait::Target>;
+
+    void impl(trait::Target::function, int& i)
     {
         i++;
-    }
-    void impl(this auto const& self, trait::Trait::defer, int& i)
-    {
-        self.getNode(trait::trait).function(i);
+        functionCalled++;
     }
 
-    using Traits = arc::Traits<trait::Trait>;
+    std::size_t functionCalled = 0;
 };
 
 } // namespace arc::tests::repeater

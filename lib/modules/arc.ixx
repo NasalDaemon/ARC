@@ -26,6 +26,8 @@ export namespace arc {
     using arc::args;
     using arc::IsArgs;
     using arc::IsArgsOf;
+    // bitset.hpp
+    using arc::Bitset;
     // box.hpp
     using arc::BoxWithRoot;
     using arc::boxWithRoot;
@@ -87,6 +89,13 @@ export namespace arc {
     // count.hpp
     using arc::nodeCount;
     using arc::IsUnary;
+    // data_store.hpp
+    using arc::DataStore;
+    // traits/datastore.hxx
+    namespace trait {
+        using trait::DataStore;
+        using trait::DataListener;
+    }
     // depends.hpp
     using arc::Depends;
     // detached.hpp
@@ -236,6 +245,12 @@ export namespace arc {
         using trait::peer;
     }
     // repeater.hpp
+    namespace key {
+        using key::RepeaterIndex;
+        using key::repeaterIndex;
+        using key::RepeaterNode;
+        using key::repeaterNode;
+    }
     using arc::Repeater;
     using arc::RepeaterTrait;
     // resolve.hpp
@@ -317,7 +332,6 @@ export namespace arc {
     using arc::typeName;
     // union.hpp
     using arc::Union;
-    using arc::withIndex;
     // virtual.hpp
     using arc::IDestructible;
     using arc::KeepAlive;
@@ -327,6 +341,10 @@ export namespace arc {
     using arc::INodeImpl;
     using arc::INodeOf;
     using arc::Virtual;
+    // detail/with_index.hpp
+    using arc::indexOf;
+    using arc::forEachIndex;
+    using arc::withIndex;
 }
 
 #endif

@@ -417,8 +417,8 @@ class Cluster:
         else:
             return f'{self.name}_'
 
-    def add_template(self, token):
-        for c in token.children:
+    def add_template(self, tree):
+        for c in tree.children:
             if c.data == imported('tparam_type'):
                 self.templates.append((CppType(c.children[0].value.replace("typename", "class")), c.children[1].value))
             elif c.data == imported('tparam_non_type'):
@@ -870,6 +870,7 @@ class Trait:
         self.requires: list[str] = []
         self.has_const_requires = False
         self.has_mutable_requires = False
+        self.templates: list[tuple[CppType, str]] = []
 
     def walk(self, children):
         for c in children:
@@ -924,6 +925,16 @@ class Trait:
         self.method_names = sorted(set(method.name for method in self.methods))
         self.has_const_requires = next((method.is_const for method in self.methods if method.is_const and not method.is_template), False)
         self.has_mutable_requires = next((not method.is_const for method in self.methods if not method.is_const and not method.is_template), False)
+
+    def add_template(self, tree):
+        for c in tree.children:
+            if c.data == imported('tparam_type'):
+                self.templates.append((CppType(c.children[0].value.replace("typename", "class")), c.children[1].value))
+            elif c.data == imported('tparam_non_type'):
+                type_ = CppType.from_tree(c.children[0])
+                self.templates.append((type_, c.children[1].value))
+            else:
+                raise SyntaxError(f'{get_pos(c)} Unknown cluster template: {c.data}')
 
 
 class Group:
@@ -1043,13 +1054,14 @@ class Namespace:
                 self.repr.visit_policy(self.name, c)
             elif c.data == imported('trait'):
                 # trait node contains [TRAIT token, trait_def or trait_alias]
-                trait_child = c.children[1]  # Skip token
-                if trait_child.data == imported('trait_def'):
-                    self.repr.visit_trait_def(self.name, trait_child)
-                elif trait_child.data == imported('trait_alias'):
-                    self.repr.visit_trait_alias(self.name, trait_child)
+                has_template = not isinstance(c.children[0], Token)
+                trait_scope = c.children[-1]  # Skip token
+                if trait_scope.data == imported('trait_def'):
+                    self.repr.visit_trait_def(self.name, trait_scope, c.children[0] if has_template else None)
+                elif trait_scope.data == imported('trait_alias'):
+                    self.repr.visit_trait_alias(self.name, trait_scope)
                 else:
-                    raise SyntaxError(f'{get_pos(trait_child)} Unknown trait type: {trait_child.data}')
+                    raise SyntaxError(f'{get_pos(trait_scope)} Unknown trait type: {trait_scope.data}')
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown namespace entity: {c.data}')
 
@@ -1128,42 +1140,41 @@ class Repr:
             elif t.data == imported('policy'):
                 self.visit_policy("", t)
             elif t.data == imported('trait'):
-                # trait node contains [TRAIT token, trait_def or trait_alias]
-                trait_child = t.children[1]  # Skip token
-                if trait_child.data == imported('trait_def'):
-                    self.visit_trait_def("", trait_child)
-                elif trait_child.data == imported('trait_alias'):
-                    self.visit_trait_alias("", trait_child)
+                has_template = not isinstance(t.children[0], Token)
+                trait_scope = t.children[-1]  # Skip token
+                if trait_scope.data == imported('trait_def'):
+                    self.visit_trait_def("", trait_scope, t.children[0] if has_template else None)
+                elif trait_scope.data == imported('trait_alias'):
+                    self.visit_trait_alias("", trait_scope)
                 else:
-                    raise SyntaxError(f'{get_pos(trait_child)} Unknown trait type: {trait_child.data}')
+                    raise SyntaxError(f'{get_pos(trait_scope)} Unknown trait type: {trait_scope.data}')
             else:
                 raise SyntaxError(f'{get_pos(t)} Unknown token: {t.data}')
         self.includes = sorted(includes)
         self.import_modules = [f"{impt} {name}" for impt, name in sorted(import_modules, key=lambda v: v[1])]
 
     def visit_cluster(self, source_ns: str, tree: Tree, is_domain: bool):
-        # tree is cluster/domain node with [CLUSTER/DOMAIN token, cluster_scope] children
-        scope = tree.children[1]  # Skip token, get cluster_scope
-        has_template = not isinstance(scope.children[0], Token)
-        name_index = 1 if has_template else 0
-        name, namespace = self.split_namespace(tree, source_ns, scope.children[name_index].value)
-        cluster = namespace.add_cluster(name, scope.children[name_index], is_domain=is_domain)
+        has_template = not isinstance(tree.children[0], Token)
+        scope = tree.children[-1]
+        name, namespace = self.split_namespace(tree, source_ns, scope.children[0].value)
+        cluster = namespace.add_cluster(name, scope.children[0], is_domain=is_domain)
         if has_template:
-            cluster.add_template(scope.children[0])
-        cluster.walk(scope.children[(name_index+1):])
+            cluster.add_template(tree.children[0])
+        cluster.walk(scope.children[1:])
 
     def visit_policy(self, source_ns: str, tree: Tree):
         # tree is policy node with [POLICY token, policy_scope] children
-        scope = tree.children[1]  # Skip token, get policy_scope
+        scope = tree.children[-1]  # Skip token, get policy_scope
         name, namespace = self.split_namespace(tree, source_ns, scope.children[0].value)
         policy = namespace.add_policy(name)
         policy.walk(scope.children[1:])
 
-    def visit_trait_def(self, source_ns: str, tree: Tree):
-        # tree is trait_def node with FQNAME, optional trait_annotations, and trait_body children
+    def visit_trait_def(self, source_ns: str, tree: Tree, template: Optional[Tree] = None):
         name, namespace = self.split_namespace(tree, source_ns, tree.children[0].value)
         trait = namespace.add_trait(name, tree)
         trait.walk(tree.children[1:])
+        if template is not None:
+            trait.add_template(template)
 
     def visit_trait_alias(self, source_ns: str, tree: Tree):
         # tree is trait_alias node with FQNAME tokens

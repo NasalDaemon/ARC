@@ -117,6 +117,12 @@
 
 #define ARC_COLD [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
 
+#if ARC_CPP_VERSION >= 202602L
+#   define ARC_INDETERMINATE [[indeterminate]]
+#else
+#   define ARC_INDETERMINATE
+#endif
+
 // Clang won't detail the failure in the build diagnostic when asserting the concept directly
 #if ARC_COMPILER_CLANG
 #   define ARC_ASSERT_IMPLEMENTS(Impl, Types, Trait) \
@@ -261,7 +267,7 @@
 
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
     [[no_unique_address]] ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \
-    friend consteval auto getNodePointer(arc::AdlTag<Context>) \
+    friend consteval auto getNodePointer(::arc::AdlTag<Context>) \
     { \
         using P = Context::Parent; \
         return ::arc::detail::memberPtr<P>(&P::nodeName); \

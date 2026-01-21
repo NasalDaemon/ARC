@@ -23,6 +23,7 @@ add_executable(arc_tests_module
     test_joined_trait.cpp
     test_node_count.cpp
     test_null_trait.cpp
+    test_datastore/test_datastore.cpp
     test_spy.cpp
     test_union.cpp
     test_virtual.cpp
@@ -84,6 +85,7 @@ target_generate_arc_modules(arc_tests_module
         test_domain
         test_repeater
     EMBED
+        test_datastore/test_datastore.cpp
         test_collection.cpp
         test_embedded_modules.cpp
         test_global.cpp
@@ -103,6 +105,7 @@ target_generate_arc_modules(arc_tests_mock
 target_sources(arc_tests_module
     PUBLIC FILE_SET CXX_MODULES FILES
         test_repeater/test_node.ixx
+        test_datastore/types.ixx
 )
 
 target_generate_arc_src(arc_tests_module

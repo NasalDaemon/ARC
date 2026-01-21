@@ -4,6 +4,7 @@
 #include "arc/detail/compress.hpp"
 
 #include "arc/macros.hpp"
+#include "arc/node_fwd.hpp"
 
 #if !ARC_IMPORT_STD
 #include <memory>
@@ -21,6 +22,7 @@ struct Alias final
 
     using Impl = T;
     using Interface = T;
+    using Node = detail::NodeOf<T>;
 
     ARC_INLINE explicit constexpr Alias(Impl& impl, Key...) : impl(std::addressof(impl)) {}
 
@@ -38,6 +40,7 @@ struct Alias<T, Key, Keys...> final
     using Impl = T;
     using Interface = Alias;
     using Traits = Impl::Traits;
+    using Node = detail::NodeOf<T>;
 
     ARC_INLINE constexpr Alias(auto& alias, Key const& key, Keys const&... keys)
         : alias(alias), key(key), keys(keys...)

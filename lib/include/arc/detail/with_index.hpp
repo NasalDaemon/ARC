@@ -102,9 +102,33 @@ struct WithIndex
     }
 };
 
+template<std::size_t... Is>
+void forEachIndex(std::index_sequence<Is...>, auto&& f)
+{
+    (std::invoke(ARC_FWD(f), std::integral_constant<std::size_t, Is>{}), ...);
+}
+
 }
 
 namespace arc {
+    ARC_MODULE_EXPORT
+    template<class Option, class... Options>
+    consteval std::size_t indexOf()
+    {
+        std::size_t i = 0, c = 0;
+        (((i |= std::is_same_v<Option, Options>, (c += i))), ...);
+        if (c == 0)
+            throw "Not a valid Option";
+        return sizeof...(Options) - c;
+    }
+
+    ARC_MODULE_EXPORT
+    template<std::size_t Count>
+    void forEachIndex(auto&& f)
+    {
+        detail::forEachIndex(std::make_index_sequence<Count>{}, ARC_FWD(f));
+    }
+
     ARC_MODULE_EXPORT
     template<std::size_t Count>
     inline constexpr detail::WithIndex<Count> withIndex{};

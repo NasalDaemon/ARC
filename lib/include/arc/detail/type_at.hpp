@@ -11,7 +11,7 @@
 
 #if !ARC_IMPORT_STD
 #include <cstdint>
-#   if !ARC_TYPE_AT_VER
+#   if not defined(ARC_TYPE_AT_VER)
 #   include <type_traits>
 #   include <utility>
 #   endif

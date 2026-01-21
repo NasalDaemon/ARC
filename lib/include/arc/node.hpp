@@ -129,6 +129,9 @@ struct Node
         return ContextOf<Self>::Info::finalise(source, self, key, keys...);
     }
 
+    template<class Types>
+    ARC_INLINE static constexpr std::type_identity<Types> finaliseTypes(auto const&...) { return {}; }
+
     template<class Self>
     static consteval void assertNodeContext()
     {

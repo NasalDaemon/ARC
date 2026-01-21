@@ -45,8 +45,13 @@ namespace detail {
     {
         using Interface = Interface_;
         ARC_INLINE explicit constexpr TargetRef(Interface& ref, std::type_identity<Types>) : ptr(std::addressof(ref)) {}
-        ARC_INLINE static constexpr std::type_identity<CompressTypes<Types>> types() { return {}; };
-        ARC_INLINE static constexpr std::type_identity<EmptyTypes> types() requires std::is_same_v<Types, EmptyTypes> { return {}; };
+        ARC_INLINE static constexpr auto finaliseTypes(auto const&... keys)
+        {
+            if constexpr (std::is_same_v<Types, EmptyTypes>)
+                return Interface::template finaliseTypes<EmptyTypes>(keys...);
+            else
+                return Interface::template finaliseTypes<CompressTypes<Types>>(keys...);
+        };
 
         Interface* ptr;
     };
