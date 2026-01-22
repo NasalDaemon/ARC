@@ -52,7 +52,7 @@ struct Lazy
 
         template<class Trait>
         requires HasTrait<NodeState, Trait>
-        using TraitsTemplate = arc::ResolvedTrait<Node, typename detail::ResolveTrait<NodeState, Trait>::template Types<>>;
+        using TraitsTemplate = arc::ResolvedTrait<Node, detail::ResolveTypesOfNode<NodeState, Trait>>;
 
     public:
         using Traits = arc::TraitsTemplate<TraitsTemplate>;

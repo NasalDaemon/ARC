@@ -16,6 +16,18 @@ ARC_MODULE_EXPORT
 template<class T>
 concept IsStateless = std::is_empty_v<T>;
 
+namespace detail {
+    struct Void{};
+
+    template<class T>
+    auto normaliseVoid() -> T;
+    template<IsStateless T>
+    auto normaliseVoid() -> Void;
+
+    template<class T>
+    using NormaliseVoid = decltype(normaliseVoid<T>());
+}
+
 } // namespace arc
 
 #endif // INCLUDE_ARC_EMPTY_TYPES_HPP

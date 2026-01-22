@@ -115,10 +115,12 @@ namespace arc {
     template<class Option, class... Options>
     consteval std::size_t indexOf()
     {
-        std::size_t i = 0, c = 0;
-        (((i |= std::is_same_v<Option, Options>, (c += i))), ...);
-        if (c == 0)
-            throw "Not a valid Option";
+        std::size_t i = 0, c = 0, f = 0;
+        (((i |= (std::is_same_v<Option, Options> ? (++f, 1) : 0), (c += i))), ...);
+        if (f == 0)
+            throw "Option not found";
+        if (f > 1)
+            throw "Multiple Options found";
         return sizeof...(Options) - c;
     }
 

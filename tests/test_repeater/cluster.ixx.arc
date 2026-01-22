@@ -9,7 +9,7 @@ cluster Cluster
 {
     a = SourceNode
     b = TargetNode
-    c = TargetNode
+    c = TargetNode2
 
     [trait::Target]
     .., a --> {b, c}

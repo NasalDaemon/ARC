@@ -170,7 +170,7 @@ struct Union
         static constexpr bool isUnary() { return (... and ToNode<Options>::isUnary()); }
 
         template<std::size_t I, class Trait>
-        struct TypesAtT : detail::ResolveTrait<NodeAt<I>, Trait>::template Types<>
+        struct TypesAtT : detail::ResolveTypesOfNode<NodeAt<I>, Trait>
         {
             static constexpr std::size_t TypesCount = sizeof...(Options);
             template<std::size_t UnionIndex>

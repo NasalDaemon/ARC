@@ -14,11 +14,13 @@
 
 #define ARC_NODE_USE_PUBLIC_MEMBERS(NodeT) \
     using Node = detail::NodeOf<NodeT>; \
-    /* Expose utility functions from the underlying node */ \
     using Traits = NodeT::Traits; \
     using Depends = NodeT::Depends; \
     using Environment = NodeT::Environment; \
     using Types = NodeT::Types; \
+    template<class Source, class Node, class Types, class... Keys> \
+    using FinaliseTypes = NodeT::template FinaliseTypes<Source, Node, Types, Keys...>; \
+    /* Expose utility functions from the underlying node */ \
     using NodeT::assertNodeContext; \
     using NodeT::isUnary; \
     using NodeT::getNode; \

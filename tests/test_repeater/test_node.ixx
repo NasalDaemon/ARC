@@ -36,4 +36,7 @@ struct TargetNode : arc::Node
     std::size_t functionCalled = 0;
 };
 
+struct TargetNode2 : TargetNode
+{};
+
 } // namespace arc::tests::repeater

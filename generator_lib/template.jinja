@@ -124,9 +124,6 @@ struct {{ trait.name }} : ::arc::Trait
         {
             {% for method in trait.methods %}
             template<class Self
-                {%- for prefix, name in method.templates -%}
-                , {{ prefix }}{{ prefix.pack }} {{ name }}
-                {%- endfor -%}
                 {%- if trait.types_name -%}
                 , class {{ trait.types_name }} = std::remove_cvref_t<Self>::Types
                 {%- endif -%}
@@ -139,6 +136,9 @@ struct {{ trait.name }} : ::arc::Trait
                 {%- if trait.impl_named -%}
                 , class {{ trait.impl_name }} = ::arc::ContextToNode<::arc::ContextOf<std::remove_cvref_t<Self>>>
                 {%- endif -%}
+                {%- for prefix, name in method.templates -%}
+                , {{ prefix }}{{ prefix.pack }} {{ name }}
+                {%- endfor -%}
             >
             static constexpr auto {{ method.name }}(Self{{ " const&" if method.is_const else "&" }}
                 {%- for type, name in method.params -%}

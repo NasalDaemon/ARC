@@ -39,6 +39,9 @@ struct Node
     using Environment = arc::Environment<>;
     using Depends = detail::DependsImplicitly;
 
+    template<class Source, class Self, class Types, class... Keys>
+    using FinaliseTypes = Types;
+
     // Also exposed in TraitNodeView
     template<class Self, std::invocable<Self&> Visitor>
     ARC_INLINE constexpr decltype(auto) visit(this Self& self, Visitor&& visitor)
@@ -128,9 +131,6 @@ struct Node
     {
         return ContextOf<Self>::Info::finalise(source, self, key, keys...);
     }
-
-    template<class Types>
-    ARC_INLINE static constexpr std::type_identity<Types> finaliseTypes(auto const&...) { return {}; }
 
     template<class Self>
     static consteval void assertNodeContext()

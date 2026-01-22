@@ -200,7 +200,7 @@ struct Collection
 
         template<class Trait>
         requires HasTrait<ElementNode, Trait>
-        using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, typename detail::ResolveTrait<ElementNode, Trait>::template Types<>>;
+        using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, detail::ResolveTypesOfNode<ElementNode, Trait>>;
 
         std::vector<Element> elements;
         std::vector<ID> ids;

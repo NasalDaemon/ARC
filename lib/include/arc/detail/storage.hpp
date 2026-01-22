@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ARC_DETAIL_STORAGE_HPP
 #define INCLUDE_ARC_DETAIL_STORAGE_HPP
 
+#include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -22,6 +23,20 @@ struct Storage
 
 private:
     alignas(T) std::byte bytes[sizeof(T)] ARC_INDETERMINATE;
+};
+
+template<IsStateless T>
+struct Storage<T>
+{
+    constexpr Storage() {} // explicit no-op constructor to prevent zero-initialization
+
+    constexpr T* storage() { return std::addressof(t); }
+    constexpr const T* storage() const { return std::addressof(t); }
+    constexpr T* value() { return storage(); }
+    constexpr const T* value() const { return storage(); }
+
+private:
+    [[no_unique_address]] T t ARC_INDETERMINATE;
 };
 
 }

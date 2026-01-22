@@ -40,7 +40,6 @@ struct DetachedImpl : Interface, private NodeT
 
     ARC_NODE_USE_PUBLIC_MEMBERS(NodeT)
     using NodeT::finalise;
-    using NodeT::finaliseTypes;
 
     // Use impl from the detached interface
     using Interface::impl;

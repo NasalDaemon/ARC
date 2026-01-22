@@ -82,11 +82,11 @@ concept MatchesTrait = TraitCanProvide<Trait, TraitExpects<T>>;
 namespace detail {
     template<class Trait, class Impl, class Types, IsTrait... Subtraits>
     requires (sizeof...(Subtraits) > 0)
-    using ImplementsAll = Void<typename Subtraits::template Implements<Trait, Decompress<Impl>, Decompress<Types>>...>;
+    using ImplementsAll = ToVoid<typename Subtraits::template Implements<Trait, Decompress<Impl>, Decompress<Types>>...>;
 
     template<class Impl, class Types, IsTrait... Traits>
     requires (sizeof...(Traits) > 0)
-    using Implements = Void<typename Traits::template Implements<Traits, Decompress<Impl>, Decompress<Types>>...>;
+    using Implements = ToVoid<typename Traits::template Implements<Traits, Decompress<Impl>, Decompress<Types>>...>;
 }
 
 ARC_MODULE_EXPORT

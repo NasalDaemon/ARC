@@ -38,14 +38,14 @@ template<class...>
 inline constexpr bool alwaysFalse = false;
 
 template<class...>
-using Void = void;
+using ToVoid = void;
 
 template<class T>
 requires std::is_void_v<T>
 using VoidOnly = void;
 
 template<class... Ts>
-using AllVoid = Void<VoidOnly<Ts>...>;
+using AllVoid = ToVoid<VoidOnly<Ts>...>;
 
 } // namespace arc::detail
 

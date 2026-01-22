@@ -2,12 +2,10 @@
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
-#include <bitset>
 #include <cstddef>
-#include <map>
-#include <memory>
-#include <type_traits>
-#include <utility>
+#include <optional>
+#include <string>
+#include <tuple>
 #include <vector>
 #endif
 
@@ -48,6 +46,11 @@ namespace trait {
     using DataListener = arc::trait::DataListener<SharedData>;
 }
 
+struct Event
+{
+    std::string desc;
+};
+
 struct Root
 {
     struct Receiver1
@@ -73,17 +76,20 @@ struct Root
             void impl(trait::DataListener::init, SharedData::Id const& id, SharedData& sharedData, auto constructor)
             {
                 CHECK(id == sharedData.id);
-                PrivateData& ld = constructor(id + 10);
-                CHECK(ld.value == id + 10);
+                if (id < 4)
+                {
+                    PrivateData& ld = constructor(id + 10);
+                    CHECK(ld.value == id + 10);
+                }
             }
 
-            void impl(trait::DataListener::onEvent, auto const& tag, SharedData::Id const& id, SharedData& sharedData, PrivateData& data)
+            void impl(trait::DataListener::onEvent, Event const& event, SharedData::Id const& id, SharedData& sharedData, PrivateData& data)
             {
                 CHECK(id == sharedData.id);
                 auto [pSharedData, pData] = getDataStore().get(id);
                 CHECK(pSharedData == &sharedData);
                 CHECK(pData == &data);
-                if (tag == "test")
+                if (event.desc == "test")
                     received.push_back(data);
             }
 
@@ -112,24 +118,111 @@ struct Root
         void impl(trait::DataListener::init, SharedData::Id const& id, SharedData& sharedData, auto constructor)
         {
             CHECK(id == sharedData.id);
-            if (sharedData.id != 3)
+            if (sharedData.id < 3)
             {
                 PrivateData& ld = constructor(sharedData.id + 20);
                 CHECK(ld.value == sharedData.id + 20);
             }
+            else
+            {
+                skipped += 1;
+            }
         }
 
-        void impl(this auto& self, trait::DataListener::onEvent, auto const& tag, SharedData::Id const& id, SharedData& sharedData, PrivateData& data)
+        void impl(this auto& self, trait::DataListener::onEvent, Event const& event, SharedData::Id const& id, SharedData& sharedData, PrivateData& data)
         {
             CHECK(id == sharedData.id);
             auto [pSharedData, pData] = self.getDataStore().get(id);
             CHECK(pSharedData == &sharedData);
             CHECK(pData == &data);
-            if (tag == "test")
+            if (event.desc == "test")
                 self.received.push_back(data);
         }
 
+        void testModify(this auto& self)
+        {
+            auto [pSharedData, pData] = self.getDataStore().modify(1, [](SharedData* sd, PrivateData* pd) {
+                CHECK(sd != nullptr);
+                CHECK(pd != nullptr);
+                pd->value += 5;
+                return Event{"test"};
+            });
+            CHECK(pSharedData != nullptr);
+            CHECK(pData->value == 26);
+
+            bool called = false;
+            std::tie(pSharedData, pData) = self.getDataStore().modify(3, [&](SharedData const* sd, PrivateData* pd) {
+                called = true;
+                CHECK(sd != nullptr);
+                CHECK(pd == nullptr);
+                return noEvent;
+            });
+            CHECK(called);
+            CHECK(pSharedData != nullptr);
+            CHECK(pData != nullptr);
+
+            called = false;
+            std::tie(pSharedData, pData) = self.getDataStore().modify(3, [&](SharedData const* sd, PrivateData* pd) {
+                called = true;
+                CHECK(sd != nullptr);
+                CHECK(pd == nullptr);
+                return std::optional<Event>{std::nullopt};
+            });
+            CHECK(called);
+            CHECK(pSharedData != nullptr);
+            CHECK(pData != nullptr);
+
+            called = false;
+            std::tie(pSharedData, pData) = self.getDataStore().modify(4, [&](SharedData const*, PrivateData*) {
+                called = true;
+                // no event returned
+            });
+            CHECK_FALSE(called);
+            CHECK(pSharedData == nullptr);
+            CHECK(pData == nullptr);
+        }
+
+        void testForEach(this auto& self)
+        {
+            std::size_t called = 0;
+            self.getDataStore().forEach([&](int id, SharedData* sd, PrivateData* pd) {
+                called++;
+                REQUIRE(sd != nullptr);
+                CHECK(sd->id == id);
+                if (id == 3)
+                {
+                    CHECK(pd == nullptr);
+                }
+                else
+                {
+                    CHECK(pd != nullptr);
+                    pd->value += 1;
+                }
+                return Event{"test"};
+            });
+            CHECK(called == 3);
+
+            called = 0;
+            self.getDataStore().forEach([&](int id, SharedData const* sd, PrivateData* pd) {
+                called++;
+                REQUIRE(sd != nullptr);
+                CHECK(sd->id == id);
+                if (id == 3)
+                {
+                    CHECK(pd == nullptr);
+                }
+                else
+                {
+                    CHECK(pd != nullptr);
+                    pd->value += 1;
+                }
+                // no event returned
+            });
+            CHECK(called == 3);
+        }
+
         std::vector<PrivateData> received;
+        std::size_t skipped = 0;
     };
 };
 
@@ -137,15 +230,34 @@ TEST_CASE("arc::DataStore")
 {
     arc::Graph<Cluster, Root> graph;
 
-    REQUIRE(graph.store->add(0, 0));
-    REQUIRE(graph.store->add(1, 1));
-    REQUIRE(graph.store->add(3, 3)); // Receiver2 will not subscribe to this
-    REQUIRE_FALSE(graph.store->add(1, 1)); // Duplicate
+    REQUIRE(graph.store->add(0, 0).second);
+    REQUIRE(graph.store->add(1, 1).second);
+    REQUIRE(graph.r2->skipped == 0);
+    REQUIRE(graph.store->add(3, 3).second); // Receiver2 will not subscribe to this
+    REQUIRE(graph.r2->skipped == 1);
 
-    graph.store->notifyAll("test");
+    // Duplicate adds
+    auto [data, added] = graph.store->add(1, 1);
+    REQUIRE(graph.r2->skipped == 1);
+    REQUIRE_FALSE(added);
+    REQUIRE(data != nullptr);
+
+    // Receiver2::init is called, but it skips again
+    std::tie(data, added) = graph.store->add(3, 3);
+    REQUIRE(graph.r2->skipped == 2);
+    REQUIRE_FALSE(added);
+    REQUIRE(data != nullptr);
+
+    // Neither listener subscribes
+    std::tie(data, added) = graph.store->add(4, 4);
+    REQUIRE(graph.r2->skipped == 3);
+    REQUIRE_FALSE(added);
+    REQUIRE(data == nullptr);
+
+    graph.store->notifyAll(Event{"test"});
     CHECK(graph.r1->received.size() == 3);
     CHECK(graph.r2->received.size() == 2);
-    graph.store->notifyAll("not-test"); // ignored by receivers
+    graph.store->notifyAll(Event{"not-test"}); // ignored by receivers
     CHECK(graph.r1->received.size() == 3);
     CHECK(graph.r2->received.size() == 2);
 
@@ -154,6 +266,18 @@ TEST_CASE("arc::DataStore")
     CHECK(graph.r1->received.at(2).getValue() == 13);
     CHECK(graph.r2->received.at(0).getValue() == 20);
     CHECK(graph.r2->received.at(1).getValue() == 21);
+
+    graph.r2->testModify();
+    CHECK(graph.r1->received.size() == 4);
+    CHECK(graph.r2->received.size() == 2);
+    CHECK(graph.r1->received.at(3).getValue() == 11);
+
+    graph.r2->testForEach();
+    CHECK(graph.r1->received.size() == 7);
+    CHECK(graph.r2->received.size() == 2);
+    CHECK(graph.r1->received.at(4).getValue() == 10);
+    CHECK(graph.r1->received.at(5).getValue() == 11);
+    CHECK(graph.r1->received.at(6).getValue() == 13);
 }
 
 }

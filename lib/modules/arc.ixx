@@ -26,8 +26,6 @@ export namespace arc {
     using arc::args;
     using arc::IsArgs;
     using arc::IsArgsOf;
-    // bitset.hpp
-    using arc::Bitset;
     // box.hpp
     using arc::BoxWithRoot;
     using arc::boxWithRoot;
@@ -90,6 +88,9 @@ export namespace arc {
     using arc::nodeCount;
     using arc::IsUnary;
     // data_store.hpp
+    using arc::NoPrivateData;
+    using arc::NoEvent;
+    using arc::noEvent;
     using arc::DataStore;
     // traits/datastore.hxx
     namespace trait {

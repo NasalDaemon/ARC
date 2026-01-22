@@ -3,26 +3,23 @@
 
 #include "arc/macros.hpp"
 
-namespace arc {
+namespace arc::detail {
 
-namespace detail {
-    template<std::size_t N>
-    consteval auto bitsetFor()
-    {
-        if constexpr (N <= 8)
-            return std::uint8_t(0);
-        else if constexpr (N <= 16)
-            return std::uint16_t(0);
-        else if constexpr (N <= 32)
-            return std::uint32_t(0);
-        else if constexpr (N <= 64)
-            return std::uint64_t(0);
-        else
-            throw "Bitset size too large";
-    }
+template<std::size_t N>
+consteval auto bitsetFor()
+{
+    if constexpr (N <= 8)
+        return std::uint8_t(0);
+    else if constexpr (N <= 16)
+        return std::uint16_t(0);
+    else if constexpr (N <= 32)
+        return std::uint32_t(0);
+    else if constexpr (N <= 64)
+        return std::uint64_t(0);
+    else
+        throw "Bitset size too large";
 }
 
-ARC_MODULE_EXPORT
 template<std::size_t Bits>
 requires (Bits <= 64)
 struct Bitset
@@ -44,25 +41,34 @@ struct Bitset
         return (bits & (One << index)) != 0;
     }
 
-    ARC_INLINE constexpr void reset()
+    ARC_INLINE constexpr void clear()
     {
-        bits = 0;
+        bits = Zero;
     }
 
     ARC_INLINE constexpr bool any() const
     {
-        return bits != 0;
+        return bits != Zero;
     }
 
     ARC_INLINE constexpr bool none() const
     {
-        return bits == 0;
+        return bits == Zero;
     }
+
+    ARC_INLINE constexpr bool all() const
+    {
+        return bits == Max;
+    }
+
+    bool operator==(Bitset const&) const = default;
 
 private:
     using StorageType = decltype(detail::bitsetFor<Bits>());
     StorageType bits = 0;
     static constexpr StorageType One = 1;
+    static constexpr StorageType Zero = 0;
+    static constexpr StorageType Max = ~Zero >> (sizeof(StorageType) * 8 - Bits);
 };
 
 }

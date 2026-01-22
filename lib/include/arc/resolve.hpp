@@ -11,19 +11,20 @@
 namespace arc {
 
 namespace detail {
-
     // T has no link, so it is the target node
-    template<class T, class Trait_>
+    template<class Node_, class Trait_>
     struct ResolveTraitT
     {
         using type = ResolveTraitT;
-        using Node = T;
+
+        using Node = Node_;
         using Trait = Trait_;
 
         template<std::same_as<Trait> TT = Trait>
-        using Types = Node::Traits::template ResolveTypes<TT, Node>;
-        template<std::same_as<Trait> TT = Trait>
         static constexpr bool HasTrait = Node::Traits::template HasTrait<TT>;
+
+        template<class Source, class... Keys>
+        using Types = Node::template FinaliseTypes<Source, Node, typename Node::Traits::template ResolveTypes<Trait, Node>, Keys...>;
     };
 
     // GlobalTrait is a global trait that can be resolved in contexts with a global node
@@ -54,8 +55,11 @@ namespace detail {
         using type = ResolveTraitT<typename Target::Context, typename Target::Trait>::type;
     };
 
-    template<class T, class Trait>
-    using ResolveTrait = ResolveTraitT<T, Trait>::type;
+    template<class Node, class Trait, class... Keys>
+    using ResolveTypesOfNode = ResolveTraitT<Node, Trait>::type::template Types<Node, Keys...>;
+
+    template<class Node, class Trait>
+    using ResolveTraitFromNode = ResolveTraitT<ContextOf<Node>, Trait>::type;
 
 } // namespace detail
 
@@ -64,12 +68,12 @@ template<class Node, class Trait>
 concept CanResolve =
     detail::HasLink<ContextOf<Node>, Trait> and
     NodeDependencyListed<Node, Trait> and
-    detail::ResolveTrait<ContextOf<Node>, Trait>::template HasTrait<>;
+    detail::ResolveTraitFromNode<Node, Trait>::template HasTrait<>;
 
 ARC_MODULE_EXPORT
-template<class Node, IsTrait Trait>
+template<class Node, IsTrait Trait, class... Keys>
 requires detail::HasLink<ContextOf<Node>, Trait> and NodeDependencyListed<Node, Trait>
-using ResolveTypes = detail::ResolveTrait<ContextOf<Node>, Trait>::template Types<>;
+using ResolveTypes = detail::ResolveTraitFromNode<Node, Trait>::template Types<Node, Keys...>;
 
 ARC_MODULE_EXPORT
 template<IsContext Context>

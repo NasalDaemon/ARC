@@ -186,7 +186,7 @@ ARC_MODULE_EXPORT
 template<IsTrait Trait, key::IsKey Key, key::IsKey... Keys>
 ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto makeTraitView(auto& source, auto target, Trait, Key const& key, Keys const&... keys)
 {
-    return TraitView(key::Trait<Key, Trait>{}, target.ptr->finalise(source, key, keys...), target.finaliseTypes(key, keys...));
+    return TraitView(key::Trait<Key, Trait>{}, target.ptr->finalise(source, key, keys...), target.finaliseTypes(source, key, keys...));
 }
 
 } // namespace arc

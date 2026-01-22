@@ -63,18 +63,11 @@ struct Repeater
 
         using Types = TypesAtT<0>;
 
-        using arc::Node::finaliseTypes;
-
         template<class Source, std::size_t I>
         ARC_INLINE constexpr auto finalise(this auto& self, Source& source, key::RepeaterIndex<I>, auto const&... keys)
         {
             auto target = Context{}.getNode(detail::upCast<Node>(self), RepeaterTrait<I>{});
             return target.ptr->finalise(source, keys...);
-        }
-        template<class, std::size_t I>
-        ARC_INLINE static constexpr auto finaliseTypes(key::RepeaterIndex<I>, auto const&...)
-        {
-            return std::type_identity<arc::ResolveTypes<Node, RepeaterTrait<I>>>{};
         }
 
         template<class Source, IsNodeHandle N>
@@ -83,19 +76,21 @@ struct Repeater
             static constexpr auto index = indexOf<N>(std::make_index_sequence<Count>{});
             return self.finalise(source, key::repeaterIndex<index>, keys...);
         }
-        template<class, IsNodeHandle N>
-        ARC_INLINE static constexpr auto finaliseTypes(key::RepeaterNode<N>, auto const&...)
-        {
-            static constexpr auto index = indexOf<N>(std::make_index_sequence<Count>{});
-            return std::type_identity<arc::ResolveTypes<Node, RepeaterTrait<index>>>{};
-        }
-
         template<class Source, class Key = ContextOf<Source>::Info::DefaultKey>
         ARC_INLINE constexpr auto finalise(this auto& self, Source& source, Key const& key = {}, auto const&... keys)
         {
             // Don't consume the key, as it needs to be applied for each repeater trait
             return arc::finalise<false>(source, self, key, keys...);
         }
+
+        static auto finaliseTypes(auto const&...) -> Types;
+        template<std::size_t I>
+        static auto finaliseTypes(key::RepeaterIndex<I>, auto const&...) -> arc::ResolveTypes<Node, RepeaterTrait<I>>;
+        template<IsNodeHandle N>
+        static auto finaliseTypes(key::RepeaterNode<N>, auto const&...) -> arc::ResolveTypes<Node, RepeaterTrait<indexOf<N>(std::make_index_sequence<Count>{})>>;
+
+        template<class Source, class Self, class Types, class... Keys>
+        using FinaliseTypes = decltype(finaliseTypes(std::declval<Keys const&>()...));
 
         ARC_INLINE constexpr void implWithKey(this auto& self, auto const& key, auto const& keys, auto&&... args)
         {
@@ -106,7 +101,7 @@ struct Repeater
         template<IsNodeHandle N, std::size_t... Is>
         static consteval std::size_t indexOf(std::index_sequence<Is...>)
         {
-            return arc::indexOf<N, typename ContextOf<typename detail::ResolveTrait<Context, RepeaterTrait<Is>>::Node>::NodeHandle...>();
+            return arc::indexOf<N, typename ContextOf<typename detail::ResolveTraitFromNode<Node, RepeaterTrait<Is>>::Node>::NodeHandle...>();
         }
 
         template<std::size_t... Is>
