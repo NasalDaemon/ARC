@@ -19,6 +19,9 @@ trait DataStore [Types]
     // get: returns pointers to SharedData and PrivateData with the id if it exists.
     get(SharedData::Id const& id) -> std::pair<SharedData const*, typename Types::PrivateData*>
     get(SharedData::Id const& id) const -> std::pair<SharedData const*, typename Types::PrivateData const*>
+    // get: by SharedData pointer
+    get(SharedData const* sharedData) -> Types::PrivateData*
+    get(SharedData const* sharedData) const -> Types::PrivateData const*
 
     // modify: modify the SharedData and any PrivateData with the given id using the provided function.
     // The function should take (SharedData*, PrivateData*) and return an Event to notify listeners with.
@@ -29,6 +32,9 @@ trait DataStore [Types]
     // Returns const pointers to SharedData and PrivateData after any resulting event has been processed by the listeners.
     template<std::invocable<SharedData*, typename Types::PrivateData*> UseData>
     modify(SharedData::Id const& id, UseData useData) -> std::pair<SharedData const*, typename Types::PrivateData*>
+    // modify: by SharedData pointer
+    template<std::invocable<SharedData*, typename Types::PrivateData*> UseData>
+    modify(SharedData const* sharedData, UseData useData) -> Types::PrivateData*
 
     // forEach: access the SharedData and any PrivateData for all ids using the provided function.
     // The function should take (SharedData [const]*, PrivateData [const]*)
@@ -43,6 +49,8 @@ trait DataStore [Types]
     // notify: notify listeners of an event for the given id.
     // If id exists, returns const pointers to SharedData and PrivateData after the event has been processed by the listeners.
     notify(auto const& event, SharedData::Id const& id) -> std::pair<SharedData const*, typename Types::PrivateData*>
+    // notify: by SharedData pointer
+    notify(auto const& event, SharedData const* sharedData) -> Types::PrivateData*
 
     // notifyAll: notify all listeners of an event for all ids.
     notifyAll(auto const& event) -> void
@@ -64,7 +72,8 @@ trait DataListener [Types]
     init(SharedData::Id const& id, SharedData& sharedData, auto privateDataConstructor) -> void
 
     // Called on all subscribers when modify, notify, or notifyAll is called on the DataStore.
-    onEvent(auto const& event, SharedData::Id const& id, SharedData& sharedData, Types::PrivateData& privateData) -> void
+    template<class EventType>
+    onEvent(Event<EventType> event, EventItem<SharedData, typename Types::PrivateData> item) -> void
 }
 
 } // namespace arc::trait

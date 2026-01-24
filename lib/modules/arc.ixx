@@ -87,12 +87,15 @@ export namespace arc {
     // count.hpp
     using arc::nodeCount;
     using arc::IsUnary;
-    // data_store.hpp
+    // datastore.hpp
     using arc::NoPrivateData;
     using arc::NoEvent;
     using arc::noEvent;
     using arc::DataStore;
-    // traits/datastore.hxx
+    // traits/datastore.hpp
+    using arc::EventTracker;
+    using arc::Event;
+    using arc::EventItem;
     namespace trait {
         using trait::DataStore;
         using trait::DataListener;

@@ -9,7 +9,7 @@
 #include "arc/macros.hpp"
 #include "arc/repeater.hpp"
 
-#include "arc/traits/datastore.hxx"
+#include "arc/traits/datastore.hpp"
 
 #if !ARC_IMPORT_STD
 #include <cstddef>
@@ -56,7 +56,7 @@ namespace detail {
             : sharedData{ARC_FWD(sharedDataArgs)...}
         {}
 
-        ~DataStoreHolder()
+        constexpr ~DataStoreHolder()
         {
             arc::forEachIndex<Count>(
                 [this](auto i) {
@@ -85,9 +85,12 @@ namespace detail {
                 });
         }
 
+        std::size_t eventId = 0;
         Bitset<Count> engaged;
-        [[no_unique_address]] SharedData sharedData{};
+        [[no_unique_address]] SharedData sharedData;
         [[no_unique_address]] std::tuple<detail::Storage<Data>...> privateData;
+
+        EventTracker getEventTracker() const { return EventTracker(&eventId); }
     };
 
     template<class T>
@@ -117,7 +120,7 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<class SharedData, template<class Key, class Value, class...> class Map = std::unordered_map>
+template<class SharedData, template<class Key, class Value, class...> class MapTmpl = std::unordered_map>
 struct DataStore
 {
     using Id = SharedData::Id;
@@ -144,8 +147,9 @@ struct DataStore
         static auto getTypes(std::index_sequence<Is...>) -> detail::DataStoreHolder<SharedData, PrivateDataAt<Is>...>;
 
         using Data = decltype(getTypes(IndexSequence{}));
-
-        Map<Id, Data> dataMap;
+        using Map = MapTmpl<Id, Data>;
+        using Item = Map::value_type;
+        Map dataMap;
 
         template<std::size_t ListenerIndex>
         struct FromDataListener;
@@ -176,14 +180,31 @@ struct DataStore
             else if (decltype(auto) event = f(id, sharedData, static_cast<void*>(nullptr)); detail::isEvent(event))
             {
                 static_assert(not std::is_const_v<Self>, "useData with returned event cannot be called on const DataStore");
-                forEachIndex<DataListenerCount>(
-                    [&self, &item, &event](auto i)
-                    {
-                        if (item.second.engaged.test(i))
-                            self.getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                                detail::getEvent(event), item.first, item.second.sharedData, *get<i>(item.second.privateData).value());
-                    });
+                self.notifyItem(item, detail::getEvent(event));
             }
+        }
+
+        void notifyItem(Item& item, auto const& event)
+        {
+            ++item.second.eventId;
+            forEachIndex<DataListenerCount>(
+                [this, event = Event{item.second.getEventTracker(), event}, &item](auto i)
+                {
+                    if (item.second.engaged.test(i))
+                        this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
+                            event, EventItem{item.first, item.second.sharedData, *get<i>(item.second.privateData).value()});
+                });
+        }
+
+        template<class Self>
+        detail::ConstLike<Self, Data>& getHolder(this Self&, SharedData const* sharedDataPtr)
+        {
+            return ARC_MEM_PTR(Data, sharedData).getClassFromMember(*const_cast<SharedData*>(sharedDataPtr));
+        }
+        template<class Self>
+        detail::ConstLike<Self, Item>& getItem(this Self& self, SharedData const* sharedDataPtr)
+        {
+            return ARC_MEM_PTR(Item, second).getClassFromMember(self.getHolder(sharedDataPtr));
         }
 
     public:
@@ -247,6 +268,10 @@ struct DataStore
                 return {std::addressof(it->second.sharedData), nullptr};
             return {nullptr, nullptr};
         }
+        [[nodiscard]] ARC_INLINE constexpr void* impl(DataStoreTrait::get, SharedData const*) const
+        {
+            return nullptr;
+        }
 
         template<std::invocable<SharedData*, void*> UseData>
         constexpr auto impl(DataStoreTrait::modify, Id const& id, UseData&& f)
@@ -258,6 +283,13 @@ struct DataStore
                 return {std::addressof(it->second.sharedData), nullptr};
             }
             return {nullptr, nullptr};
+        }
+        template<std::invocable<SharedData*, void*> UseData>
+        constexpr void* impl(DataStoreTrait::modify, SharedData const* sharedData, UseData&& f)
+        {
+            auto& item = getItem(sharedData);
+            useData(item, detail::UseDataSwallowId{ARC_FWD(f)});
+            return nullptr;
         }
 
         template<class Self, std::invocable<Id const&, detail::ConstLike<Self, SharedData>*, void*> UseData>
@@ -272,30 +304,22 @@ struct DataStore
             auto const it = dataMap.find(id);
             if (it != dataMap.end())
             {
-                forEachIndex<DataListenerCount>(
-                    [this, &tag, it](auto i)
-                    {
-                        if (it->second.engaged.test(i))
-                            this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                                tag, it->first, it->second.sharedData, *get<i>(it->second.privateData).value());
-                    });
+                notifyItem(*it, tag);
                 return {std::addressof(it->second.sharedData), nullptr};
             }
             return {nullptr, nullptr};
         }
 
+        void* impl(DataStoreTrait::notify, auto const& tag, SharedData const* sharedData)
+        {
+            notifyItem(getItem(sharedData), tag);
+            return nullptr;
+        }
+
         void impl(DataStoreTrait::notifyAll, auto const& tag)
         {
             for (auto& item : dataMap)
-            {
-                forEachIndex<DataListenerCount>(
-                    [this, &tag, &item](auto i)
-                    {
-                        if (item.second.engaged.test(i))
-                            this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                                tag, item.first, item.second.sharedData, *get<i>(item.second.privateData).value());
-                    });
-            }
+                notifyItem(item, tag);
         }
     };
 };
@@ -311,13 +335,16 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     };
     using PrivateData = Types::PrivateData;
 
+    static auto* getPrivateData(auto& holder)
+    {
+        return holder.engaged.test(ListenerIndex) ? get<ListenerIndex>(holder.privateData).value() : nullptr;
+    }
+
     template<class Self, class UseData>
     void useData(this Self& self, auto& item, UseData&& f)
     {
         detail::ConstLike<Self, SharedData>* sharedData = std::addressof(item.second.sharedData);
-        detail::ConstLike<Self, PrivateData>* privateData = item.second.engaged.test(ListenerIndex)
-            ? get<ListenerIndex>(item.second.privateData).value()
-            : nullptr;
+        detail::ConstLike<Self, PrivateData>* privateData = getPrivateData(item.second);
         std::same_as<Id> auto const& id = item.first;
 
         if constexpr (detail::IsNotEvent<std::invoke_result_t<UseData, Id const&, decltype(sharedData), decltype(privateData)>>)
@@ -328,15 +355,22 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
         else if (decltype(auto) event = f(id, sharedData, privateData); detail::isEvent(event))
         {
             static_assert(not std::is_const_v<Self>, "useData with returned event cannot be called on const DataStore");
-            forEachIndex<DataListenerCount>(
-                [&self, &item, &event](auto i)
-                {
-                    if constexpr (i != ListenerIndex)
-                        if (item.second.engaged.test(i))
-                            self.getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                                detail::getEvent(event), item.first, item.second.sharedData, *get<i>(item.second.privateData).value());
-                });
+            self.template notifyItem<true>(item, detail::getEvent(event));
         }
+    }
+
+    template<bool SkipSelf>
+    void notifyItem(Item& item, auto const& event)
+    {
+        ++item.second.eventId;
+        forEachIndex<DataListenerCount>(
+            [this, event = Event{item.second.getEventTracker(), event}, &item](auto i)
+            {
+                if constexpr (not SkipSelf or i != ListenerIndex)
+                    if (item.second.engaged.test(i))
+                        this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
+                            event, EventItem{item.first, item.second.sharedData, *get<i>(item.second.privateData).value()});
+            });
     }
 
     template<class Self>
@@ -345,13 +379,15 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     {
         auto const it = self.dataMap.find(id);
         if (it != self.dataMap.end())
-        {
-            if (it->second.engaged.test(ListenerIndex))
-                return {std::addressof(it->second.sharedData), get<ListenerIndex>(it->second.privateData).value()};
-            else
-                return {std::addressof(it->second.sharedData), nullptr};
-        }
+            return {std::addressof(it->second.sharedData), getPrivateData(it->second)};
         return {nullptr, nullptr};
+    }
+
+    template<class Self>
+    [[nodiscard]] constexpr auto impl(this Self& self, DataStoreTrait::get, SharedData const* sharedData)
+        -> detail::ConstLike<Self, PrivateData>*
+    {
+        return getPrivateData(self.getHolder(sharedData));
     }
 
     template<std::invocable<SharedData*, PrivateData*> UseData>
@@ -361,9 +397,18 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
         if (auto const it = dataMap.find(id); it != dataMap.end())
         {
             useData(*it, detail::UseDataSwallowId{ARC_FWD(f)});
-            return {std::addressof(it->second.sharedData), std::addressof(*get<ListenerIndex>(it->second.privateData).value())};
+            return {std::addressof(it->second.sharedData), getPrivateData(it->second)};
         }
         return {nullptr, nullptr};
+    }
+
+    template<std::invocable<SharedData*, PrivateData*> UseData>
+    constexpr auto impl(DataStoreTrait::modify, SharedData const* sharedData, UseData&& f)
+        -> PrivateData*
+    {
+        auto& item = getItem(sharedData);
+        useData(item, detail::UseDataSwallowId{ARC_FWD(f)});
+        return getPrivateData(item.second);
     }
 
     template<class Self, std::invocable<Id const&, detail::ConstLike<Self, SharedData>*, detail::ConstLike<Self, PrivateData>*> UseData>
@@ -377,16 +422,17 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     {
         if (auto const it = dataMap.find(id); it != dataMap.end())
         {
-            forEachIndex<DataListenerCount>(
-                [this, &tag, it](auto i)
-                {
-                    if (it->second.engaged.test(i))
-                        this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                            tag, it->first, it->second.sharedData, *get<i>(it->second.privateData).value());
-                });
-            return {std::addressof(it->second.sharedData), get<ListenerIndex>(it->second.privateData).value()};
+            notifyItem<false>(*it, tag);
+            return {std::addressof(it->second.sharedData), getPrivateData(it->second)};
         }
         return {nullptr, nullptr};
+    }
+
+    PrivateData* impl(DataStoreTrait::notify, auto const& tag, SharedData const* sharedData)
+    {
+        auto& item = getItem(sharedData);
+        notifyItem<false>(item, tag);
+        return getPrivateData(item.second);
     }
 };
 

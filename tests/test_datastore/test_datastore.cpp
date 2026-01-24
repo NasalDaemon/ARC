@@ -83,14 +83,15 @@ struct Root
                 }
             }
 
-            void impl(trait::DataListener::onEvent, Event const& event, SharedData::Id const& id, SharedData& sharedData, PrivateData& data)
+            void impl(trait::DataListener::onEvent, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
             {
-                CHECK(id == sharedData.id);
-                auto [pSharedData, pData] = getDataStore().get(id);
-                CHECK(pSharedData == &sharedData);
-                CHECK(pData == &data);
-                if (event.desc == "test")
-                    received.push_back(data);
+                REQUIRE(event.isLatest());
+                CHECK(item.id == item.sharedData.id);
+                auto [pSharedData, pData] = getDataStore().get(item.id);
+                CHECK(pSharedData == &item.sharedData);
+                CHECK(pData == &item.privateData);
+                if (event->desc == "test")
+                    received.push_back(item.privateData);
             }
 
             std::vector<PrivateData> received;
@@ -129,14 +130,17 @@ struct Root
             }
         }
 
-        void impl(this auto& self, trait::DataListener::onEvent, Event const& event, SharedData::Id const& id, SharedData& sharedData, PrivateData& data)
+        void impl(this auto& self, trait::DataListener::onEvent, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
         {
-            CHECK(id == sharedData.id);
-            auto [pSharedData, pData] = self.getDataStore().get(id);
-            CHECK(pSharedData == &sharedData);
-            CHECK(pData == &data);
-            if (event.desc == "test")
-                self.received.push_back(data);
+            REQUIRE(event.isLatest());
+            CHECK(item.id == item.sharedData.id);
+            auto [pSharedData, pData] = self.getDataStore().get(item.id);
+            CHECK(pSharedData == &item.sharedData);
+            CHECK(pData == &item.privateData);
+            PrivateData* pData2 = self.getDataStore().get(pSharedData);
+            CHECK(pData2 == &item.privateData);
+            if (event->desc == "test")
+                self.received.push_back(item.privateData);
         }
 
         void testModify(this auto& self)
@@ -159,10 +163,10 @@ struct Root
             });
             CHECK(called);
             CHECK(pSharedData != nullptr);
-            CHECK(pData != nullptr);
+            CHECK(pData == nullptr);
 
             called = false;
-            std::tie(pSharedData, pData) = self.getDataStore().modify(3, [&](SharedData const* sd, PrivateData* pd) {
+            pData = self.getDataStore().modify(pSharedData, [&](SharedData const* sd, PrivateData* pd) {
                 called = true;
                 CHECK(sd != nullptr);
                 CHECK(pd == nullptr);
@@ -170,7 +174,7 @@ struct Root
             });
             CHECK(called);
             CHECK(pSharedData != nullptr);
-            CHECK(pData != nullptr);
+            CHECK(pData == nullptr);
 
             called = false;
             std::tie(pSharedData, pData) = self.getDataStore().modify(4, [&](SharedData const*, PrivateData*) {
