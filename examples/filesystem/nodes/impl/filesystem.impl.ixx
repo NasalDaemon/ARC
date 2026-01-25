@@ -11,7 +11,7 @@ import std;
 
 namespace examples::filesystem {
 
-FILESYSTEM::impl(trait::Filesystem::read, std::string_view path) const
+FILESYSTEM::read(std::string_view path) const
     -> std::expected<DataView, FsError>
 {
     auto normalised = getPathOps().normalise(path);
@@ -26,7 +26,7 @@ FILESYSTEM::impl(trait::Filesystem::read, std::string_view path) const
     return entry->content();
 }
 
-FILESYSTEM::impl(trait::Filesystem::write, std::string_view path, std::string data)
+FILESYSTEM::write(std::string_view path, std::string data)
     -> std::expected<void, FsError>
 {
     auto pathOps = getNode(trait::pathOps);
@@ -52,7 +52,7 @@ FILESYSTEM::impl(trait::Filesystem::write, std::string_view path, std::string da
     return storage.put(normalised, InMemoryEntry::file(std::move(data)));
 }
 
-FILESYSTEM::impl(trait::Filesystem::mkdir, std::string_view path)
+FILESYSTEM::mkdir(std::string_view path)
     -> std::expected<void, FsError>
 {
     auto pathOps = getNode(trait::pathOps);
@@ -79,7 +79,7 @@ FILESYSTEM::impl(trait::Filesystem::mkdir, std::string_view path)
     return {};
 }
 
-FILESYSTEM::impl(trait::Filesystem::remove, std::string_view path)
+FILESYSTEM::remove(std::string_view path)
     -> std::expected<void, FsError>
 {
     auto pathOps = getNode(trait::pathOps);
@@ -106,7 +106,7 @@ FILESYSTEM::impl(trait::Filesystem::remove, std::string_view path)
     return {};
 }
 
-FILESYSTEM::impl(trait::Filesystem::list, std::string_view path) const
+FILESYSTEM::list(std::string_view path) const
     -> std::expected<Children, FsError>
 {
     std::string normalised = getPathOps().normalise(path);
@@ -122,13 +122,13 @@ FILESYSTEM::impl(trait::Filesystem::list, std::string_view path) const
     return storage.children(normalised);
 }
 
-FILESYSTEM::impl(trait::Filesystem::exists, std::string_view path) const -> bool
+FILESYSTEM::exists(std::string_view path) const -> bool
 {
     auto normalised = getPathOps().normalise(path);
     return static_cast<bool>(getStorage().get(normalised));
 }
 
-FILESYSTEM::impl(trait::Filesystem::isDir, std::string_view path) const -> bool
+FILESYSTEM::isDir(std::string_view path) const -> bool
 {
     auto normalised = getPathOps().normalise(path);
     auto entry = getStorage().get(normalised);

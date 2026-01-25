@@ -6,31 +6,35 @@ import std;
 
 namespace examples::greet {
 
-// Alice is a short-hand node with contextless state
-// It implements Greeter and Responder
-export struct Alice : arc::Node
+// Alice is a standard node implementing Greeter and Responder
+export struct Alice
 {
-    // Declares dependency on the Responder trait (provided by another node)
-    using Depends = arc::Depends<trait::Responder>;
-
-    // Declares which traits this node implements
-    using Traits = arc::Traits<trait::Greeter, trait::Responder>;
-
-    void impl(this auto const& self, trait::Greeter::greet)
+    template<class Context> // Context injected by ARC into the node's state
+    struct Node : arc::Node
     {
-        std::println("Hello from Alice! I am {} years old.", self.age);
-        // Resolve dependency via explicit object parameter `self`, containing the node's context
-        self.getNode(trait::responder).respondTo("Alice");
-        // The line above can be inlined by the compiler, as getNode and respondTo are both direct calls
-    }
+        // Declares dependency on the Responder trait (provided by another node)
+        using Depends = arc::Depends<trait::Responder>;
 
-    void impl(trait::Responder::respondTo, std::string_view name) const
-    {
-        std::println("Well met, {}. I am Alice of {} years!", name, age);
-    }
+        // Declares which traits this node implements
+        using Traits = arc::Traits<trait::Greeter, trait::Responder>;
 
-    explicit Alice(int age) : age(age) {}
-    int age; // State specific to this node
+        void impl(trait::Responder::respondTo, std::string_view name) const
+        {
+            std::println("Well met, {}. I am Alice of {} years!", name, age);
+        }
+
+        void impl(trait::Greeter::greet) const
+        {
+            std::println("Hello from Alice! I am {} years old.", age);
+            // Resolve dependency (on Bob) using the injected `Context` template parameter
+            getNode(trait::responder).respondTo("Alice");
+            // The line above can be inlined by the compiler,
+            // as getNode and respondTo are both direct calls
+        }
+
+        explicit Node(int age) : age(age) {}
+        int age; // State specific to this node
+    };
 };
 
 }

@@ -15,7 +15,7 @@ struct hash_str : std::hash<std::string_view>, std::hash<std::string>
 };
 
 // MemoryStorage node holds the filesystem tree in memory
-export struct MemoryStorage : arc::NodeImpl<trait::Storage, trait::DirectorySync>
+export struct MemoryStorage : arc::NodeImpl<trait::Storage*, trait::DirectorySync*>
 {
     struct Types
     {

@@ -19,7 +19,7 @@ auto DiskStorage::toAbsolute(std::string_view path) const -> std::filesystem::pa
     return rootPath / path;
 }
 
-auto DiskStorage::impl(trait::Storage::get, std::string_view path) const -> std::optional<DiskEntry>
+auto DiskStorage::get(std::string_view path) const -> std::optional<DiskEntry>
 {
     auto const absPath = toAbsolute(path);
 
@@ -33,7 +33,7 @@ auto DiskStorage::impl(trait::Storage::get, std::string_view path) const -> std:
         return DiskEntry::file(absPath);
 }
 
-auto DiskStorage::impl(trait::Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
+auto DiskStorage::put(std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
 {
     auto const absPath = toAbsolute(path);
 
@@ -74,7 +74,7 @@ auto DiskStorage::impl(trait::Storage::erase, std::string_view path) -> bool
     return std::filesystem::remove(absPath, ec) && !ec;
 }
 
-auto DiskStorage::impl(trait::Storage::children, std::string_view path) const -> std::vector<std::string>
+auto DiskStorage::children(std::string_view path) const -> std::vector<std::string>
 {
     auto const absPath = toAbsolute(path);
 
@@ -94,7 +94,7 @@ auto DiskStorage::impl(trait::Storage::children, std::string_view path) const ->
     return result;
 }
 
-auto DiskStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_view directory) -> std::expected<void, FsError>
+auto DiskStorage::loadFromDirectory(std::string_view directory) -> std::expected<void, FsError>
 {
     std::error_code ec;
     auto const dirPath = std::filesystem::path{directory};
@@ -112,7 +112,7 @@ auto DiskStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_view
     return {};
 }
 
-auto DiskStorage::impl(trait::DirectorySync::dumpToDirectory, std::string_view directory) const -> std::expected<void, FsError>
+auto DiskStorage::dumpToDirectory(std::string_view directory) const -> std::expected<void, FsError>
 {
     // For DiskStorage, if directory matches rootPath, it's a noop
     // Otherwise, copy the entire directory tree

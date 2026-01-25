@@ -6,30 +6,29 @@ import std;
 
 namespace examples::greet {
 
-// Bob is full node with contextful state
-export struct Bob
+// Bob is a shorthand node with contextless state
+// Context is injected into methods by ARC via deducing-this parameter instead
+export struct Bob : arc::Node::
+    Uses<trait::Responder>:: // provides arc::Depends<...> list and getResponder()
+    Impl<trait::Greeter, trait::Responder> // provides arc::Traits<...> list
 {
-    template<class Context>
-    struct Node : arc::Node::
-        Uses<trait::Responder>::
-        Impl<trait::Greeter, trait::Responder>
+    // impl(trait::Responder::method, ...) redirects here via Impl<..., trait::Responder>
+    void respondTo(std::string_view name) const
     {
-        Node(int age) : age(age) {}
+        std::println("Well met, {}. I am Bob of {} years!", name, age);
+    }
 
-        void impl(trait::Greeter::greet) const
-        {
-            std::println("Hello from Bob!");
-            getNode(trait::responder).respondTo("Bob");
-            getResponder().respondTo("Bobby");
-        }
+    // impl(trait::Greeter::method, ...) redirects here via Impl<trait::Greeter, ...>
+    void greet(this auto const& self) // deducing-this `self` parameter has the node context
+    {
+        std::println("Hello from Bob!");
+        // Uses<trait::Responder> provides `getResponder()` aka `getNode(trait::responder)`
+        self.getResponder().respondTo("Bob");
+        // The line above will be inlined by the compiler
+    }
 
-        void impl(trait::Responder::respondTo, std::string_view name) const
-        {
-            std::println("Well met, {}. I am Bob of {} years!", name, age);
-        }
-
-        int age; // State specific to this node
-    };
+    explicit Bob(int age) : age(age) {}
+    int age; // State specific to this node
 };
 
 }

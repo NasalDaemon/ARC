@@ -75,8 +75,8 @@ struct INode : virtual detail::INodeBase
 // Implicit UsesAny, since it makes little sense for an Interface
 // to enforce dependencies before being defined concretely
 ARC_MODULE_EXPORT
-template<IsTrait Trait, IsTrait... Traits>
-using INodeImpl = detail::NodeWith<INode, void(void*), Trait, Traits...>;
+template<class Trait, class... Traits>
+using INodeImpl = Build<INode>::Impl<Trait, Traits...>::UsesAny;
 
 ARC_MODULE_EXPORT
 template<detail::InterfaceNoDepends Interface, detail::InterfaceNoDepends... Interfaces>
@@ -87,6 +87,9 @@ struct INodeOf : Interface, Interfaces...
 
     template<detail::IsDependsItem... Traits>
     using Uses = arc::Uses<INodeOf, Traits...>;
+
+    using Interface::impl;
+    using Interfaces::impl...;
 };
 
 template<detail::InterfaceNoDepends Interface>

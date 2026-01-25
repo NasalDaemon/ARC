@@ -18,13 +18,17 @@ export struct DiskStorage : arc::NodeImpl<trait::Storage, trait::DirectorySync>
 
     DiskStorage();
 
-    auto impl(trait::Storage::get, std::string_view path) const -> std::optional<DiskEntry>;
-    auto impl(trait::Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>;
-    auto impl(trait::Storage::erase, std::string_view path) -> bool;
-    auto impl(trait::Storage::children, std::string_view path) const -> std::vector<std::string>;
+    auto get(std::string_view path) const -> std::optional<DiskEntry>;
+    auto put(std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>;
+    auto children(std::string_view path) const -> std::vector<std::string>;
 
-    auto impl(trait::DirectorySync::loadFromDirectory, std::string_view directory) -> std::expected<void, FsError>;
-    auto impl(trait::DirectorySync::dumpToDirectory, std::string_view directory) const -> std::expected<void, FsError>;
+    // Fully qualified impl(method, ...) definitions still work if you disable the named method
+    using DiskStorage::Methods::impl;
+    using DiskStorage::Storage::Disable::erase;
+    auto impl(trait::Storage::erase, std::string_view path) -> bool;
+
+    auto loadFromDirectory(std::string_view directory) -> std::expected<void, FsError>;
+    auto dumpToDirectory(std::string_view directory) const -> std::expected<void, FsError>;
 
 private:
     std::filesystem::path rootPath;

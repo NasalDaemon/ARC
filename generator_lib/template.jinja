@@ -101,12 +101,32 @@ struct {{ trait.name }} : ::arc::Trait
     struct Meta
     {
         using ARC_This_Trait = {{ trait.name }};
+        // List of methods applicable to this trait
         struct Applicable
         {
             {% for method_name in trait.method_names %}
             ARC_METHOD_TAG_APPLICABLE({{ method_name }})
             {% endfor %}
         };
+        struct NamedImpl
+        {
+            // Disable redirections `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
+            struct Disable
+            {
+                {% for method_name in trait.method_names %}
+                ARC_NAMED_METHOD_IMPL_DISABLE({{ method_name }})
+                {% endfor %}
+            };
+            // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
+            struct {{ trait.name }} : protected Disable
+            {
+                {% for method_name in trait.method_names %}
+                ARC_NAMED_METHOD_IMPL({{ method_name }})
+                {% endfor %}
+            };
+        };
+        using Impl = NamedImpl::{{ trait.name }};
+        // Return type constraints in method signatures
         struct Constraints
         {
             {% for method in trait.methods %}
@@ -120,6 +140,7 @@ struct {{ trait.name }} : ::arc::Trait
             {% endif %}
             {% endfor %}
         };
+        // Method signatures generated for this trait
         struct Signatures
         {
             {% for method in trait.methods %}
@@ -156,37 +177,51 @@ struct {{ trait.name }} : ::arc::Trait
             {% endif %}
             {% endfor %}
         };
+        // Query method signature by tag `SignaturesByTag::impl(method, ...)` --> `Signatures::method(...)`
         struct SignaturesByTag
         {
             {% for method_name in trait.method_names %}
             ARC_SIGNATURE_METHOD_TAG({{ method_name }})
             {% endfor %}
         };
+        // Provides interface to TraitView, enforcing Meta::Signatures and Meta::Constraints
         struct Methods
         {
             {% for method_name in trait.method_names %}
             ARC_SIGNATURE_METHOD({{ method_name }})
             {% endfor %}
         };
-        struct Named
-        {
-            struct {{ trait.name }} : Methods {};
-        };
-        using NamedMethods = Named::{{ trait.name }};
+        // Provides interface without any signature enforcement (used when transforming traits with keys)
         struct DuckMethods
         {
             {% for method_name in trait.method_names %}
             ARC_DUCK_METHOD({{ method_name }})
             {% endfor %}
         };
+        // Provides internal node redirects `node.method(...)` --> `node.impl(method, ...)`
+        // Effective only when using arc::NodeImpl<...> or arc::Node::Uses<...>::Impl<...>
+        struct Named
+        {
+            struct {{ trait.name }} : Methods
+            {
+                static void impl() = delete;
+            };
+        };
+        using NamedMethods = Named::{{ trait.name }};
+        // Provides `node.getSomeTrait()` --> `node.getNode(trait::someTrait)`
+        // Effective only when using arc::NodeUses<...> or arc::Node::Uses<...>::Impl<...>
         struct Resolver
         {
             {{ trait_resolver(trait.name) }}
         };
+        // Provides `node.getGlobalSomeTrait()` --> `node.getGlobal(trait::someTrait)`
+        // Effective only when using arc::NodeUses<...> or arc::Node::Uses<...>::Impl<...>
         struct GlobalResolver
         {
             ARC_GLOBAL_TRAIT_RESOLVER({{ trait.name }})
         };
+        // Provides `node.asSomeTrait()` --> `node.asTrait(trait::someTrait)`
+        // Effective only when using arc::NodeImpl<...> or arc::Node::Uses<...>::Impl<...>
         struct Converter
         {
             {{ trait_converter(trait.name) }}
@@ -251,7 +286,10 @@ inline constexpr {{ trait.name }}<{{ template_params(trait.templates) }}> {{ tra
     {
         struct Named
         {
-            struct {{ alias[0]}} : Meta::Methods {};
+            struct {{ alias[0]}} : Meta::Methods
+            {
+                static void impl() = delete;
+            };
         };
         using NamedMethods = Named::{{ alias[0] }};
         struct Resolver

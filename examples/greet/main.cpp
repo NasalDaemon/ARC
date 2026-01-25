@@ -24,7 +24,6 @@ int main()
     // Output:
     // Hello from Bob! I am 30 years old.
     // Well met, Bob. I am Alice of 29 years!
-    // Well met, Bobby. I am Alice of 29 years!
 
     return 0;
 }

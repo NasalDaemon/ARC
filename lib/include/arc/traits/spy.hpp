@@ -20,7 +20,10 @@ struct SpyOnly : detail::SpyBase
     {
         struct Named
         {
-            struct SpyOnly : detail::SpyBase::Meta::Methods {};
+            struct SpyOnly : detail::SpyBase::Meta::Methods
+            {
+                static void impl() = delete;
+            };
         };
         using NamedMethods = Named::SpyOnly;
     };
@@ -40,7 +43,10 @@ struct Spy : detail::SpyBase
     {
         struct Named
         {
-            struct Spy : detail::SpyBase::Meta::Methods {};
+            struct Spy : detail::SpyBase::Meta::Methods
+            {
+                static void impl() = delete;
+            };
         };
         using NamedMethods = Named::Spy;
     };

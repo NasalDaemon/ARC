@@ -11,12 +11,12 @@ export struct Sheep {
     template<class Context>
     struct Node final : IAnimal
     {
-        std::string impl(trait::Animal::speak) const override
+        std::string speak() const override
         {
             return black ? "barbar" : "baa!";
         }
 
-        void impl(trait::Animal::evolve) override
+        void evolve() override
         {
             auto handle = exchangeImpl<Goat>();
             // In the context of a global scheduler, this exchange will be deferred until
@@ -27,10 +27,10 @@ export struct Sheep {
 
             // This node is still alive in a detached state
             // It can call into itself and other nodes, but other nodes can't reach it
-            std::println("{}", asAnimal().speak());
+            std::println("{}", speak());
             // prints: barbar or baa!
 
-            std::println("{}", handle.getNext()->asAnimal().speak());
+            std::println("{}", handle.getNext()->speak());
             // prints: meeh!
         }
 

@@ -8,8 +8,11 @@ namespace examples::animals_virtual {
 
 export struct IAnimal : arc::INodeImpl<trait::Animal>
 {
-    virtual std::string impl(trait::Animal::speak) const = 0;
-    virtual void impl(trait::Animal::evolve) = 0;
+    // INodeImpl redirects impl(method, ...) to method(...)
+
+    // Virtual methods to be implemented by derived classes
+    virtual std::string speak() const = 0;
+    virtual void evolve() = 0;
 };
 
 }

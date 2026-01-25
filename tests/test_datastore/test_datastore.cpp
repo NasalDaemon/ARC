@@ -73,7 +73,7 @@ struct Root
 
             using PrivateData = Types::PrivateData;
 
-            void impl(trait::DataListener::init, SharedData::Id const& id, SharedData& sharedData, auto constructor)
+            void init(SharedData::Id const& id, SharedData& sharedData, auto constructor)
             {
                 CHECK(id == sharedData.id);
                 if (id < 4)
@@ -83,7 +83,7 @@ struct Root
                 }
             }
 
-            void impl(trait::DataListener::onEvent, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
+            void onEvent(arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
             {
                 REQUIRE(event.isLatest());
                 CHECK(item.id == item.sharedData.id);
@@ -116,7 +116,7 @@ struct Root
 
         using PrivateData = Types::PrivateData;
 
-        void impl(trait::DataListener::init, SharedData::Id const& id, SharedData& sharedData, auto constructor)
+        void init(SharedData::Id const& id, SharedData& sharedData, auto constructor)
         {
             CHECK(id == sharedData.id);
             if (sharedData.id < 3)
@@ -130,7 +130,7 @@ struct Root
             }
         }
 
-        void impl(this auto& self, trait::DataListener::onEvent, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
+        void onEvent(this auto& self, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
         {
             REQUIRE(event.isLatest());
             CHECK(item.id == item.sharedData.id);

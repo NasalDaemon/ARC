@@ -11,6 +11,31 @@ namespace arc {
 namespace detail {
     template<IsNodeBase Node, class... Traits>
     struct NodeWith;
+
+    template<class T>
+    concept IsQualified = std::is_pointer_v<T>;
+
+    template<class T>
+    auto getNamedTrait() -> T;
+    template<IsQualified Q>
+    auto getNamedTrait() -> Q;
+
+    template<class T>
+    auto getQualifiedTrait() -> T*;
+    template<IsQualified Q>
+    auto getQualifiedTrait() -> Q;
+
+    template<class T>
+    auto getRawTrait() -> T;
+    template<IsQualified Q>
+    auto getRawTrait() -> std::remove_pointer_t<Q>;
+
+    template<class TraitT>
+    using NamedTrait = decltype(getNamedTrait<TraitT>());
+    template<class TraitT>
+    using QualifiedTrait = decltype(getQualifiedTrait<TraitT>());
+    template<class TraitT>
+    using RawTrait = decltype(getRawTrait<TraitT>());
 }
 
 ARC_MODULE_EXPORT
@@ -25,14 +50,14 @@ using Uses = detail::NodeWith<Node, void(Traits...)>;
 ARC_MODULE_EXPORT
 template<IsNodeBase Node, class... Traits>
 requires (sizeof...(Traits) > 0)
-using Impl = detail::NodeWith<Node, void(), Traits...>;
+using Impl = detail::NodeWith<Node, void(), detail::NamedTrait<Traits>...>;
 
 template<class Node>
 struct Build<Node> final
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
-    using Impl = Build<Node, void(), Traits...>;
+    using Impl = Build<Node, void(), detail::NamedTrait<Traits>...>;
 
     template<detail::IsDependsItem... DependTraits>
     requires (sizeof...(DependTraits) > 0)
@@ -44,7 +69,7 @@ struct Build<Node, void(DependTraits...)> final
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
-    using Impl = detail::NodeWith<Node, void(DependTraits...), Traits...>;
+    using Impl = detail::NodeWith<Node, void(DependTraits...), detail::NamedTrait<Traits>...>;
 
     using NoTraits = detail::NodeWith<Node, void(DependTraits...)>;
 };

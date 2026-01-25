@@ -11,9 +11,9 @@ export struct Goat {
     template<class Context>
     struct Node final : IAnimal
     {
-        std::string impl(trait::Animal::speak) const override { return "meeh!"; }
+        std::string speak() const override { return "meeh!"; }
 
-        void impl(trait::Animal::evolve) override
+        void evolve() override
         {
             auto handle = exchangeImpl<Cow>(false);
             if (handle.deferred())

@@ -17,7 +17,7 @@ struct Bob
 {
     template<class Context>
     struct Node : arc::Node
-        ::Impl<trait::AliceRead, trait::Bob, trait::Charlie>
+        ::Impl<trait::AliceRead*, trait::Bob*, trait::Charlie*>
         ::Uses<trait::Alice, trait::Charlie>
     {
         void onGraphConstructed() { std::cout << "Constructed Bob " << asBob().get() << "\n"; }

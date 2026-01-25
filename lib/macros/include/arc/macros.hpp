@@ -152,6 +152,18 @@
         { \
             METHOD_LIST(ARC_METHOD_TAG_APPLICABLE) \
         }; \
+        struct NamedImpl \
+        { \
+            struct Disable \
+            { \
+                METHOD_LIST(ARC_NAMED_METHOD_IMPL_DISABLE) \
+            }; \
+            struct Impl : protected Disable \
+            { \
+                METHOD_LIST(ARC_NAMED_METHOD_IMPL) \
+            }; \
+        }; \
+        using Impl = NamedImpl::Impl; \
         struct SignaturesByTag \
         { \
             static auto impl(auto&&...) -> ::arc::NullNormalInvoker; \
@@ -160,12 +172,15 @@
         { \
             METHOD_LIST(ARC_DUCK_METHOD) \
         }; \
+        using DuckMethods = Methods; \
         struct Named \
         { \
-            struct TraitName : Methods {}; \
+            struct TraitName : Methods \
+            { \
+                static void impl() = delete; \
+            }; \
         }; \
         using NamedMethods = Named::TraitName; \
-        using DuckMethods = Methods; \
         struct Resolver \
         { \
             ARC_TRAIT_RESOLVER(TraitName) \
@@ -187,6 +202,17 @@
 
 #define ARC_METHOD_TAG_APPLICABLE(method) \
     static void applicable(method);
+
+#define ARC_NAMED_METHOD_IMPL_DISABLE(method) \
+    static void method(::arc::DisableNamedImplFor<ARC_This_Trait::method>);
+
+#define ARC_NAMED_METHOD_IMPL(method) \
+    template<::arc::IsNode Self> \
+    requires (not requires { Self::method(::arc::DisableNamedImplFor<ARC_This_Trait::method>{}); }) \
+    ARC_INLINE constexpr decltype(auto) impl(this Self& self, ARC_This_Trait::method, auto&&... args) \
+    { \
+        return self.method(ARC_FWD(args)...); \
+    }
 
 #define ARC_AS_FUNCTOR_METHOD(method) \
     template<::arc::IsTraitView Self> \

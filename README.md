@@ -167,31 +167,35 @@ import std;
 
 namespace app {
 
-// Alice is a short-hand node with contextless state
-// It implements Greeter and Responder
-export struct Alice : arc::Node
+// Alice is a standard node implementing Greeter and Responder
+export struct Alice
 {
-    // Declares dependency on the Responder trait (provided by another node)
-    using Depends = arc::Depends<trait::Responder>;
-
-    // Declares which traits this node implements
-    using Traits = arc::Traits<trait::Greeter, trait::Responder>;
-
-    void impl(this auto const& self, trait::Greeter::greet)
+    template<class Context> // Context injected by ARC into the node's state
+    struct Node : arc::Node
     {
-        std::println("Hello from Alice! I am {} years old.", self.age);
-        // Resolve dependency via explicit object parameter `self`, containing the node's context
-        self.getNode(trait::responder).respondTo("Alice");
-        // The line above can be inlined by the compiler, as getNode and respondTo are both direct calls
-    }
+        // Declares dependency on the Responder trait (provided by another node)
+        using Depends = arc::Depends<trait::Responder>;
 
-    void impl(trait::Responder::respondTo, std::string_view name) const
-    {
-        std::println("Well met, {}. I am Alice of {} years!", name, age);
-    }
+        // Declares which traits this node implements
+        using Traits = arc::Traits<trait::Greeter, trait::Responder>;
 
-    explicit Alice(int age) : age(age) {}
-    int age; // State specific to this node
+        void impl(trait::Responder::respondTo, std::string_view name) const
+        {
+            std::println("Well met, {}. I am Alice of {} years!", name, age);
+        }
+
+        void impl(trait::Greeter::greet) const
+        {
+            std::println("Hello from Alice! I am {} years old.", age);
+            // Resolve dependency (on Bob) using the injected `Context` template parameter
+            getNode(trait::responder).respondTo("Alice");
+            // The line above can be inlined by the compiler,
+            // as getNode and respondTo are both direct calls
+        }
+
+        explicit Node(int age) : age(age) {}
+        int age; // State specific to this node
+    };
 };
 
 }
@@ -206,32 +210,30 @@ import std;
 
 namespace app {
 
-// Bob is full node with contextful state
-export struct Bob
+// Bob is a shorthand node with contextless state
+// Context is injected into methods by ARC via deducing-this parameter instead
+export struct Bob : arc::Node::
+    Uses<trait::Responder>:: // provides arc::Depends<...> list and getResponder()
+    Impl<trait::Greeter, trait::Responder> // provides arc::Traits<...> list
 {
-    template<class Context>
-    struct Node : arc::NodeUses<trait::Responder>
+    // impl(trait::Responder::method, ...) redirects here via Impl<..., trait::Responder>
+    void respondTo(std::string_view name) const
     {
-        using Traits = arc::Traits<trait::Greeter, trait::Responder>;
+        std::println("Well met, {}. I am Bob of {} years!", name, age);
+    }
 
-        void impl(trait::Greeter::greet) const
-        {
-            std::println("Hello from Bob!");
-            // Can call getNode directly, as Context is already injected into the state
-            getNode(trait::responder).respondTo("Bob"); // can be inlined by the compiler
-            // arc::NodeUses also provides a shorthand for each listed trait:
-            getResponder().respondTo("Bobby"); // can be inlined by the compiler
-        }
+    // impl(trait::Greeter::method, ...) redirects here via Impl<trait::Greeter, ...>
+    void greet(this auto const& self) // deducing-this `self` parameter has the node context
+    {
+        std::println("Hello from Bob!");
+        // Uses<trait::Responder> provides `getResponder()` aka `getNode(trait::responder)`
+        self.getResponder().respondTo("Bob");
+        // The line above will be inlined by the compiler
+    }
 
-        void impl(trait::Responder::respondTo, std::string_view name) const
-        {
-            std::println("Well met, {}. I am Bob of {} years!", name, age);
-        }
-
-        explicit Node(int age) : age(age) {}
-        int age; // State specific to this node
-    };
-}
+    explicit Bob(int age) : age(age) {}
+    int age; // State specific to this node
+};
 
 }
 ```
@@ -284,7 +286,6 @@ int main()
     // Output:
     // Hello from Bob! I am 30 years old.
     // Well met, Bob. I am Alice of 29 years!
-    // Well met, Bobby. I am Alice of 29 years!
 
     return 0;
 }

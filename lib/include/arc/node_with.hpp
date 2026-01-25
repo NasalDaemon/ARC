@@ -9,11 +9,9 @@
 namespace arc::detail {
 
 template<class NodeBase, class... TraitTs>
-struct AsTrait
-    : TraitsItem<TraitTs>::Trait::Meta::Converter...
-    , TraitsItem<TraitTs>::Trait::Meta::NamedMethods...
+struct AsTrait : TraitsItem<RawTrait<TraitTs>>::Trait::Meta::Converter...
 {
-    using Traits = arc::Traits<TraitTs...>;
+    using Traits = arc::Traits<RawTrait<TraitTs>...>;
 };
 template<HasNodeTraits NodeBase>
 struct AsTrait<NodeBase>
@@ -26,9 +24,22 @@ struct AsTrait<NodeBase>
     using Traits = arc::NoTraits;
 };
 
+template<class T>
+auto namedMethods() -> TraitsItem<T>::Trait::Meta::Impl;
+template<IsQualified T>
+auto namedMethods() -> TraitsItem<RawTrait<T>>::Trait::Meta::NamedMethods;
+
+template<class Trait>
+using NamedMethods = decltype(namedMethods<Trait>());
+
+template<class... TraitTs>
+struct Methods : NamedMethods<TraitTs>...
+{
+    using NamedMethods<TraitTs>::impl...;
+};
+
 template<class... DependTraits>
-struct Resolve
-    : DependsTrait<DependTraits>::Meta::Resolver...
+struct Resolve : DependsTrait<DependTraits>::Meta::Resolver...
 {
     using Depends = arc::Depends<DependTraits...>;
 };
@@ -56,6 +67,7 @@ struct NodeWith<Node, void(DependTraits...), TraitTs...>
     : Node
     , Resolve<DependTraits...>
     , AsTrait<Node, TraitTs...>
+    , Methods<TraitTs...>
 {
     using Depends = Resolve<DependTraits...>::Depends;
     using Traits = AsTrait<Node, TraitTs...>::Traits;

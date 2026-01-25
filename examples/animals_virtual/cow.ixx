@@ -11,12 +11,12 @@ export struct Cow
     template<class Context>
     struct Node final : IAnimal
     {
-        std::string impl(trait::Animal::speak) const override
+        std::string speak() const override
         {
             return happy ? "moo" : "mmmooooo!";
         }
 
-        void impl(trait::Animal::evolve) override
+        void evolve() override
         {
             // Cows do not evolve
         }

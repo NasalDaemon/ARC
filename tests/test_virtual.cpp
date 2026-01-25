@@ -51,10 +51,10 @@ struct IApple : arc::INodeImpl<trait::Apple>
     {
         using AppleType = virtual_::AppleType;
     };
-    virtual int impl(trait::Apple::seeds) const = 0;
-    virtual bool impl(trait::Apple::testExchange) = 0;
+    virtual int seeds() const = 0;
+    virtual bool testExchange() = 0;
 };
-struct IBread : arc::INodeImpl<trait::Bread>
+struct IBread : arc::INodeImpl<trait::Bread*>
 {
     struct Types
     {
@@ -64,7 +64,7 @@ struct IBread : arc::INodeImpl<trait::Bread>
 };
 struct IEgg : arc::INodeImpl<trait::Egg>
 {
-    virtual int impl(trait::Egg::yolks) const = 0;
+    virtual int yolks() const = 0;
 };
 
 struct AppleEgg
@@ -74,18 +74,18 @@ struct AppleEgg
     {
         static_assert(std::is_same_v<BreadType, typename arc::ResolveTypes<Node, trait::Bread>::BreadType>);
 
-        int impl(trait::Apple::seeds) const final
+        int seeds() const final
         {
             asEgg();
-            return seeds + getBread().slices();
+            return seeds_ + getBread().slices();
         }
 
-        int impl(trait::Egg::yolks) const final
+        int yolks() const final
         {
-            return yolks;
+            return yolks_;
         }
 
-        bool impl(trait::Apple::testExchange) final
+        bool testExchange() final
         {
             if constexpr (arc::IsVirtualContext<Context>)
             {
@@ -96,14 +96,14 @@ struct AppleEgg
                     auto handle = exchangeImpl<AppleEgg>(11, 3);
                     REQUIRE(handle.getNext() != this);
                     CHECK(handle.getNext()->asApple().seeds() == 47);
-                    CHECK(handle.getNext()->Apple::seeds() == 47);
+                    CHECK(handle.getNext()->seeds() == 47);
                     // Using current node still works, but "re-entry" to this context from apple
                     // will go to the new node that was just emplaced into the graph instead
                     CHECK(asApple().seeds() == 46);
                     keepAlive = handle;
                 }
                 CHECK(asApple().seeds() == 46);
-                CHECK(Apple::seeds() == 46);
+                CHECK(seeds() == 46);
                 allowDestroy = true;
                 return true;
             }
@@ -111,7 +111,7 @@ struct AppleEgg
         }
 
         explicit Node(int seeds = 10, int yolks = 2)
-            : seeds(seeds), yolks(yolks)
+            : seeds_(seeds), yolks_(yolks)
         {}
 
         ~Node()
@@ -119,8 +119,8 @@ struct AppleEgg
             REQUIRE(allowDestroy);
         }
 
-        int seeds;
-        int yolks;
+        int seeds_;
+        int yolks_;
         bool allowDestroy = true;
     };
 };
@@ -219,10 +219,9 @@ struct VirtualOnly
 {
     struct Leaf final : arc::INodeOf<IEgg, IBread>
     {
-        int impl(trait::Egg::yolks) const
+        int yolks() const
         {
             static_assert(requires { yolks(); });
-            static_assert(requires { Egg::yolks(); });
             return yolks_;
         }
         int impl(trait::Bread::slices) const
@@ -280,8 +279,8 @@ struct BreadFacade
     template<class Context>
     struct Node final : arc::INodeOf<IApple, IBread>
     {
-        int impl(trait::Apple::seeds) const { return 0; }
-        bool impl(trait::Apple::testExchange)
+        int seeds() const { return 0; }
+        bool testExchange()
         {
             if constexpr (arc::IsVirtualContext<Context>)
             {
@@ -335,7 +334,7 @@ struct EggFacade
     template<class Context>
     struct Node final : IEgg
     {
-        int impl(trait::Egg::yolks) const
+        int yolks() const
         {
             return getNode(trait::egg).yolks();
         }

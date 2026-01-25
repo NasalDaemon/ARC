@@ -67,7 +67,7 @@ struct Root
         }
     };
 
-    struct AB : arc::Node::Impl<trait::AB>::Uses<trait::A, trait::B>
+    struct AB : arc::Node::Impl<trait::AB*>::Uses<trait::A, trait::B>
     {
         int impl(this auto const& self, trait::AB::fnA)
         {
@@ -77,9 +77,9 @@ struct Root
             static_assert(requires { self.fnA(); });
             static_assert(requires { self.A::fnA(); });
             static_assert(requires { self.AB::fnA(); });
-            static_assert(requires { self.AsTrait::fnA(); });
-            static_assert(requires { self.AsTrait::A::fnA(); });
-            static_assert(requires { self.AsTrait::AB::fnA(); });
+            static_assert(requires { self.Methods::fnA(); });
+            static_assert(requires { self.Methods::A::fnA(); });
+            static_assert(requires { self.Methods::AB::fnA(); });
 
             static_assert(requires { self.Resolve::getA(); });
             return self.getA().fnA();
@@ -93,9 +93,9 @@ struct Root
             static_assert(requires { self.fnB(); });
             static_assert(requires { self.B::fnB(); });
             static_assert(requires { self.AB::fnB(); });
-            static_assert(requires { self.AsTrait::fnB(); });
-            static_assert(requires { self.AsTrait::B::fnB(); });
-            static_assert(requires { self.AsTrait::AB::fnB(); });
+            static_assert(requires { self.Methods::fnB(); });
+            static_assert(requires { self.Methods::B::fnB(); });
+            static_assert(requires { self.Methods::AB::fnB(); });
 
             static_assert(requires { self.Resolve::getB(); });
             return self.getB().fnB();

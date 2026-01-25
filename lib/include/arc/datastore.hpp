@@ -61,7 +61,7 @@ namespace detail {
             arc::forEachIndex<Count>(
                 [this](auto i) {
                     if (engaged.test(i))
-                        std::destroy_at(get<i>(privateData).value());
+                        std::destroy_at(std::get<i>(privateData).value());
                 });
         }
 
@@ -71,7 +71,7 @@ namespace detail {
                 [this, &other](auto i)
                 {
                     if (engaged.test(i))
-                        std::construct_at(get<i>(privateData).storage(), *get<i>(other.privateData).value());
+                        std::construct_at(std::get<i>(privateData).storage(), *std::get<i>(other.privateData).value());
                 });
         }
 
@@ -81,7 +81,7 @@ namespace detail {
                 [this, &other](auto i)
                 {
                     if (engaged.test(i))
-                        std::construct_at(get<i>(privateData).storage(), std::move(*get<i>(other.privateData).value()));
+                        std::construct_at(std::get<i>(privateData).storage(), std::move(*std::get<i>(other.privateData).value()));
                 });
         }
 
@@ -192,7 +192,7 @@ struct DataStore
                 {
                     if (item.second.engaged.test(i))
                         this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                            event, EventItem{item.first, item.second.sharedData, *get<i>(item.second.privateData).value()});
+                            event, EventItem{item.first, item.second.sharedData, *std::get<i>(item.second.privateData).value()});
                 });
         }
 
@@ -227,7 +227,7 @@ struct DataStore
 
         template<class... SharedArgs>
         requires std::constructible_from<SharedData, SharedArgs...>
-        std::pair<SharedData const*, bool> impl(DataStoreTrait::add, Id const& id, SharedArgs&&... sharedArgs)
+        std::pair<SharedData const*, bool> add(Id const& id, SharedArgs&&... sharedArgs)
         {
             auto [it, inserted] = dataMap.try_emplace(id, ARC_FWD(sharedArgs)...);
             if (not it->second.engaged.all())
@@ -243,7 +243,7 @@ struct DataStore
                         auto const constructor = [&holder = it->second]<class... PrivateArgs>(PrivateArgs&&... args) -> PrivateData&
                             requires std::constructible_from<PrivateData, PrivateArgs...>
                         {
-                            PrivateData* p = std::construct_at(get<I>(holder.privateData).storage(), ARC_FWD(args)...);
+                            PrivateData* p = std::construct_at(std::get<I>(holder.privateData).storage(), ARC_FWD(args)...);
                             holder.engaged.set(I);
                             return *p;
                         };
@@ -260,7 +260,7 @@ struct DataStore
             return {std::addressof(it->second.sharedData), inserted};
         }
 
-        [[nodiscard]] ARC_INLINE constexpr auto impl(DataStoreTrait::get, Id const& id) const
+        [[nodiscard]] ARC_INLINE constexpr auto get(Id const& id) const
             -> std::pair<SharedData const*, void*>
         {
             auto const it = dataMap.find(id);
@@ -268,13 +268,13 @@ struct DataStore
                 return {std::addressof(it->second.sharedData), nullptr};
             return {nullptr, nullptr};
         }
-        [[nodiscard]] ARC_INLINE constexpr void* impl(DataStoreTrait::get, SharedData const*) const
+        [[nodiscard]] ARC_INLINE constexpr void* get(SharedData const*) const
         {
             return nullptr;
         }
 
         template<std::invocable<SharedData*, void*> UseData>
-        constexpr auto impl(DataStoreTrait::modify, Id const& id, UseData&& f)
+        constexpr auto modify(Id const& id, UseData&& f)
             -> std::pair<SharedData const*, void*>
         {
             if (auto const it = dataMap.find(id); it != dataMap.end())
@@ -285,7 +285,7 @@ struct DataStore
             return {nullptr, nullptr};
         }
         template<std::invocable<SharedData*, void*> UseData>
-        constexpr void* impl(DataStoreTrait::modify, SharedData const* sharedData, UseData&& f)
+        constexpr void* modify(SharedData const* sharedData, UseData&& f)
         {
             auto& item = getItem(sharedData);
             useData(item, detail::UseDataSwallowId{ARC_FWD(f)});
@@ -293,13 +293,13 @@ struct DataStore
         }
 
         template<class Self, std::invocable<Id const&, detail::ConstLike<Self, SharedData>*, void*> UseData>
-        constexpr void impl(this Self& self, DataStoreTrait::forEach, UseData&& f)
+        constexpr void forEach(this Self& self, UseData&& f)
         {
             for (auto& item : self.dataMap)
                 self.useData(item, ARC_FWD(f));
         }
 
-        std::pair<SharedData const*, void*> impl(DataStoreTrait::notify, auto const& tag, Id const& id)
+        std::pair<SharedData const*, void*> notify(auto const& tag, Id const& id)
         {
             auto const it = dataMap.find(id);
             if (it != dataMap.end())
@@ -310,13 +310,13 @@ struct DataStore
             return {nullptr, nullptr};
         }
 
-        void* impl(DataStoreTrait::notify, auto const& tag, SharedData const* sharedData)
+        void* notify(auto const& tag, SharedData const* sharedData)
         {
             notifyItem(getItem(sharedData), tag);
             return nullptr;
         }
 
-        void impl(DataStoreTrait::notifyAll, auto const& tag)
+        void notifyAll(auto const& tag)
         {
             for (auto& item : dataMap)
                 notifyItem(item, tag);
@@ -337,7 +337,7 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
 
     static auto* getPrivateData(auto& holder)
     {
-        return holder.engaged.test(ListenerIndex) ? get<ListenerIndex>(holder.privateData).value() : nullptr;
+        return holder.engaged.test(ListenerIndex) ? std::get<ListenerIndex>(holder.privateData).value() : nullptr;
     }
 
     template<class Self, class UseData>
@@ -369,12 +369,12 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
                 if constexpr (not SkipSelf or i != ListenerIndex)
                     if (item.second.engaged.test(i))
                         this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                            event, EventItem{item.first, item.second.sharedData, *get<i>(item.second.privateData).value()});
+                            event, EventItem{item.first, item.second.sharedData, *std::get<i>(item.second.privateData).value()});
             });
     }
 
     template<class Self>
-    [[nodiscard]] constexpr auto impl(this Self& self, DataStoreTrait::get, Id const& id)
+    [[nodiscard]] constexpr auto get(this Self& self, Id const& id)
         -> std::pair<SharedData const*, detail::ConstLike<Self, PrivateData>*>
     {
         auto const it = self.dataMap.find(id);
@@ -384,14 +384,14 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     }
 
     template<class Self>
-    [[nodiscard]] constexpr auto impl(this Self& self, DataStoreTrait::get, SharedData const* sharedData)
+    [[nodiscard]] constexpr auto get(this Self& self, SharedData const* sharedData)
         -> detail::ConstLike<Self, PrivateData>*
     {
         return getPrivateData(self.getHolder(sharedData));
     }
 
     template<std::invocable<SharedData*, PrivateData*> UseData>
-    constexpr auto impl(DataStoreTrait::modify, Id const& id, UseData&& f)
+    constexpr auto modify(Id const& id, UseData&& f)
         -> std::pair<SharedData const*, PrivateData*>
     {
         if (auto const it = dataMap.find(id); it != dataMap.end())
@@ -403,7 +403,7 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     }
 
     template<std::invocable<SharedData*, PrivateData*> UseData>
-    constexpr auto impl(DataStoreTrait::modify, SharedData const* sharedData, UseData&& f)
+    constexpr auto modify(SharedData const* sharedData, UseData&& f)
         -> PrivateData*
     {
         auto& item = getItem(sharedData);
@@ -412,13 +412,13 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     }
 
     template<class Self, std::invocable<Id const&, detail::ConstLike<Self, SharedData>*, detail::ConstLike<Self, PrivateData>*> UseData>
-    constexpr void impl(this Self& self, DataStoreTrait::forEach, UseData&& f)
+    constexpr void forEach(this Self& self, UseData&& f)
     {
         for (auto& item : self.dataMap)
             self.useData(item, ARC_FWD(f));
     }
 
-    std::pair<SharedData const*, PrivateData*> impl(DataStoreTrait::notify, auto const& tag, Id const& id)
+    std::pair<SharedData const*, PrivateData*> notify(auto const& tag, Id const& id)
     {
         if (auto const it = dataMap.find(id); it != dataMap.end())
         {
@@ -428,7 +428,7 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
         return {nullptr, nullptr};
     }
 
-    PrivateData* impl(DataStoreTrait::notify, auto const& tag, SharedData const* sharedData)
+    PrivateData* notify(auto const& tag, SharedData const* sharedData)
     {
         auto& item = getItem(sharedData);
         notifyItem<false>(item, tag);

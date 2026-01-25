@@ -14,13 +14,13 @@ export struct IAnimalFacade
     struct Node final : arc::Uses<IAnimal, trait::Animal>
     {
         // Forward to adapted node
-        std::string impl(trait::Animal::speak) const override
+        std::string speak() const override
         {
             return getAnimal().speak();
         }
 
         // As a dynamic node, this facade can swap the implementation hosted by arc::Virtual
-        void impl(trait::Animal::evolve) override
+        void evolve() override
         {
             auto handle = exchangeImpl<Cow>(true);
             if (handle.deferred())

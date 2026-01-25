@@ -62,7 +62,7 @@ auto PathOps::impl(trait::PathOps::normalise, std::string_view path) const -> st
 
 auto PathOps::impl(trait::PathOps::parent, std::string_view path) const -> std::string
 {
-    std::string normalised = AsTrait::PathOps::normalise(path);
+    std::string normalised = Methods::PathOps::normalise(path);
     auto const pos = normalised.rfind('/');
     if (pos == 0)
         normalised.resize(1);

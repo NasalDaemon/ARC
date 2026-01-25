@@ -28,13 +28,13 @@ export struct Filesystem
         using DataView = Types::DataView;
         using Children = Types::Children;
 
-        auto impl(trait::Filesystem::read, std::string_view path) const -> std::expected<DataView, FsError>;
-        auto impl(trait::Filesystem::write, std::string_view path, std::string data) -> std::expected<void, FsError>;
-        auto impl(trait::Filesystem::mkdir, std::string_view path) -> std::expected<void, FsError>;
-        auto impl(trait::Filesystem::remove, std::string_view path) -> std::expected<void, FsError>;
-        auto impl(trait::Filesystem::list, std::string_view path) const -> std::expected<Children, FsError>;
-        auto impl(trait::Filesystem::exists, std::string_view path) const -> bool;
-        auto impl(trait::Filesystem::isDir, std::string_view path) const -> bool;
+        auto read(std::string_view path) const -> std::expected<DataView, FsError>;
+        auto write(std::string_view path, std::string data) -> std::expected<void, FsError>;
+        auto mkdir(std::string_view path) -> std::expected<void, FsError>;
+        auto remove(std::string_view path) -> std::expected<void, FsError>;
+        auto list(std::string_view path) const -> std::expected<Children, FsError>;
+        auto exists(std::string_view path) const -> bool;
+        auto isDir(std::string_view path) const -> bool;
     };
 };
 

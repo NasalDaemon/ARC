@@ -18,6 +18,13 @@ template<class... Ts>
 struct AdlTag{};
 
 ARC_MODULE_EXPORT
+struct DisableNamedImpl{};
+
+ARC_MODULE_EXPORT
+template<class T>
+struct DisableNamedImplFor : DisableNamedImpl {};
+
+ARC_MODULE_EXPORT
 struct Trait
 {
     struct Meta
@@ -117,7 +124,9 @@ struct JoinedTrait : Traits...
         struct Methods : Traits::Meta::Methods...
         {};
         struct NamedMethods : Traits::Meta::NamedMethods...
-        {};
+        {
+            using Traits::Meta::NamedMethods::impl...;
+        };
         struct DuckMethods : Traits::Meta::DuckMethods...
         {};
         struct Resolver : Traits::Meta::Resolver...
@@ -151,7 +160,10 @@ struct AltTrait : Trait_
         struct GlobalResolver{};
         struct Converter{};
         // Named methods should lose the original name
-        using NamedMethods = Trait_::Meta::Methods;
+        struct NamedMethods : Trait_::Meta::Methods
+        {
+            static void impl() = delete;
+        };
     };
 
     static AltTrait expects();
