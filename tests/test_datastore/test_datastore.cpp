@@ -83,7 +83,12 @@ struct Root
                 }
             }
 
-            void onEvent(arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
+            #if ARC_COMPILER_CLANG
+            // TODO: For some reason clang frontend crashes if this is not defined (but omitting impl() syntax still works)
+            bool skipEvent(auto&&...) { return false; }
+            #endif
+
+            bool onEvent(arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
             {
                 REQUIRE(event.isLatest());
                 CHECK(item.id == item.sharedData.id);
@@ -92,13 +97,14 @@ struct Root
                 CHECK(pData == &item.privateData);
                 if (event->desc == "test")
                     received.push_back(item.privateData);
+                return true;
             }
 
             std::vector<PrivateData> received;
         };
     };
 
-    struct Receiver2 : arc::Node::Impl<trait::DataListener>::Uses<trait::DataStore>
+    struct Receiver2 : arc::Node::Impl<trait::DataListener*>::Uses<trait::DataStore>
     {
         struct Types
         {
@@ -116,7 +122,7 @@ struct Root
 
         using PrivateData = Types::PrivateData;
 
-        void init(SharedData::Id const& id, SharedData& sharedData, auto constructor)
+        void impl(trait::DataListener::init, SharedData::Id const& id, SharedData& sharedData, auto constructor)
         {
             CHECK(id == sharedData.id);
             if (sharedData.id < 3)
@@ -130,7 +136,10 @@ struct Root
             }
         }
 
-        void onEvent(this auto& self, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
+        // Can omit impl for skipEvent since it is not required, and it will default to "do not skip"
+        // bool impl(trait::DataListener::skipEvent, auto&&...) { return false; }
+
+        void impl(this auto& self, trait::DataListener::onEvent, arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
         {
             REQUIRE(event.isLatest());
             CHECK(item.id == item.sharedData.id);
@@ -166,7 +175,7 @@ struct Root
             CHECK(pData == nullptr);
 
             called = false;
-            pData = self.getDataStore().modify(pSharedData, [&](SharedData const* sd, PrivateData* pd) {
+            pData = self.getDataStore().modify(pSharedData, [&](SharedData* sd, PrivateData* pd) {
                 called = true;
                 CHECK(sd != nullptr);
                 CHECK(pd == nullptr);

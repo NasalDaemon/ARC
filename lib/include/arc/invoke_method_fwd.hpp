@@ -69,8 +69,8 @@ struct InvokeMethodR
 };
 
 ARC_MODULE_EXPORT
-template<class T, class ReturnConstraint>
-concept MatchesReturnConstraint = requires { ReturnConstraint::template Return<T>(); };
+template<class T, class ReturnConstraint, class Types>
+concept MatchesReturnConstraint = requires { ReturnConstraint::template Return<T, Types>(); };
 
 ARC_MODULE_EXPORT
 template<bool Const, class ReturnConstraint, class... NormalArgs>
@@ -78,14 +78,16 @@ struct InvokeMethodC
 {
     using Normaliser = NormalInvoker<NormalArgs...>;
 
-    ARC_INLINE static constexpr auto invoke(auto& node, auto method, auto&&... args)
-        -> MatchesReturnConstraint<ReturnConstraint> auto
+    template<class Node>
+    ARC_INLINE static constexpr auto invoke(Node& node, auto method, auto&&... args)
+        -> MatchesReturnConstraint<ReturnConstraint, typename Node::Types> auto
     {
         return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
     }
 
-    ARC_INLINE static constexpr auto invoke(auto& node, auto method, auto&&... args)
-        -> MatchesReturnConstraint<ReturnConstraint> decltype(auto)
+    template<class Node>
+    ARC_INLINE static constexpr auto invoke(Node& node, auto method, auto&&... args)
+        -> MatchesReturnConstraint<ReturnConstraint, typename Node::Types> decltype(auto)
         requires ReturnConstraint::DecltypeAuto
     {
         return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);

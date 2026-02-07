@@ -210,6 +210,7 @@
     template<::arc::IsNode Self> \
     requires (not requires { Self::method(::arc::DisableNamedImplFor<ARC_This_Trait::method>{}); }) \
     ARC_INLINE constexpr decltype(auto) impl(this Self& self, ARC_This_Trait::method, auto&&... args) \
+        requires requires { self.method(ARC_FWD(args)...); }  \
     { \
         return self.method(ARC_FWD(args)...); \
     }
@@ -232,6 +233,7 @@
     ARC_AS_FUNCTOR_METHOD(method) \
     template<::arc::IsTraitViewOrNode Self, class... Args> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
+        requires requires { self.impl(method ## _c, ARC_FWD(args)...); } \
     { \
         if constexpr (::arc::IsTraitView<Self>) \
         { \

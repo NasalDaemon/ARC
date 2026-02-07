@@ -29,7 +29,7 @@ struct Adapt
         template<IsTrait T>
         static ResolvedLink<Facade_, T> resolveLink(T, LinkPriorityMin);
 
-        constexpr auto* asInterface(this auto& self) { return std::addressof(self.facade); }
+        ARC_INLINE constexpr auto* asInterface(this auto& self) { return std::addressof(self.facade); }
 
         struct Facade_ : arc::Context<Cluster, Facade>
         {

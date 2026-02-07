@@ -6,33 +6,35 @@
 namespace arc {
 
 ARC_MODULE_EXPORT
-struct EventTracker
+struct EventId
 {
-    constexpr explicit EventTracker(std::size_t const* eventIdPtr)
-        : eventId(*eventIdPtr)
-        , eventIdPtr(eventIdPtr)
-    {}
+    constexpr explicit EventId(std::size_t id) : id(id) {}
 
-    constexpr EventTracker getLatest() const { return EventTracker(eventIdPtr); }
-    constexpr bool isLatest() const { return eventId == *eventIdPtr; }
-
-    bool operator==(EventTracker const& other) const = default;
+    auto operator<=>(EventId const&) const = default;
 
 private:
-    std::size_t eventId;
-    std::size_t const* eventIdPtr;
+    std::size_t id;
 };
 
 ARC_MODULE_EXPORT
 template<class T>
 struct Event
 {
-    EventTracker tracker;
-    T const& data;
+    constexpr explicit Event(T const* data, std::size_t const* eventIdPtr)
+        : data(data)
+        , eventId(*eventIdPtr)
+        , eventIdPtr(eventIdPtr)
+    {}
 
-    constexpr bool isLatest() const { return tracker.isLatest(); }
+    constexpr EventId getEventId() const { return EventId(eventId); }
+    constexpr bool isLatest() const { return eventId == *eventIdPtr; }
 
-    auto* operator->(this auto& self) { return std::addressof(self.data); }
+    constexpr T const* operator->() const { return data; }
+
+private:
+    T const* data;
+    std::size_t eventId;
+    std::size_t const* eventIdPtr;
 };
 
 ARC_MODULE_EXPORT

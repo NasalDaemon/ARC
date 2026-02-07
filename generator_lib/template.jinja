@@ -133,7 +133,7 @@ struct {{ trait.name }} : ::arc::Trait
             {% if method.return_type.is_auto and method.return_type.str != "decltype(auto)" %}
             struct {{ capitalise(method.name) }}{{ loop.index }}
             {
-                template<class T>
+                template<class T, class {{ trait.types_name or "" }}>
                 static consteval {{ method.return_type.str }} Return() { return ARC_DECLVAL(T); }
                 static constexpr bool DecltypeAuto = {{ cppbool(method.return_type.str.endswith("decltype(auto)")) }};
             };
@@ -161,7 +161,7 @@ struct {{ trait.name }} : ::arc::Trait
                 , {{ prefix }}{{ prefix.pack }} {{ name }}
                 {%- endfor -%}
             >
-            static constexpr auto {{ method.name }}(Self{{ " const&" if method.is_const else "&" }}
+            static auto {{ method.name }}(Self{{ " const&" if method.is_const else "&" }}
                 {%- for type, name in method.params -%}
                 , {{ type }}{{ type.pack }} {{ name }}
                 {%- endfor -%}
@@ -170,7 +170,7 @@ struct {{ trait.name }} : ::arc::Trait
             {% if method.return_type.str == "decltype(auto)" %}
                 -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}{{ argdecltypes(method) }}>;
             {% else %}
-                -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% endif %}
             {% else %}
                 -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
@@ -260,7 +260,7 @@ struct {{ trait.name }} : ::arc::Trait
         {% if method.is_unconstrained_return %}
             {{ require_invoke() }};
         {% elif method.is_auto_return %}
-            { {{ require_invoke() }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}>;
+            { {{ require_invoke() }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, {{ trait.types_name or "void" }}>;
         {% else %}
             { {{ require_invoke() }} } -> std::convertible_to<ARC_TYPENAME({{ method.return_type }})>;
         {% endif %}

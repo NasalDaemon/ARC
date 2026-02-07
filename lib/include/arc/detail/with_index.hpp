@@ -103,6 +103,12 @@ struct WithIndex
 };
 
 template<std::size_t... Is>
+constexpr bool forAllIndices(std::index_sequence<Is...>, auto&& f)
+{
+    return (std::invoke(ARC_FWD(f), std::integral_constant<std::size_t, Is>{}) && ...);
+}
+
+template<std::size_t... Is>
 constexpr void forEachIndex(std::index_sequence<Is...>, auto&& f)
 {
     (std::invoke(ARC_FWD(f), std::integral_constant<std::size_t, Is>{}), ...);
@@ -122,6 +128,13 @@ namespace arc {
         if (f > 1)
             throw "Multiple Options found";
         return sizeof...(Options) - c;
+    }
+
+    ARC_MODULE_EXPORT
+    template<std::size_t Count>
+    constexpr void forAllIndices(auto&& f)
+    {
+        detail::forAllIndices(std::make_index_sequence<Count>{}, ARC_FWD(f));
     }
 
     ARC_MODULE_EXPORT

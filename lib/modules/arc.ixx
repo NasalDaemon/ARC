@@ -93,7 +93,7 @@ export namespace arc {
     using arc::noEvent;
     using arc::DataStore;
     // traits/datastore.hpp
-    using arc::EventTracker;
+    using arc::EventId;
     using arc::Event;
     using arc::EventItem;
     namespace trait {
@@ -349,6 +349,7 @@ export namespace arc {
     using arc::Virtual;
     // detail/with_index.hpp
     using arc::indexOf;
+    using arc::forAllIndices;
     using arc::forEachIndex;
     using arc::withIndex;
 }

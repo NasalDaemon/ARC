@@ -3,6 +3,7 @@ module;
 
 #if !ARC_IMPORT_STD
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <format>
 #include <future>
@@ -11,7 +12,6 @@ module;
 #include <mutex>
 #include <thread>
 #include <type_traits>
-#include <typeindex>
 #include <utility>
 #include <vector>
 #endif
@@ -34,30 +34,26 @@ private:
 
     struct State
     {
-        enum class Mode : std::uint32_t
-        {
-            Busy, Idle, Exclusive,
-        };
+        static constexpr std::size_t MaxThreads = 8 * sizeof(std::size_t) - 1;
+
+        bool isBusy() const { return not exclusive and busyThreads != 0; }
+        bool isIdle() const { return not exclusive and busyThreads == 0; }
+        bool isExclusiveThread(std::size_t threadId) const { return exclusive and threadId <= MaxThreads and busyThreads == (std::size_t(1) << threadId); }
 
         // Initially one busy thread (the main thread)
-        std::uint16_t busyThreads = 1;
-        std::uint16_t exclusiveThread = 0;
-        Mode mode = Mode::Busy;
-
-        bool isBusy() const { return mode == Mode::Busy; }
-        bool isIdle() const { return mode == Mode::Idle; }
-        bool isExclusive() const { return mode == Mode::Exclusive; }
+        bool exclusive : 1 = false;
+        std::size_t busyThreads : MaxThreads = 1;
     };
 
     std::atomic<State> state;
     static_assert(decltype(state)::is_always_lock_free);
 
     CircularBuffer<Function<void()>> exclusiveTasks{std::numeric_limits<std::size_t>::max()};
-    std::vector<std::type_index> exclusiveTaskTags;
+    std::vector<arc::TypeId> exclusiveTaskTags;
 
     static void resetMainThread();
 
-    State setBusy();
+    State setBusy(std::size_t threadId);
     State setIdle(std::size_t threadId);
 
 public:
@@ -77,7 +73,7 @@ public:
 
     [[nodiscard]] bool postTask(std::size_t threadId, Function<void()> task);
     [[nodiscard]] bool postExclusiveTask(Function<void()> task);
-    [[nodiscard]] bool postExclusiveTask(std::type_index tag, Function<void()> task);
+    [[nodiscard]] bool postExclusiveTask(arc::TypeId tag, Function<void()> task);
 
     void stopAll();
 

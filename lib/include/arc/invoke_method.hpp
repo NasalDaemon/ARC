@@ -22,7 +22,7 @@ namespace detail {
     {
         auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
         {
-            return node.impl(Method{}, ARC_FWD(spyArgs)...);
+            return node.impl(Method{}, static_cast<Args&&>(*static_cast<Args*>(std::addressof(spyArgs)))...);
         };
 
         return node.getGlobal(trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);

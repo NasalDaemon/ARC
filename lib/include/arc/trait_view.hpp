@@ -122,6 +122,7 @@ struct TraitView final : Trait::Meta::Methods
 
     template<IsMethodOf<Trait> Method>
     ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method method, auto&&... args)
+        requires requires { self.alias.get().impl(method, ARC_FWD(args)...); }
     {
         return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
     }

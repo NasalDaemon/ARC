@@ -6,7 +6,6 @@ module;
 #include <concepts>
 #include <functional>
 #include <string>
-#include <typeindex>
 #endif
 export module arc.tests.thread.global_scheduler;
 
@@ -53,7 +52,7 @@ struct GlobalScheduler_ : arc::Node
     bool impl(arc::trait::Scheduler::postExclusiveTask, Tag, Cluster& cluster, Task&& task) const
     {
         return scheduler.postExclusiveTask(
-            std::type_index{typeid(Tag)},
+            arc::typeId<Tag>,
             [task = ARC_FWD(task), &cluster]() mutable
             {
                 task(cluster);

@@ -23,6 +23,9 @@ concept CopyConstructible = std::constructible_from<T, T const&>;
 template<class T, class Type>
 concept IsInstanceOf = requires(T const& t) { static_cast<Type const*>(std::addressof(t)); };
 
+template<class T, class PrivateData>
+concept SameAsOrVoid = std::is_void_v<T> or std::same_as<T, PrivateData>;
+
 template<template<class> class Template>
 using TakesUnaryClassTemplate = void;
 

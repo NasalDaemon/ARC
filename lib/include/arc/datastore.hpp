@@ -10,6 +10,7 @@
 #include "arc/repeater.hpp"
 
 #include "arc/traits/datastore.hpp"
+#include "detail/with_index.hpp"
 
 #if !ARC_IMPORT_STD
 #include <cstddef>
@@ -89,8 +90,6 @@ namespace detail {
         Bitset<Count> engaged;
         [[no_unique_address]] SharedData sharedData;
         [[no_unique_address]] std::tuple<detail::Storage<Data>...> privateData;
-
-        EventTracker getEventTracker() const { return EventTracker(&eventId); }
     };
 
     template<class T>
@@ -128,7 +127,7 @@ struct DataStore
     using DataListenerTrait = trait::DataListener<SharedData>;
 
     template<class Context>
-    struct Node : arc::NodeImpl<DataStoreTrait>
+    struct Node : arc::Node::Impl<DataStoreTrait>::template Uses<DataListenerTrait>
     {
         using Depends = arc::Depends<DataListenerTrait>;
         static constexpr std::size_t DataListenerCount = arc::ResolveTypes<Node, DataListenerTrait>::TypesCount;
@@ -147,6 +146,7 @@ struct DataStore
         static auto getTypes(std::index_sequence<Is...>) -> detail::DataStoreHolder<SharedData, PrivateDataAt<Is>...>;
 
         using Data = decltype(getTypes(IndexSequence{}));
+        using Bitset = decltype(Data::engaged);
         using Map = MapTmpl<Id, Data>;
         using Item = Map::value_type;
         Map dataMap;
@@ -187,12 +187,24 @@ struct DataStore
         void notifyItem(Item& item, auto const& event)
         {
             ++item.second.eventId;
-            forEachIndex<DataListenerCount>(
-                [this, event = Event{item.second.getEventTracker(), event}, &item](auto i)
+            forAllIndices<DataListenerCount>(
+                [this, event = Event{std::addressof(event), &item.second.eventId}, &item](auto i)
                 {
-                    if (item.second.engaged.test(i))
-                        this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                            event, EventItem{item.first, item.second.sharedData, *std::get<i>(item.second.privateData).value()});
+                    if (isEngaged<i>(item.second.engaged))
+                    {
+                        auto listener = this->getDataListener(key::repeaterIndex<i>);
+                        auto& privateData = *std::get<i>(item.second.privateData).value();
+                        using EventView = EventItem<SharedData const, PrivateDataAt<i> const>;
+                        if constexpr (requires { listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}); })
+                            if (listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}))
+                                return true;
+                        using result_t = decltype(listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData}));
+                        if constexpr (std::is_void_v<result_t>)
+                            listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData});
+                        else
+                            return listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData});
+                    }
+                    return true;
                 });
         }
 
@@ -205,6 +217,36 @@ struct DataStore
         detail::ConstLike<Self, Item>& getItem(this Self& self, SharedData const* sharedDataPtr)
         {
             return ARC_MEM_PTR(Item, second).getClassFromMember(self.getHolder(sharedDataPtr));
+        }
+
+        template<std::size_t I>
+        constexpr decltype(auto) init(Item& item)
+        {
+            using PrivateData = PrivateDataAt<I>;
+            auto const constructor = [&holder = item.second]<class... Args>(Args&&... args) -> PrivateData&
+                requires std::constructible_from<PrivateData, Args...>
+            {
+                static_assert(detail::alwaysTrue<Args...> and isOptionalListener<I>(), "DataListener init that returns PrivateData must not use the constructor argument");
+                PrivateData* p = std::construct_at(std::get<I>(holder.privateData).storage(), ARC_FWD(args)...);
+                holder.engaged.set(I);
+                return *p;
+            };
+            return this->getDataListener(key::repeaterIndex<I>).init(item.first, item.second.sharedData, constructor);
+        }
+
+        template<std::size_t I>
+        static constexpr auto isEngaged(Bitset const& bitset)
+        {
+            if constexpr (isOptionalListener<I>())
+                return bitset.test(I);
+            else
+                return std::true_type{};
+        }
+
+        template<std::size_t I>
+        static consteval bool isOptionalListener()
+        {
+            return std::is_void_v<decltype(std::declval<Node>().template init<I>(std::declval<Item&>()))>;
         }
 
     public:
@@ -239,16 +281,15 @@ struct DataStore
                         if (it->second.engaged.test(I))
                             return;
 
-                        using PrivateData = PrivateDataAt<I>;
-                        auto const constructor = [&holder = it->second]<class... PrivateArgs>(PrivateArgs&&... args) -> PrivateData&
-                            requires std::constructible_from<PrivateData, PrivateArgs...>
+                        if constexpr (isOptionalListener<I>())
                         {
-                            PrivateData* p = std::construct_at(std::get<I>(holder.privateData).storage(), ARC_FWD(args)...);
-                            holder.engaged.set(I);
-                            return *p;
-                        };
-                        this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<I>).init(
-                            it->first, it->second.sharedData, constructor);
+                            this->template init<I>(*it);
+                        }
+                        else
+                        {
+                            new (std::get<I>(it->second.privateData).storage()) PrivateDataAt<I>(this->template init<I>(*it));
+                            it->second.engaged.set(I);
+                        }
                     });
                 if (it->second.engaged.none())
                 {
@@ -337,15 +378,15 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
 
     static auto* getPrivateData(auto& holder)
     {
-        return holder.engaged.test(ListenerIndex) ? std::get<ListenerIndex>(holder.privateData).value() : nullptr;
+        return isEngaged<ListenerIndex>(holder.engaged) ? std::get<ListenerIndex>(holder.privateData).value() : nullptr;
     }
 
     template<class Self, class UseData>
     void useData(this Self& self, auto& item, UseData&& f)
     {
+        std::same_as<Id> auto const& id = item.first;
         detail::ConstLike<Self, SharedData>* sharedData = std::addressof(item.second.sharedData);
         detail::ConstLike<Self, PrivateData>* privateData = getPrivateData(item.second);
-        std::same_as<Id> auto const& id = item.first;
 
         if constexpr (detail::IsNotEvent<std::invoke_result_t<UseData, Id const&, decltype(sharedData), decltype(privateData)>>)
         {
@@ -363,13 +404,27 @@ struct DataStore<SharedData, Map>::Node<Context>::FromDataListener : Node
     void notifyItem(Item& item, auto const& event)
     {
         ++item.second.eventId;
-        forEachIndex<DataListenerCount>(
-            [this, event = Event{item.second.getEventTracker(), event}, &item](auto i)
+        forAllIndices<DataListenerCount>(
+            [this, event = Event{std::addressof(event), &item.second.eventId}, &item](auto i)
             {
                 if constexpr (not SkipSelf or i != ListenerIndex)
-                    if (item.second.engaged.test(i))
-                        this->getNode(trait::dataListener<SharedData>, key::repeaterIndex<i>).onEvent(
-                            event, EventItem{item.first, item.second.sharedData, *std::get<i>(item.second.privateData).value()});
+                {
+                    if (isEngaged<i>(item.second.engaged))
+                    {
+                        auto listener = this->getDataListener(key::repeaterIndex<i>);
+                        auto& privateData = *std::get<i>(item.second.privateData).value();
+                        using EventView = EventItem<SharedData const, PrivateData const>;
+                        if constexpr (requires { listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}); })
+                            if (listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}))
+                                return true;
+                        using result_t = decltype(listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData}));
+                        if constexpr (std::is_void_v<result_t>)
+                            listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData});
+                        else
+                            return listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData});
+                    }
+                }
+                return true;
             });
     }
 

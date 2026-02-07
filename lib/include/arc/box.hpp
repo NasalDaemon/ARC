@@ -63,7 +63,7 @@ namespace detail {
             struct InFacade_;
             struct OutVirtual_;
 
-            constexpr auto* asInterface(this auto& self) { return std::addressof(self.inFacade); }
+            ARC_INLINE constexpr auto* asInterface(this auto& self) { return std::addressof(self.inFacade); }
 
             struct Main_ : arc::Context<Cluster, Main>
             {

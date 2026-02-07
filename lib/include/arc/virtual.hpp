@@ -55,13 +55,13 @@ namespace detail {
 
         template<IsNodeHandle T, class Self>
         requires IsVirtualContext<ContextOf<Self>>
-        constexpr auto exchangeImpl(this Self& self, auto&&... args)
+        ARC_INLINE constexpr auto exchangeImpl(this Self& self, auto&&... args)
         {
             static_assert(not std::is_const_v<Self>, "Cannot exchange implementation of a node in a const context");
             return ContextOf<Self>::template exchangeImpl<T>(self, ARC_FWD(args)...);
         }
 
-        constexpr auto* asInterface(this auto& self) { return std::addressof(self); }
+        ARC_INLINE constexpr auto* asInterface(this auto& self) { return std::addressof(self); }
     };
 
     template<class T>
