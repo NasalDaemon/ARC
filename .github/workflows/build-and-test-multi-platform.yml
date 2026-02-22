@@ -43,7 +43,7 @@ jobs:
             os: ubuntu-latest
 
           - name: cl
-            header_only: header-only
+            # header_only: header-only
             os: windows-latest
 
     steps:

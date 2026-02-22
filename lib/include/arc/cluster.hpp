@@ -144,7 +144,9 @@ struct DomainParams
 {
     std::size_t MaxDepth = 3;
 
+#if !ARC_COMPILER_MSVC
     auto operator<=>(DomainParams const&) const = default;
+#endif
 };
 
 ARC_MODULE_EXPORT

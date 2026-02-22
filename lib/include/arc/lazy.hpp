@@ -40,7 +40,7 @@ struct Lazy
             static constexpr auto getNode(auto& state, Trait trait)
             {
                 // Assumption that variant-to-element offset=0 is tested in test_lazy.cpp
-                auto const nodePtr = std::bit_cast<Node NodeState::*>(-ARC_MEM_PTR(Node, state).toOffset());
+                auto const nodePtr = std::bit_cast<Node NodeState::*>(-ARC_MEM_PTR(Lazy::Node<Context>, state).toOffset());
                 return Context{}.getNode(detail::downCast<NodeState>(state).*nodePtr, trait);
             }
         };

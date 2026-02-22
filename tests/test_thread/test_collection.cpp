@@ -1,9 +1,11 @@
 #include <doctest/doctest.h>
+#include <stdexcept>
 #include "arc/macros.hpp"
 
 // TODO: Why do we need to include ranges again with GCC?
 #if !ARC_IMPORT_STD or ARC_COMPILER_GCC
 #include <ranges>
+#include <exception>
 #endif
 
 import arc.tests.thread.collection;
@@ -90,7 +92,7 @@ struct InnerNode : arc::PeerNode
                 return peer.asTrait(trait::inner, future).get().get();
             }
         }
-        throw std::out_of_range("No peer with the given index found");
+        throw std::runtime_error("No peer with the given index found");
     }
 
     int impl(this auto const& self, trait::Inner::getInner)
