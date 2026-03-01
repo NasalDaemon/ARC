@@ -38,12 +38,12 @@ cluster Cluster [Root]
     node1 <--> node2
 }
 
-trait trait::Something
+trait Something
 {
     doSomething(int x, int y) -> std::same_as<int> auto
 }
 
-trait trait::SomethingElse
+trait SomethingElse
 {
     doSomethingElse(int x, int y) -> std::same_as<int> auto
 }
@@ -118,7 +118,7 @@ struct Root::Spy::Something : Root::Spy
 
 TEST_CASE("arc::trait::Spy")
 {
-    arc::GraphWithGlobal<Cluster, Global, Root> graph{
+    arc::GraphWithGlobal<cluster::Cluster, cluster::Global, Root> graph{
         .main{
             .node1{ARC_EMPLACE({.i = 1})},
             .node2{ARC_EMPLACE({.i = 42})},

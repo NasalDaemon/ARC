@@ -1,4 +1,4 @@
-import examples.greet.forum;
+import examples.greet.cluster.forum;
 import examples.greet.traits;
 import arc;
 
@@ -7,7 +7,7 @@ using namespace examples::greet;
 int main()
 {
     // Instantiate the graph: all nodes with dependencies resolved at compile time
-    arc::Graph<Forum> graph{
+    arc::Graph<cluster::Forum> graph{
         .alice{29},
         .bob{30},
     };

@@ -62,6 +62,7 @@ According to various studies, iteratively growing networks tend to become scale-
 The domain syntax is identical to the cluster syntax, with a few key differences:
 
 * The `domain` keyword is used instead of `cluster` to introduce a `domain` block
+    * The generated domain type is placed inside `namespace domain` within the enclosing namespace instead of `namespace cluster`
 * The first node named is the nexus-node, which will be made to conform to the responsibilities of the nexus
 * Node names must be spelled correctly to represent the following properties, which are enforced in the C++ build step once all the types are known:
     * Stateless unary: pascalCase
@@ -71,7 +72,12 @@ The domain syntax is identical to the cluster syntax, with a few key differences
 * Sink traits are not allowed in domains unless it is to the `@global` node
 
 ## Example
+
+The generated domain type is placed inside `namespace domain` within the enclosing namespace — so `domain ShopDomain` inside `namespace shop` produces `shop::domain::ShopDomain`.
+
 ```
+namespace shop {
+
 domain ShopDomain
 {
     Api = ShopRestAPI         // `Api` is stateful nexus
@@ -112,6 +118,8 @@ domain CustomerDomain
     [trait::CustomerAccounts]
     gw --> Accounts
 }
+
+} // namespace shop
 ```
 > [![ShopDomain](domain-syntax.svg)](domain-syntax.dot)
 $\textcolor[rgb]{0,0,1}{\textsf{trait::CustomerRequest}}$

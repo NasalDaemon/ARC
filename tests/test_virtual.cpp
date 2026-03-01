@@ -364,7 +364,7 @@ TEST_CASE("arc::Box")
         using VirtualBread = arc::Virtual<IBread>;
     };
 
-    arc::Graph<EggBread, Root> g{
+    arc::Graph<cluster::EggBread, Root> g{
         .bread{arc::box<StaticBread, BreadFacade, EggFacade, IEgg>, arc::args<StaticBread>(41), arc::args<BreadFacade>(98)}
     };
 

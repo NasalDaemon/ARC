@@ -24,6 +24,7 @@ add_executable(arc_tests_module
     test_node_count.cpp
     test_null_trait.cpp
     test_datastore/test_datastore.cpp
+    test_datastore/test_single_listener.cpp
     test_spy.cpp
     test_union.cpp
     test_virtual.cpp
@@ -86,6 +87,7 @@ target_generate_arc_modules(arc_tests_module
         test_repeater
     EMBED
         test_datastore/test_datastore.cpp
+        test_datastore/test_single_listener.cpp
         test_collection.cpp
         test_embedded_modules.cpp
         test_global.cpp
@@ -110,7 +112,7 @@ target_sources(arc_tests_module
 
 target_generate_arc_src(arc_tests_module
     GRAPH_MODULE abc.graph
-    GRAPH_TYPE   arc::Graph<abc::AliceBob>
+    GRAPH_TYPE   arc::Graph<abc::cluster::AliceBob>
     NODES
         alice    abc.alice
 )

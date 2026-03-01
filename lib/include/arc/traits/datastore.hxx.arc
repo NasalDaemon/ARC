@@ -1,6 +1,6 @@
 #include "arc/detail/concepts.hpp"
 
-namespace arc::trait {
+namespace arc {
 
 template<class SharedData>
 trait DataStore [Types]
@@ -72,7 +72,7 @@ trait DataListener [Types]
     // If the listener conditionally subscribes to a subset of ids, the return type should be void,
     //    and the provided constructor should only be called for the ids that it subscribes to.
     // If the constructor is not called, the listener will not be subscribed to the id, and no PrivateData is created for it.
-    // privateDataConstructor: (Args&&...) -> PrivateData&
+    // privateDataConstructor: (Args&&...) -> PrivateData*
     // To unconditionally subscribe to all ids, this should simply return PrivateData directly instead of calling the constructor.
     // Unconditionally subscribing to all ids saves a branch in the notify path.
     init(SharedData::Id const& id, SharedData& sharedData, auto privateDataConstructor) -> arc::detail::SameAsOrVoid<typename Types::PrivateData> auto
@@ -90,4 +90,4 @@ trait DataListener [Types]
     onEvent(Event<EventType> event, EventItem<SharedData, typename Types::PrivateData> item) -> arc::detail::SameAsOrVoid<bool> auto
 }
 
-} // namespace arc::trait
+} // namespace arc

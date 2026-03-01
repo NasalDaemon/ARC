@@ -24,7 +24,7 @@ cluster my::test::Cluster1
 
 TEST_CASE("first")
 {
-    // using my::test::Cluster1
+    // using my::test::cluster::Cluster1
 }
 
 // Multi-line comments are also possible
@@ -37,7 +37,7 @@ arc-embed-end */
 
 TEST_CASE("second")
 {
-    // using my::test::Cluster2
+    // using my::test::cluster::Cluster2
 }
 ```
 

@@ -143,7 +143,7 @@ TEST_CASE("arc::Collection")
         using Outside = OutsideNode;
         using Element = ElementNode;
     };
-    arc::GraphWithGlobal<Collection, GlobalNode, Root> g{
+    arc::GraphWithGlobal<cluster::Collection, GlobalNode, Root> g{
         .global{ARC_EMPLACE({.i = 14})},
         .main{
             .outside{ARC_EMPLACE({.i = 10})},

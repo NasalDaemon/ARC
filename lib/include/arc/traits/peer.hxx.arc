@@ -1,4 +1,4 @@
-trait arc::trait::Peer [Info]
+trait arc::Peer [Info]
 {
     info ElementContext::IdType
 

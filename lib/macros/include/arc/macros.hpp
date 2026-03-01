@@ -148,22 +148,14 @@
     struct Meta \
     { \
         using ARC_This_Trait = TraitName; \
+        struct MethodTags \
+        { \
+            METHOD_LIST(ARC_METHOD_TAG_ALIAS) \
+        }; \
         struct Applicable \
         { \
             METHOD_LIST(ARC_METHOD_TAG_APPLICABLE) \
         }; \
-        struct NamedImpl \
-        { \
-            struct Disable \
-            { \
-                METHOD_LIST(ARC_NAMED_METHOD_IMPL_DISABLE) \
-            }; \
-            struct Impl : protected Disable \
-            { \
-                METHOD_LIST(ARC_NAMED_METHOD_IMPL) \
-            }; \
-        }; \
-        using Impl = NamedImpl::Impl; \
         struct SignaturesByTag \
         { \
             static auto impl(auto&&...) -> ::arc::NullNormalInvoker; \
@@ -173,14 +165,26 @@
             METHOD_LIST(ARC_DUCK_METHOD) \
         }; \
         using DuckMethods = Methods; \
-        struct Named \
+        struct DisableImpl \
         { \
-            struct TraitName : Methods \
-            { \
-                static void impl() = delete; \
-            }; \
+            METHOD_LIST(ARC_NAMED_METHOD_IMPL_DISABLE) \
         }; \
-        using NamedMethods = Named::TraitName; \
+        struct Impl : protected DisableImpl \
+        { \
+            struct TraitName : MethodTags \
+            { \
+                using Disable = DisableImpl; \
+            }; \
+            METHOD_LIST(ARC_NAMED_METHOD_IMPL) \
+        }; \
+        struct ImplQualified : Methods \
+        { \
+            struct TraitName : MethodTags \
+            { \
+                using Impl = Methods; \
+            }; \
+            static void impl() = delete; \
+        }; \
         struct Resolver \
         { \
             ARC_TRAIT_RESOLVER(TraitName) \
@@ -199,6 +203,9 @@
 
 #define ARC_METHOD_TAG(method) \
     struct method{} static constexpr method ## _c{};
+
+#define ARC_METHOD_TAG_ALIAS(method) \
+    using method = ARC_This_Trait::method;
 
 #define ARC_METHOD_TAG_APPLICABLE(method) \
     static void applicable(method);
@@ -317,7 +324,7 @@
 
 #define ARC_EMPLACE(...) \
     ::arc::Emplace( \
-        [&](auto _arc_emplace_type_) \
+        [&](auto _arc_emplace_type_) -> decltype(auto) \
         { \
             return typename decltype(_arc_emplace_type_)::type(__VA_ARGS__); \
         })

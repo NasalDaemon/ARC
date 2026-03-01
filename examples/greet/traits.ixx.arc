@@ -1,6 +1,6 @@
 export module examples.greet.traits;
 
-namespace examples::greet::trait {
+namespace examples::greet {
 
 // Traits define interfaces between nodes
 trait Greeter

@@ -4,7 +4,7 @@
 
 #define BOB \
     template<class Context> \
-    auto abc::Bob::Node<Context>
+    auto abc::node::Bob::Node<Context>
 
 BOB::impl(trait::Alice::get) const -> int
 {

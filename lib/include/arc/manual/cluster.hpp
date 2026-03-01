@@ -8,7 +8,7 @@
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/resolve.hpp"
-#include "arc/repeater.hpp"
+#include "arc/nodes/repeater.hpp"
 
 
 #endif // ARC_MANUAL_CLUSTER_HPP

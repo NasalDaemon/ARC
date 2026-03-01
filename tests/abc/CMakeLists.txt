@@ -26,7 +26,7 @@ target_generate_arc_src(arc_tests_abc_lib
     # COMMON_HEADERS
     #     abc/alice.hpp
     GRAPH_HEADER abc/graph.hxx
-    GRAPH_TYPE   arc::Graph<abc::AliceBob>
+    GRAPH_TYPE   arc::Graph<abc::cluster::AliceBob>
     NODES
         # alice         , bob         , charlie.charlie
         # abc/alice.tpp , abc/bob.tpp , abc/charlie.tpp

@@ -86,9 +86,9 @@ struct InvokeMethodC
     }
 
     template<class Node>
+    requires ReturnConstraint::DecltypeAuto
     ARC_INLINE static constexpr auto invoke(Node& node, auto method, auto&&... args)
         -> MatchesReturnConstraint<ReturnConstraint, typename Node::Types> decltype(auto)
-        requires ReturnConstraint::DecltypeAuto
     {
         return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
     }

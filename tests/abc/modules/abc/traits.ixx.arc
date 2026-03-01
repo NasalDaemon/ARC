@@ -1,6 +1,6 @@
 export module abc.traits;
 
-namespace abc::trait {
+namespace abc {
 
 trait AliceRead [Types]
 {

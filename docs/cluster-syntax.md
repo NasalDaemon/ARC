@@ -17,7 +17,7 @@ There are special node and trait markers for common dependency types. Either the
 
 ## Defining a Cluster
 
-Clusters must be namespaced, either via a wrapping `namespace` block or a qualified name.
+Clusters must be namespaced, either via a wrapping `namespace` block or a using a fully qualified name. The generated cluster type is placed inside `namespace cluster` within the enclosing namespace — so `cluster FruitSalad` inside `namespace my::app` produces `my::app::cluster::FruitSalad`.
 
 ```cpp
 namespace my::app {
@@ -164,12 +164,31 @@ cluster FruitSalad [Context, Root] // Optional type annotations
 ```cpp
 cluster my::app::Cluster { ... }
 ```
+This produces `my::app::cluster::Cluster`.
 
 **Type Annotations:**
 Access `Context`, `Root`, or `Info` types by listing them in brackets. You can also alias them:
 ```cpp
-cluster MyCluster [C = Context, R = Root] {
+cluster MyCluster [C = Context, R = Root]
+{
     node = R::NodeType
+}
+```
+
+### Templated node definitions
+There are many higher-order nodes provided by ARC that are templated on other nodes, such as `arc::InGroup`, `arc::OnThread`, and `arc::Collection`. The DSL provides a convenient syntax for using these without needing to write out the full template syntax. The general form is `nodeName = UnderlyingNode : Wrapper1<Args> : Wrapper2<Args> ...` where each wrapper is a higher-order node taking an underlying node as its first template argument. This allows you to quickly and easily read the node definitions from left to right, starting with the underlying node and then seeing how it is wrapped by various higher-order nodes. For example:
+```cpp
+cluster MyCluster
+{
+    topSecret = Node1 : arc::InGroup<policy::Classification::TopSecret>
+    // Equivalent to:
+    // topSecret = arc::InGroup<Node1, policy::Classification::TopSecret>
+    onThread0 = Node2 : arc::OnThread<0>
+    // Equivalent to:
+    // onThread0 = arc::OnThread<Node2, 0>
+    onAnyThread = Node3 : arc::OnAnyThread : arc::Collection<int>
+    // Equivalent to:
+    // onAnyThread = arc::Collection<arc::OnAnyThread<Node3>, int>
 }
 ```
 
@@ -204,11 +223,11 @@ auto p = getNode(arc::noTrait<Provider>);
 p->doWork();
 ```
 ### Multiple sinks in one declaration:
+Multiple no-trait sinks can be declared in one line. This is only possible for no-trait connections.
 ```cpp
 [@notrait] logger, metrics
-// Multiple no-trait sinks can be declared in one line (only possible for no-trait connections)
 ```
 ## Caveats
-- **No Mixing:** Do not mix no-trait and named trait connections for the same target node.
+- **No Mixing:** Cannot mix no-trait and named trait connections for the same target node.
 - **Special Nodes:** `@notrait` (`~`) is not supported for `@global` (`^`) or `@parent` (`..`) nodes; use `arc::NoTrait<NodeHandle>` or a named trait.
 - **Migration:** To formalize an interface, replace `[@notrait]` with `[trait::Name]` and update `getNode` calls.

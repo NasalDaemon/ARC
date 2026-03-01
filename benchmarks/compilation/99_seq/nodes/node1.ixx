@@ -8,9 +8,9 @@ namespace arc::bench::compile99_seq {
 export
 struct Node1 : arc::Node
 {
-    using Traits = arc::Traits<trait::Trait1>;
+    using Traits = arc::Traits<Trait1>;
 
-    int impl(trait::Trait1::get) const
+    int impl(Trait1::get) const
     {
         return i;
     }

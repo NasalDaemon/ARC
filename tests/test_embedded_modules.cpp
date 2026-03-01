@@ -45,7 +45,7 @@ TEST_CASE("embedded")
     {
         using Embedded = EmbeddedNode;
     };
-    arc::Graph<EmbeddedCluster, Root> g{};
+    arc::Graph<cluster::EmbeddedCluster, Root> g{};
 
     CHECK(g.asTrait(trait::embedded).get() == 42);
 }

@@ -12,10 +12,10 @@ struct Node10
     template<class Context>
     struct Node : arc::Node
     {
-        using Depends = arc::Depends<trait::Trait9>;
-        using Traits  = arc::Traits<trait::Trait10>;
+        using Depends = arc::Depends<Trait9>;
+        using Traits  = arc::Traits<Trait10>;
 
-        int impl(trait::Trait10::get) const;
+        int impl(Trait10::get) const;
 
         Node() = default;
         int i = 10;

@@ -5,9 +5,9 @@ target_link_libraries(arc_example_animals PUBLIC arc::module)
 # Add module interface units
 target_sources(arc_example_animals
     PUBLIC FILE_SET CXX_MODULES FILES
-        farmer.ixx
-        cow.ixx
-        sheep.ixx
+        nodes/cow.ixx
+        nodes/farmer.ixx
+        nodes/sheep.ixx
 )
 
 # Generate animal_traits.ixx and farm.ixx from .arc files

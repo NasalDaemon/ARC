@@ -10,14 +10,14 @@ namespace examples::filesystem::graph {
 
 struct InMemoryRoot
 {
-    using FilesystemStorage = MemoryStorage;
+    using FilesystemStorage = node::MemoryStorage;
 };
 export using InMemory = arc::Graph<cluster::Filesystem, InMemoryRoot>;
 export using InMemoryRepl = arc::Graph<cluster::Repl, InMemoryRoot>;
 
 struct DiskRoot
 {
-    using FilesystemStorage = DiskStorage;
+    using FilesystemStorage = node::DiskStorage;
 };
 export using Disk = arc::Graph<cluster::Filesystem, DiskRoot>;
 export using DiskRepl = arc::Graph<cluster::Repl, DiskRoot>;

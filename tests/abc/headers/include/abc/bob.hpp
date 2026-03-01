@@ -7,7 +7,7 @@
 #include "arc/resolve.hpp"
 #include "arc/traits.hpp"
 
-namespace abc {
+namespace abc::node {
 
 struct Bob
 {

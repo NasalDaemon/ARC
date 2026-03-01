@@ -5,10 +5,10 @@ import examples.filesystem.traits;
 import arc;
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 // DiskStorage node reads and writes directly to the filesystem under a root path
-export struct DiskStorage : arc::NodeImpl<trait::Storage, trait::DirectorySync>
+export struct DiskStorage : arc::NodeImpl<Storage, DirectorySync>
 {
     struct Types
     {
@@ -17,15 +17,15 @@ export struct DiskStorage : arc::NodeImpl<trait::Storage, trait::DirectorySync>
     };
 
     DiskStorage();
+    using Methods::impl;
 
     auto get(std::string_view path) const -> std::optional<DiskEntry>;
     auto put(std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>;
     auto children(std::string_view path) const -> std::vector<std::string>;
 
     // Fully qualified impl(method, ...) definitions still work if you disable the named method
-    using DiskStorage::Methods::impl;
-    using DiskStorage::Storage::Disable::erase;
-    auto impl(trait::Storage::erase, std::string_view path) -> bool;
+    using Storage::Disable::erase;
+    auto impl(Storage::erase, std::string_view path) -> bool;
 
     auto loadFromDirectory(std::string_view directory) -> std::expected<void, FsError>;
     auto dumpToDirectory(std::string_view directory) const -> std::expected<void, FsError>;

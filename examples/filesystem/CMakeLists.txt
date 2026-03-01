@@ -56,7 +56,7 @@ if(ARC_BUILD_TESTS)
         GRAPH_MODULE
             examples.filesystem.tests.mocks
         GRAPH_TYPE
-            "arc::test::Graph<examples::filesystem::Filesystem, arc::test::Mock<examples::filesystem::tests::MockStorageTypes>>"
+            "arc::test::Graph<examples::filesystem::node::Filesystem, arc::test::Mock<examples::filesystem::tests::MockStorageTypes>>"
         NODES
             node  examples.filesystem.filesystem
     )

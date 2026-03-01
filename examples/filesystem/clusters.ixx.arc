@@ -6,12 +6,12 @@ import examples.filesystem.path_ops;
 import examples.filesystem.repl;
 import examples.filesystem.traits;
 
-namespace examples::filesystem::cluster {
+namespace examples::filesystem {
 
 cluster Filesystem [Root]
 {
-    fs = filesystem::Filesystem
-    pathOps = PathOps
+    fs = node::Filesystem
+    pathOps = node::PathOps
     storage = Root::FilesystemStorage
 
     [trait::Filesystem] .. --> fs
@@ -24,8 +24,8 @@ cluster Filesystem [Root]
 
 cluster Repl
 {
-    repl = filesystem::Repl
-    fs = Filesystem
+    repl = node::Repl
+    fs = cluster::Filesystem
 
     [trait::Filesystem]    repl --> fs
     [trait::DirectorySync] repl --> fs

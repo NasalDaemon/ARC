@@ -1,6 +1,6 @@
 export module arc.tests.repeater.traits;
 
-namespace arc::tests::repeater::trait {
+namespace arc::tests::repeater {
 
 trait Source
 {

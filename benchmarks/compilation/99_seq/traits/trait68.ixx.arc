@@ -1,6 +1,6 @@
 export module arc.bench.compile99_seq.trait.trait68;
 
-trait arc::bench::compile99_seq::trait::Trait68
+trait arc::bench::compile99_seq::Trait68
 {
     get() const
 }

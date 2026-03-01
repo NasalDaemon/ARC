@@ -15,7 +15,7 @@ namespace arc::tests::thread {
 
 TEST_CASE("TestThread")
 {
-    arc::GraphWithGlobal<Cluster, GlobalScheduler> g{
+    arc::GraphWithGlobal<cluster::Cluster, GlobalScheduler> g{
         .global{
             [](auto& scheduler)
             {

@@ -11,7 +11,7 @@ namespace arc::tests::repeater {
 
 TEST_CASE("TestRepeater")
 {
-    arc::Graph<Cluster> g;
+    arc::Graph<cluster::Cluster> g;
     int i = 12;
     g.a.asTrait(trait::source).defer(i);
     CHECK(14 == i);

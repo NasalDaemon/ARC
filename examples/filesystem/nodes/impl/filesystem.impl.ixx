@@ -9,7 +9,7 @@ import std;
     template<class Context> \
     auto Filesystem::Node<Context>
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 FILESYSTEM::read(std::string_view path) const
     -> std::expected<DataView, FsError>

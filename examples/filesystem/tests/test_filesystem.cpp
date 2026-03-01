@@ -13,7 +13,7 @@ TEST_CASE("Filesystem node with mocks")
 {
     // Create test graph with Filesystem node and mocked dependencies
     // The Mock provides Types that Storage trait needs
-    arc::test::Graph<Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+    arc::test::Graph<node::Filesystem, arc::test::Mock<MockStorageTypes>> graph;
     auto fs = graph.asTrait(trait::filesystem);
 
     // Set up mock behavior
@@ -261,7 +261,7 @@ TEST_CASE("Filesystem node with mocks")
 
 TEST_CASE("Filesystem node uses PathOps for normalization")
 {
-    arc::test::Graph<Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+    arc::test::Graph<node::Filesystem, arc::test::Mock<MockStorageTypes>> graph;
     auto fs = graph.asTrait(trait::filesystem);
 
     graph.mocks->setThrowIfMissing();

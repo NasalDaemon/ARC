@@ -8,7 +8,7 @@ using namespace examples::filesystem;
 
 TEST_CASE("PathOps")
 {
-    arc::test::Graph<PathOps> graph;
+    arc::test::Graph<node::PathOps> graph;
     auto pathOps = graph.node.asTrait(trait::pathOps);
 
     SUBCASE("normalise")

@@ -5,12 +5,12 @@ import examples.filesystem.traits;
 import arc;
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 export struct Repl
 {
     template<class Context>
-    struct Node : arc::NodeUses<trait::Filesystem, trait::DirectorySync*>
+    struct Node : arc::NodeUses<Filesystem, DirectorySync*>
     {
         auto run(int argc, char* argv[]) -> int;
 

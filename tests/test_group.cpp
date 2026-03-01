@@ -39,28 +39,28 @@ policy Other
 
 cluster Inner [Root]
 {
-    nodeHigh = Root::Default : InGroup<Class::High>
-    nodeMid = Root::Default : InGroup<Class::Mid>
-    nodeLow = Root::Default : InGroup<Class::Low>
+    nodeHigh = Root::Default : InGroup<policy::Class::High>
+    nodeMid = Root::Default : InGroup<policy::Class::Mid>
+    nodeLow = Root::Default : InGroup<policy::Class::Low>
     node = Root::Default
-    nodeHighLow = Root::Default : InGroup<Class::High, Class::Low>
-    nodeMidLow = Root::Default : InGroup<Class::Mid, Class::Low>
-    nodeHighMidLow = Root::Default : InGroup<Class::High, Class::Mid, Class::Low>
-    nodeOtherA = Root::Default : InGroup<Other::A>
+    nodeHighLow = Root::Default : InGroup<policy::Class::High, policy::Class::Low>
+    nodeMidLow = Root::Default : InGroup<policy::Class::Mid, policy::Class::Low>
+    nodeHighMidLow = Root::Default : InGroup<policy::Class::High, policy::Class::Mid, policy::Class::Low>
+    nodeOtherA = Root::Default : InGroup<policy::Other::A>
 
     [~] nodeHigh, nodeMid, nodeLow, node, nodeHighLow, nodeMidLow, nodeHighMidLow, nodeOtherA
 }
 
 cluster Outer [Root]
 {
-    inner = Inner : InGroup<Class::High>
+    inner = Inner : InGroup<policy::Class::High>
 
-    nodeHigh = Root::Default : InGroup<Class::High>
-    nodeMid = Root::Default : InGroup<Class::Mid>
-    nodeLow = Root::Default : InGroup<Class::Low>
+    nodeHigh = Root::Default : InGroup<policy::Class::High>
+    nodeMid = Root::Default : InGroup<policy::Class::Mid>
+    nodeLow = Root::Default : InGroup<policy::Class::Low>
     node = Root::Default
-    nodeHighLow = Root::Default : InGroup<Class::High, Class::Low>
-    nodeMidLow = Root::Default : InGroup<Class::Mid, Class::Low>
+    nodeHighLow = Root::Default : InGroup<policy::Class::High, policy::Class::Low>
+    nodeMidLow = Root::Default : InGroup<policy::Class::Mid, policy::Class::Low>
 
     using HighTrait = arc::NoTrait<typename Root::High>
     using MidTrait = arc::NoTrait<typename Root::Mid>
@@ -96,18 +96,18 @@ struct Root
         };
     };
 
-    using High = InGroup<Default, Class::High>;
-    using Mid = InGroup<Default, Class::Mid>;
-    using Low = InGroup<Default, Class::Low>;
-    using HighLow = InGroup<Default, Class::High, Class::Low>;
-    using MidLow = InGroup<Default, Class::Mid, Class::Low>;
-    using HighMidLow = InGroup<Default, Class::High, Class::Mid, Class::Low>;
-    using OtherA = InGroup<Default, Other::A>;
+    using High = InGroup<Default, policy::Class::High>;
+    using Mid = InGroup<Default, policy::Class::Mid>;
+    using Low = InGroup<Default, policy::Class::Low>;
+    using HighLow = InGroup<Default, policy::Class::High, policy::Class::Low>;
+    using MidLow = InGroup<Default, policy::Class::Mid, policy::Class::Low>;
+    using HighMidLow = InGroup<Default, policy::Class::High, policy::Class::Mid, policy::Class::Low>;
+    using OtherA = InGroup<Default, policy::Other::A>;
 };
 
 TEST_CASE("arc::InGroup")
 {
-    arc::Graph<Inner, Root> graph{
+    arc::Graph<cluster::Inner, Root> graph{
         .nodeHigh{ARC_EMPLACE({.i = 1})},
         .nodeMid{ARC_EMPLACE({.i = 2})},
         .nodeLow{ARC_EMPLACE({.i = 3})},
@@ -118,7 +118,7 @@ TEST_CASE("arc::InGroup")
         .nodeOtherA{ARC_EMPLACE({.i = 8})},
     };
 
-    // Default group can access all nodes in its own policy, but NOT nodes in Other policy
+    // Default group can access all nodes in its own policy, but NOT nodes in policy::Other policy
     static_assert(arc::IsWritePermittedNode<decltype(graph.node), decltype(graph.node)>);
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.node), decltype(graph.nodeLow)>);
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.node), decltype(graph.nodeMid)>);
@@ -126,7 +126,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.node), decltype(graph.nodeHighLow)>);
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.node), decltype(graph.nodeMidLow)>);
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.node), decltype(graph.nodeHighMidLow)>);
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.node), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.node), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(1 == graph.node.getNode(arc::noTrait<Root::High>)->i);
     CHECK(2 == graph.node.getNode(arc::noTrait<Root::Mid>)->i);
     CHECK(3 == graph.node.getNode(arc::noTrait<Root::Low>)->i);
@@ -135,8 +135,8 @@ TEST_CASE("arc::InGroup")
     CHECK(7 == graph.node.getNode(arc::noTrait<Root::HighMidLow>)->i);
     CHECK_FALSE(graph.node.getNode(arc::noTrait<Root::Low>)->writable());
 
-    // Test alias: A = Other::A in Class policy, with rule A -> Low
-    // This means Other::A can connect TO Low nodes
+    // Test alias: A = policy::Other::A in policy::Class policy, with rule A -> Low
+    // This means policy::Other::A can connect TO Low nodes
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeOtherA), decltype(graph.nodeOtherA)>);     // Self access
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeOtherA), decltype(graph.nodeLow)>);        // A -> Low (via alias)
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeOtherA), decltype(graph.nodeHighLow)>);    // A -> Low
@@ -148,7 +148,7 @@ TEST_CASE("arc::InGroup")
     CHECK(3 == graph.nodeOtherA.getNode(arc::noTrait<Root::Low>)->i);
     CHECK_FALSE(graph.nodeOtherA.getNode(arc::noTrait<Root::Low>)->writable());
 
-    // Low nodes cannot access Other::A (connection is one-way: A -> Low, not Low -> A)
+    // Low nodes cannot access policy::Other::A (connection is one-way: A -> Low, not Low -> A)
     static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeLow), decltype(graph.nodeOtherA)>);
 
     // Low group write access low, read access mid, and high (Low->Mid,High)
@@ -159,7 +159,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeLow), decltype(graph.nodeHighLow)>);  // HighLow inherits High
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeLow), decltype(graph.nodeMidLow)>);   // MidLow inherits Mid
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeLow), decltype(graph.nodeHighMidLow)>); // HighMidLow inherits High
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeLow), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeLow), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(1 == graph.nodeLow.getNode(arc::noTrait<Root::High>)->i);
     CHECK(2 == graph.nodeLow.getNode(arc::noTrait<Root::Mid>)->i);
     CHECK(5 == graph.nodeLow.getNode(arc::noTrait<Root::HighLow>)->i);
@@ -176,7 +176,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeMid), decltype(graph.nodeHighLow)>);  // HighLow inherits Low
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeMid), decltype(graph.nodeMidLow)>);   // MidLow inherits Mid
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeMid), decltype(graph.nodeHighMidLow)>); // HighMidLow inherits Mid, Low
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeMid), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeMid), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(1 == graph.nodeMid.getNode(arc::noTrait<Root::High>)->i);
     CHECK(5 == graph.nodeMid.getNode(arc::noTrait<Root::HighLow>)->i);
     CHECK(6 == graph.nodeMid.getNode(arc::noTrait<Root::MidLow>)->i);
@@ -193,7 +193,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHigh), decltype(graph.nodeHighLow)>);
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHigh), decltype(graph.nodeMidLow)>);
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHigh), decltype(graph.nodeHighMidLow)>);
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeHigh), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeHigh), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(5 == graph.nodeHigh.getNode(arc::noTrait<Root::HighLow>)->i);
     CHECK(7 == graph.nodeHigh.getNode(arc::noTrait<Root::HighMidLow>)->i);
     CHECK(graph.nodeHigh.getNode(arc::noTrait<Root::Low>)->writable()); // Low is writable
@@ -210,7 +210,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHighLow), decltype(graph.nodeHighLow)>);
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHighLow), decltype(graph.nodeMidLow)>);
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHighLow), decltype(graph.nodeHighMidLow)>);
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeHighLow), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeHighLow), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(1 == graph.nodeHighLow.getNode(arc::noTrait<Root::High>)->i);
     CHECK(2 == graph.nodeHighLow.getNode(arc::noTrait<Root::Mid>)->i);
     CHECK(3 == graph.nodeHighLow.getNode(arc::noTrait<Root::Low>)->i);
@@ -229,7 +229,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeMidLow), decltype(graph.nodeHighLow)>);  // HighLow inherits Low
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeMidLow), decltype(graph.nodeMidLow)>);
     static_assert(arc::IsReadOnlyPermittedNode<decltype(graph.nodeMidLow), decltype(graph.nodeHighMidLow)>);
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeMidLow), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeMidLow), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(1 == graph.nodeMidLow.getNode(arc::noTrait<Root::High>)->i);
     CHECK(2 == graph.nodeMidLow.getNode(arc::noTrait<Root::Mid>)->i);
     CHECK(3 == graph.nodeMidLow.getNode(arc::noTrait<Root::Low>)->i);
@@ -249,7 +249,7 @@ TEST_CASE("arc::InGroup")
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHighMidLow), decltype(graph.nodeHighLow)>); // HighLow accessible (inherits from High)
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHighMidLow), decltype(graph.nodeMidLow)>);  // MidLow accessible (inherits from Mid)
     static_assert(arc::IsWritePermittedNode<decltype(graph.nodeHighMidLow), decltype(graph.nodeHighMidLow)>); // Self accessible
-    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeHighMidLow), decltype(graph.nodeOtherA)>);  // Cannot access Other::A
+    static_assert(not arc::IsReadPermittedNode<decltype(graph.nodeHighMidLow), decltype(graph.nodeOtherA)>);  // Cannot access policy::Other::A
     CHECK(1 == graph.nodeHighMidLow.getNode(arc::noTrait<Root::High>)->i);
     CHECK(2 == graph.nodeHighMidLow.getNode(arc::noTrait<Root::Mid>)->i);
     CHECK(3 == graph.nodeHighMidLow.getNode(arc::noTrait<Root::Low>)->i);
@@ -264,7 +264,7 @@ TEST_CASE("arc::InGroup")
 
 TEST_CASE("arc::InGroup nested")
 {
-    arc::Graph<Outer, Root> graph{
+    arc::Graph<cluster::Outer, Root> graph{
         .inner{
             .nodeHigh{ARC_EMPLACE({.i = 1})},
             .nodeMid{ARC_EMPLACE({.i = 2})},

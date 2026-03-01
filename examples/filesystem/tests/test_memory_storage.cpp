@@ -9,7 +9,7 @@ using namespace examples::filesystem;
 
 TEST_CASE("MemoryStorage")
 {
-    arc::test::Graph<MemoryStorage> graph;
+    arc::test::Graph<node::MemoryStorage> graph;
     auto storage = graph.node.asTrait(trait::storage);
 
     SUBCASE("initially contains only root")

@@ -48,7 +48,7 @@ struct Root
 
 TEST_CASE("arc::NullTrait")
 {
-    arc::Graph<Cluster, Root> graph{
+    arc::Graph<cluster::Cluster, Root> graph{
         .node1{ARC_EMPLACE({.i = 1})},
         .node2{ARC_EMPLACE({.i = 42})},
     };

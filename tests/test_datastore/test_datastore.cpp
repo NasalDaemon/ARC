@@ -24,12 +24,12 @@ namespace arc::tests::datastore {
 
 cluster Cluster [R = Root]
 {
-    store = arc::DataStore<SharedData, std::map>
+    store = arc::node::DataStore<SharedData, std::map>
     r1 = R::Receiver1
     r2 = R::Receiver2
 
-    using DataStore = arc::trait::DataStore<SharedData>
-    using DataListener = arc::trait::DataListener<SharedData>
+    using DataStore = arc::DataStore<SharedData>
+    using DataListener = arc::DataListener<SharedData>
 
     [DataStore <-> DataListener]
     store <-> {r1, r2}
@@ -42,8 +42,8 @@ arc-embed-end */
 namespace arc::tests::datastore {
 
 namespace trait {
-    using DataStore = arc::trait::DataStore<SharedData>;
-    using DataListener = arc::trait::DataListener<SharedData>;
+    using DataStore = arc::DataStore<SharedData>;
+    using DataListener = arc::DataListener<SharedData>;
 }
 
 struct Event
@@ -78,13 +78,13 @@ struct Root
                 CHECK(id == sharedData.id);
                 if (id < 4)
                 {
-                    PrivateData& ld = constructor(id + 10);
-                    CHECK(ld.value == id + 10);
+                    PrivateData* ld = constructor(id + 10);
+                    CHECK(ld->value == id + 10);
                 }
             }
 
             #if ARC_COMPILER_CLANG
-            // TODO: For some reason clang frontend crashes if this is not defined (but omitting impl() syntax still works)
+            // TODO: For some reason clang frontend crashes if this is not defined (but omitting with impl() syntax still works)
             bool skipEvent(auto&&...) { return false; }
             #endif
 
@@ -127,8 +127,8 @@ struct Root
             CHECK(id == sharedData.id);
             if (sharedData.id < 3)
             {
-                PrivateData& ld = constructor(sharedData.id + 20);
-                CHECK(ld.value == sharedData.id + 20);
+                PrivateData* ld = constructor(sharedData.id + 20);
+                CHECK(ld->value == sharedData.id + 20);
             }
             else
             {
@@ -241,7 +241,7 @@ struct Root
 
 TEST_CASE("arc::DataStore")
 {
-    arc::Graph<Cluster, Root> graph;
+    arc::Graph<cluster::Cluster, Root> graph;
 
     REQUIRE(graph.store->add(0, 0).second);
     REQUIRE(graph.store->add(1, 1).second);

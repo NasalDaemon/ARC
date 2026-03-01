@@ -6,9 +6,9 @@ import examples.filesystem.traits;
 
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
-auto MemoryStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_view dirPath) -> std::expected<void, FsError>
+auto MemoryStorage::impl(DirectorySync::loadFromDirectory, std::string_view dirPath) -> std::expected<void, FsError>
 {
     try
     {
@@ -64,7 +64,7 @@ auto MemoryStorage::impl(trait::DirectorySync::loadFromDirectory, std::string_vi
     }
 }
 
-auto MemoryStorage::impl(trait::DirectorySync::dumpToDirectory, std::string_view dirPath) const -> std::expected<void, FsError>
+auto MemoryStorage::impl(DirectorySync::dumpToDirectory, std::string_view dirPath) const -> std::expected<void, FsError>
 {
     try
     {

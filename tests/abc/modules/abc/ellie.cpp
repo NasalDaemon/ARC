@@ -8,6 +8,6 @@ module abc.ellie;
 import std;
 #endif
 
-void abc::Ellie::onGraphConstructed() { std::puts("Constructed Ellie"); }
+void abc::node::Ellie::onGraphConstructed() { std::puts("Constructed Ellie"); }
 
-int abc::Ellie::impl(trait::Ellie::get) const { return value; }
+int abc::node::Ellie::impl(trait::Ellie::get) const { return value; }

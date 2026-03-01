@@ -1,6 +1,6 @@
 export module arc.tests.thread.traits;
 
-namespace arc::tests::thread::trait {
+namespace arc::tests::thread {
 
 trait Trait
 {

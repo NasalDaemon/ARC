@@ -27,14 +27,14 @@ The nodes also have two dependencies on data types:
 ## File structure
 - [my/CMakeLists.txt](#cmakeliststxt)
 - [my/traits.ixx.arc](#traitsixxarc): `my::trait::AuthService`, `my::trait::TokenStore`, `my::trait::SessionManager`: traits for nodes to implement
-- [my/cluster.ixx.arc](#clusterixxarc): `my::Cluster`: A cluster of interconnected nodes implementing the traits
+- [my/cluster.ixx.arc](#clusterixxarc): `my::cluster::Cluster`: A cluster of interconnected nodes implementing the traits
 - [my/token.ixx](#tokenixx): `my::Token` data type stores the proof of identity for a user, issued by the AuthService with an expiry
 - [my/pass_hash.ixx](#pass_hashixx): `my::PassHash` data type stores the hash of passwords
-- [my/auth_service.ixx](#auth_serviceixx): `my::AuthService` node implements the trait `my::trait::AuthService`
-- [my/sessions.ixx](#sessionsixx): `my::Sessions` node implements the traits `my::trait::TokenStore` and `my::trait::SessionManager`
-- [my/logger.ixx](#loggerixx): `my::Logger` node implements the trait `my::trait::Logger`
-- [my/main.cpp](#maincpp): Constructs and uses the full graph of nodes which satisfies all requirements of the nodes within `my::Cluster`
-- [Unit tests](#unittests): Unit test `my::trait::SessionManager` trait of `my::Sessions` using a `AuthServiceTestDouble` test double, and also the `arc::test::Mock` mocking node
+- [my/nodes/auth_service.ixx](#auth_serviceixx): `my::node::AuthService` node implements the trait `my::trait::AuthService`
+- [my/nodes/sessions.ixx](#sessionsixx): `my::node::Sessions` node implements the traits `my::trait::TokenStore` and `my::trait::SessionManager`
+- [my/nodes/logger.ixx](#loggerixx): `my::node::Logger` node implements the trait `my::trait::Logger`
+- [my/main.cpp](#maincpp): Constructs and uses the full graph of nodes which satisfies all requirements of the nodes within `my::cluster::Cluster`
+- [Unit tests](#unittests): Unit test `my::trait::SessionManager` trait of `my::node::Sessions` using a `AuthServiceTestDouble` test double, and also the `arc::test::Mock` mocking node
 
 ## CMakeLists.txt
 ```CMake
@@ -47,12 +47,12 @@ target_sources(my_app
     PUBLIC FILE_SET CXX_MODULES FILES
         token.ixx
         pass_hash.ixx
-        auth_service.ixx
-        sessions.ixx
+        nodes/auth_service.ixx
+        nodes/sessions.ixx
         db.ixx # not shown
         task.ixx # not shown
     PRIVATE
-        auth_service.cpp # not shown (implements AuthService::dbValidPass etc)
+        nodes/auth_service.cpp # not shown (implements AuthService::dbValidPass etc)
         token.cpp # not shown
         pass_hash.cpp # not shown
 )
@@ -70,7 +70,7 @@ export module my.traits;
 import std;
 import my.task; // not shown in example
 
-namespace my::trait {
+namespace my {
 
 trait AuthService
 {
@@ -118,20 +118,20 @@ trait Logger
 ```
 
 ## cluster.ixx.arc
-`my::Cluster`: A cluster of interconnected nodes implementing the traits. See full cluster syntax [documentation](cluster-syntax.md).
+`my::cluster::Cluster`: A cluster of interconnected nodes implementing the traits. See full cluster syntax [documentation](cluster-syntax.md).
 ```cpp
 export module my.cluster;
 
-import my.sessions;
-import my.auth_service;
+import my.node.sessions;
+import my.node.auth_service;
 import my.traits;
 
 namespace my {
 
 cluster Cluster
 {
-    sessions = Sessions
-    authService = AuthService
+    sessions = node::Sessions
+    authService = node::AuthService
 
     // Enable connections to the global node for all nodes via getGlobal
     [@global] @all --> @global
@@ -184,7 +184,7 @@ namespace my {
 ## auth_service.ixx
 `my::AuthService` node implements the trait `my::trait::AuthService`. See node [documentation](node-structure.md).
 ```cpp
-export module my.auth_service;
+export module my.node.auth_service;
 
 import my.token;
 import my.traits;
@@ -194,7 +194,7 @@ import my.task; // not shown in example
 import arc;
 import std;
 
-namespace my {
+namespace my::node {
 
 // Note: non-template functions in non-template class can be easily implemented
 // in separate .cpp files for faster compilation.
@@ -234,9 +234,9 @@ export struct AuthService : arc::Node
             // statically via the context of `Self`, this entire call can/will be inlined by the compiler:
             self.getNode(trait::tokenStore).store(user, PassHash(pass), Token(self.tokenSecret, user, self.expiry));
             // In this example project, this is effectively equivalent to:
-            // <my::Cluster>.sessions.asTrait(trait::tokenStore).store(user, PassHash(...), Token(...));
+            // <my::cluster::Cluster>.sessions.asTrait(trait::tokenStore).store(user, PassHash(...), Token(...));
             // which directly calls
-            // <my::Cluster>.sessions.impl(trait::TokenStore::store{}, user, PassHash(...), Token(...));
+            // <my::cluster::Cluster>.sessions.impl(trait::TokenStore::store{}, user, PassHash(...), Token(...));
         }
         // Global dependencies resolved via `getGlobal` were enabled at the top of the cluster definition
         self.getGlobal(trait::logger).log("User {} logged in successfully: {}", user, success);
@@ -279,14 +279,14 @@ export struct AuthService : arc::Node
 ## sessions.ixx
 `my::Sessions` node implements the traits `my::trait::TokenStore` and `my::trait::SessionManager`. See node [documentation](node-structure.md).
 ```cpp
-export module my.sessions;
+export module my.node.sessions;
 
 import my.traits;
 
 import arc;
 import std;
 
-namespace my {
+namespace my::node {
 
 export struct Sessions
 {
@@ -395,13 +395,13 @@ export struct Sessions
 ## logger.ixx
 `my::Logger` node implements the trait `my::trait::Logger` (which will be the global node)
 ```cpp
-export module my.logger;
+export module my.node.logger;
 
 import my.traits;
 import arc;
 import std;
 
-namespace my {
+namespace my::node {
 
 export struct Logger : arc::Node
 {
@@ -417,10 +417,10 @@ export struct Logger : arc::Node
 }
 ```
 ## main.cpp
-Constructs the full graph of nodes which satisfies all requirements of the nodes within `my::Cluster`
+Constructs the full graph of nodes which satisfies all requirements of the nodes within `my::cluster::Cluster`
 ```cpp
 import my.cluster;
-import my.logger;
+import my.node.logger;
 import my.pass_hash;
 import my.traits;
 import arc;
@@ -434,20 +434,20 @@ int main()
         using PassHash = my::PassHash;
     };
 
-    arc::GraphWithGlobal<my::Cluster, my::Logger, Root> graph{
-        .global{}, // my::Logger is the global node
-        .main{ // my::Cluster is the main cluster
+    arc::GraphWithGlobal<my::cluster::Cluster, my::node::Logger, Root> graph{
+        .global{}, // my::node::Logger is the global node
+        .main{ // my::cluster::Cluster is the main cluster
             .authService{"super token secret", std::chrono::seconds{600}},
         },
     };
-    // `GraphWithGlobal<my::Cluster, my::Logger, Root>::main` is roughly:
+    // `GraphWithGlobal<my::cluster::Cluster, my::node::Logger, Root>::main` is roughly:
     //  struct my::PseudoGeneratedCluster
     //  {
     //      struct SessionsContext { ... };
     //      struct AuthServiceContext { ... };
     //
-    //      using SessionsNode    = Sessions::template Node<SessionsContext>;
-    //      using AuthServiceNode = arc::WrapNode<AuthService>::template Node<AuthServiceContext>;
+    //      using SessionsNode    = node::Sessions::template Node<SessionsContext>;
+    //      using AuthServiceNode = arc::WrapNode<node::AuthService>::template Node<AuthServiceContext>;
     //
     //      SessionsNode    sessions{};
     //      AuthServiceNode authService{};
@@ -495,7 +495,7 @@ int main()
 ```cpp
 #include <doctest/doctest.h>
 
-import my.sessions;
+import my.node.sessions;
 import my.traits;
 import arc;
 import std;

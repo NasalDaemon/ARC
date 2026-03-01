@@ -7,7 +7,7 @@ namespace abc {
 
 cluster CharlieCluster
 {
-    charlie = Charlie
+    charlie = node::Charlie
 
     using a = trait::Alice, c = trait::Charlie
     [a <-> c] .. <-> charlie
@@ -15,10 +15,10 @@ cluster CharlieCluster
 
 cluster AliceBob
 {
-    alice = Alice
-    bob = Bob
-    charlie = CharlieCluster
-    ellie = Ellie
+    alice = node::Alice
+    bob = node::Bob
+    charlie = cluster::CharlieCluster
+    ellie = node::Ellie
 
     using a = trait::Alice, b = trait::Bob, c = trait::Charlie
 

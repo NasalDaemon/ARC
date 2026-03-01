@@ -15,7 +15,7 @@ import arc;
 
 export module arc.tests.thread.collection;
 
-namespace arc::tests::thread::trait {
+namespace arc::tests::thread {
 
 trait Inner
 {
@@ -45,7 +45,7 @@ cluster Inner [R = Root]
 
 cluster CollectionCluster [R = Root]
 {
-    collection = Inner : OnDynThread : arc::Collection<int>
+    collection = cluster::Inner : arc::OnDynThread : arc::Collection<int>
     outer = R::Outer : arc::OnDynThread
 
     [trait::Inner <-> trait::Outer]
@@ -137,7 +137,7 @@ TEST_CASE("arc::Collection using threads")
         using Outer = OuterNode;
     };
 
-    arc::GraphWithGlobal<CollectionCluster, GlobalScheduler, Root> graph{
+    arc::GraphWithGlobal<cluster::CollectionCluster, GlobalScheduler, Root> graph{
         .global{
             [](auto& scheduler)
             {

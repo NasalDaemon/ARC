@@ -17,7 +17,7 @@ namespace detail {
     }
 
     template<class Context, class Trait, class Method, class... Args>
-    requires (not IsGlobalContext<Context>) and ContextHasGlobalTrait<Context, Global<trait::SpyOnly<Trait>>>
+    requires (not IsGlobalContext<Context>) and ContextHasGlobalTrait<Context, Global<arc::trait::SpyOnly<Trait>>>
     ARC_INLINE constexpr decltype(auto) invokeMethod(auto& node, Method method, Args&&... args)
     {
         auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
@@ -25,7 +25,7 @@ namespace detail {
             return node.impl(Method{}, static_cast<Args&&>(*static_cast<Args*>(std::addressof(spyArgs)))...);
         };
 
-        return node.getGlobal(trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
+        return node.getGlobal(arc::trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
     }
 
     template<class Method>

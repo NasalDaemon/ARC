@@ -11,20 +11,18 @@
 import arc.tests.mock;
 import arc;
 
-/*
-arc-embed-begin
+/* arc-embed-begin
 
 export module arc.tests.mock;
 
-trait arc::tests::mock::trait::Trait
+trait arc::tests::mock::Trait
 {
     takesNothing() const
     takesInt(int i)
     returnsRef() -> int&
 }
 
-arc-embed-end
-*/
+arc-embed-end */
 
 namespace arc::tests::mock {
 
@@ -172,8 +170,8 @@ TEST_CASE("arc::test::Mock")
         CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait@arc.tests.mock::takesInt, int)");
         break;
     case Clang:
-        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait::takesNothing) const");
-        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(arc::tests::mock::trait::Trait::takesInt, int)");
+        CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(arc::tests::mock::Trait::takesNothing) const");
+        CHECK_THROWS_WITH(g.node->testInt(8), "Mock implementation not defined for impl(arc::tests::mock::Trait::takesInt, int)");
         break;
     case MSVC:
         CHECK_THROWS_WITH(g.node->testNothing(), "Mock implementation not defined for impl(struct arc::tests::mock::trait::Trait::takesNothing) const");

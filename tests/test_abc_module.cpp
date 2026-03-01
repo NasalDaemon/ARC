@@ -12,7 +12,7 @@ using namespace abc;
 
 TEST_CASE("abc module")
 {
-    arc::Graph<AliceBob> g{.ellie{101}};
+    arc::Graph<cluster::AliceBob> g{.ellie{101}};
     g.onConstructed();
     auto aliceWrite = g.asTrait(trait::alice);
     aliceWrite.set(11);

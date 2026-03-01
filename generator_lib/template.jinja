@@ -20,6 +20,10 @@
     {{ name[0].upper() + name[1:] }}
 {%- endmacro -%}
 
+{%- macro decapitalise(name) -%}
+    {{ name[0].lower() + name[1:] }}
+{%- endmacro -%}
+
 {%- macro cppbool(b) -%}
     {{ "true" if b else "false" }}
 {%- endmacro -%}
@@ -51,17 +55,19 @@ template<
 namespace {{ namespace.name }} {
 {% for policy in namespace.policies %}
 
+namespace policy {
 {{ export }}struct {{ policy.name }}
 {
     {% for classification in policy.groups %}
     struct {{ classification.name }};
     {% endfor %}
 };
+}
 {% endfor %}
 {% for policy in namespace.policies %}
 {% for classification in policy.groups %}
 
-struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
+struct policy::{{ policy.name }}::{{ classification.name }} : ::arc::Group
 {
     using ::arc::Group::connectionsTo;
     using ::arc::Group::connectionsFrom;
@@ -77,15 +83,18 @@ struct {{ policy.name }}::{{ classification.name }} : ::arc::Group
 {% endfor %}
 {% for trait in namespace.traits %}
 
+{{ export }}inline namespace trait {
 {% if trait.templates %}
-{{ export }}{{ template(trait.templates) }}
+{{ template(trait.templates) }}
 struct {{ trait.name }};
 {% else %}
-{{ export }}struct {{ trait.name }};
+struct {{ trait.name }};
 {% endif %}
+} // inline namespace trait
 {% endfor %}
 {% for trait in namespace.traits %}
 
+{{ export }}inline namespace trait {
 {% if trait.templates %}
 {{ template(trait.templates) }}
 {% endif %}
@@ -101,31 +110,20 @@ struct {{ trait.name }} : ::arc::Trait
     struct Meta
     {
         using ARC_This_Trait = {{ trait.name }};
-        // List of methods applicable to this trait
+        // List of method tags
+        struct MethodTags
+        {
+            {% for method_name in trait.method_names %}
+            ARC_METHOD_TAG_ALIAS({{ method_name }})
+            {% endfor %}
+        };
+        // Queryable list of methods applicable to this trait
         struct Applicable
         {
             {% for method_name in trait.method_names %}
             ARC_METHOD_TAG_APPLICABLE({{ method_name }})
             {% endfor %}
         };
-        struct NamedImpl
-        {
-            // Disable redirections `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
-            struct Disable
-            {
-                {% for method_name in trait.method_names %}
-                ARC_NAMED_METHOD_IMPL_DISABLE({{ method_name }})
-                {% endfor %}
-            };
-            // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
-            struct {{ trait.name }} : protected Disable
-            {
-                {% for method_name in trait.method_names %}
-                ARC_NAMED_METHOD_IMPL({{ method_name }})
-                {% endfor %}
-            };
-        };
-        using Impl = NamedImpl::{{ trait.name }};
         // Return type constraints in method signatures
         struct Constraints
         {
@@ -198,16 +196,35 @@ struct {{ trait.name }} : ::arc::Trait
             ARC_DUCK_METHOD({{ method_name }})
             {% endfor %}
         };
-        // Provides internal node redirects `node.method(...)` --> `node.impl(method, ...)`
-        // Effective only when using arc::NodeImpl<...> or arc::Node::Uses<...>::Impl<...>
-        struct Named
+        // Disable redirections `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
+        struct DisableImpl
         {
-            struct {{ trait.name }} : Methods
-            {
-                static void impl() = delete;
-            };
+            {% for method_name in trait.method_names %}
+            ARC_NAMED_METHOD_IMPL_DISABLE({{ method_name }})
+            {% endfor %}
         };
-        using NamedMethods = Named::{{ trait.name }};
+        // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
+        // Effective only when using arc::NodeImpl<{{ trait.name }}> or arc::Node::Uses<...>::Impl<{{ trait.name }}>
+        struct Impl : protected DisableImpl
+        {
+            struct {{ trait.name }} : MethodTags
+            {
+                using Disable = DisableImpl;
+            };
+            {% for method_name in trait.method_names %}
+            ARC_NAMED_METHOD_IMPL({{ method_name }})
+            {% endfor %}
+        };
+        // Provides internal node redirection `node.method(...)` --> `node.impl(method, ...)`
+        // Effective only when using arc::NodeImpl<{{ trait.name }}*> or arc::Node::Uses<...>::Impl<{{ trait.name }}*>
+        struct ImplQualified : Methods
+        {
+            struct {{ trait.name }} : MethodTags
+            {
+                using Impl = Methods;
+            };
+            static void impl() = delete;
+        };
         // Provides `node.getSomeTrait()` --> `node.getNode(trait::someTrait)`
         // Effective only when using arc::NodeUses<...> or arc::Node::Uses<...>::Impl<...>
         struct Resolver
@@ -271,27 +288,36 @@ struct {{ trait.name }} : ::arc::Trait
 };
 
 {% if trait.templates %}
-{{ export }}{{ template(trait.templates) }}
+{{ template(trait.templates) }}
 inline constexpr {{ trait.name }}<{{ template_params(trait.templates) }}> {{ trait.variable }}{};
 {% else %}
-{{ export }}inline constexpr {{ trait.name }} {{ trait.variable }}{};
+inline constexpr {{ trait.name }} {{ trait.variable }}{};
 {% endif %}
+} // inline namespace trait
 {% endfor %}
 {% for alias in namespace.trait_aliases %}
 
+{{ export }}inline namespace trait {
+
 {% if alias | count == 2 %}
-{{ export }}struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
+struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
 {
     struct Meta : AltTrait::Meta
     {
-        struct Named
+        struct Impl : AltTrait::Meta::Impl
         {
-            struct {{ alias[0]}} : Meta::Methods
+            struct {{ alias[0] }} : AltTrait::Meta::MethodTags
             {
-                static void impl() = delete;
+                using Disable = AltTrait::Meta::DisableImpl;
             };
         };
-        using NamedMethods = Named::{{ alias[0] }};
+        struct ImplQualified : AltTrait::Meta::ImplQualified
+        {
+            struct {{ alias[0] }} : AltTrait::Meta::MethodTags
+            {
+                using Impl = AltTrait::Meta::ImplQualified;
+            };
+        };
         struct Resolver
         {
             {{ trait_resolver(alias[0]) }}
@@ -307,15 +333,24 @@ inline constexpr {{ trait.name }}<{{ template_params(trait.templates) }}> {{ tra
     };
 };
 {% else %}
-{{ export }}struct {{ alias[0] }} : ::arc::JoinedTrait<{{ alias[1:] | join(", ") }}>
+struct {{ alias[0] }} : ::arc::JoinedTrait<{{ alias[1:] | join(", ") }}>
 {
     struct Meta : JoinedTrait::Meta
     {
-        struct Named
+        struct Impl : JoinedTrait::Meta::Impl
         {
-            struct {{ alias[0]}} : Meta::NamedMethods {};
+            struct {{ alias[0] }} : JoinedTrait::Meta::MethodTags
+            {
+                using Disable = JoinedTrait::Meta::DisableImpl;
+            };
         };
-        using NamedMethods = Named::{{ alias[0] }};
+        struct ImplQualified : JoinedTrait::Meta::ImplQualified
+        {
+            struct {{ alias[0] }} : JoinedTrait::Meta::MethodTags
+            {
+                using Impl = JoinedTrait::Meta::ImplQualified;
+            };
+        };
         struct Resolver : JoinedTrait::Meta::Resolver
         {
             {{ trait_resolver(alias[0]) }}
@@ -331,10 +366,13 @@ inline constexpr {{ trait.name }}<{{ template_params(trait.templates) }}> {{ tra
     };
 };
 {% endif %}
-{{ export }}inline constexpr {{ alias[0] }} {{ alias[0][0].lower() + alias[0][1:] }}{};
+inline constexpr {{ alias[0] }} {{ decapitalise(alias[0]) }}{};
+
+} // inline namespace trait
 {% endfor %}
 {% for cluster in namespace.clusters %}
 
+namespace {{ cluster.cluster_class }} {
 {% if not cluster.templates %}
 template<class Context>
 struct {{ cluster.node_name() }};
@@ -347,6 +385,7 @@ struct {{ cluster.name }}
     struct Node;
 };
 {% endif %}
+} // namespace {{ cluster.cluster_class }}
 {% endfor %}
 
 } // namespace {{ namespace.name }}
@@ -359,10 +398,10 @@ namespace {{ namespace.name }} {
 {% if cluster.templates %}
 {{ template(cluster.templates) }}
 template<class {{ cluster.context_name }}>
-struct {{ cluster.name }}<{{ template_params(cluster.templates) }}>::Node : {{ cluster.cluster_type }}
+struct {{ cluster.cluster_class }}::{{ cluster.name }}<{{ template_params(cluster.templates) }}>::Node : {{ cluster.cluster_type }}
 {% else %}
 template<class {{ cluster.context_name }}>
-struct {{ cluster.node_name() }} : {{ cluster.cluster_type }}
+struct {{ cluster.cluster_class }}::{{ cluster.node_name() }} : {{ cluster.cluster_type }}
 {% endif %}
 {
     {% if cluster.root_name %}

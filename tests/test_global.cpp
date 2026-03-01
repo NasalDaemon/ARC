@@ -84,7 +84,7 @@ struct Root
 TEST_CASE("arc::Global")
 {
 
-    arc::GraphWithGlobal<MainCluster, GlobalCluster, Root> graph{
+    arc::GraphWithGlobal<cluster::MainCluster, cluster::GlobalCluster, Root> graph{
         .main{
             .node{},
             .cluster{},
@@ -97,7 +97,7 @@ TEST_CASE("arc::Global")
 
 TEST_CASE("arc::Global hosted locally")
 {
-    arc::GraphWithGlobal<MainCluster, Root::Logger, Root> graph{
+    arc::GraphWithGlobal<cluster::MainCluster, Root::Logger, Root> graph{
         .main{
             .node{},
             .cluster{},

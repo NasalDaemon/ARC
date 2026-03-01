@@ -54,7 +54,7 @@ policy SafetyClass
 Nodes can belong to multiple groups:
 
 ```cpp
-node = Root::Default : InGroup<Class::High, Class::Low>
+node = Root::Default : InGroup<policy::Class::High, policy::Class::Low>
 ```
 
 Permission semantics for JoinedGroups:
@@ -73,7 +73,7 @@ policy Access
 }
 
 // Node in both User and Admin groups
-multiNode = Node : InGroup<Access::User, Access::Admin>
+multiNode = Node : InGroup<policy::Access::User, policy::Access::Admin>
 
 // Guest can READ multiNode (Guest -> User satisfies OR)
 // Guest CANNOT WRITE to multiNode (no write to Admin, fails AND)
@@ -115,9 +115,9 @@ policy CombinedPolicy
 ```cpp
 cluster SafeSystem [Root]
 {
-    sensor     = Root::Sensor        : InGroup<SecurityLevel::Privileged>
-    controller = Root::Controller    : InGroup<SecurityLevel::Trusted>
-    ui         = Root::UserInterface : InGroup<SecurityLevel::Untrusted>
+    sensor     = Root::Sensor        : InGroup<policy::SecurityLevel::Privileged>
+    controller = Root::Controller    : InGroup<policy::SecurityLevel::Trusted>
+    ui         = Root::UserInterface : InGroup<policy::SecurityLevel::Untrusted>
 
     [trait::SensorData]
     sensor --> controller  // OK: Trusted reads from Privileged
@@ -147,8 +147,8 @@ policy SafetyClass
 
 cluster MainSystem
 {
-    critical = CriticalSubsystem : InGroup<SafetyClass::ASIL_D>
-    normal = Node : InGroup<SafetyClass::QM>
+    critical = CriticalSubsystem : InGroup<policy::SafetyClass::ASIL_D>
+    normal = Node : InGroup<policy::SafetyClass::QM>
 
     // normal can read from critical.node1 (QM -> ASIL_C -> ASIL_D)
     // critical.node1 can write to normal (ASIL_D => ASIL_C => QM)
@@ -259,7 +259,7 @@ policy SafetyLevel { /* ... */ }
 
 cluster MyCluster
 {
-    node = Node : InGroup<SafetyLevel::ASIL_D, SecurityLevel::Privileged>
+    node = Node : InGroup<policy::SafetyLevel::ASIL_D, policy::SecurityLevel::Privileged>
 }
 ```
 

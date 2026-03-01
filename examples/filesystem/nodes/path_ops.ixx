@@ -4,7 +4,7 @@ import examples.filesystem.traits;
 import arc;
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 // PathOps node handles path parsing and manipulation
 export struct PathOps : arc::NodeImpl<trait::PathOps*>

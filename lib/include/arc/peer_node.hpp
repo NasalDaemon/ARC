@@ -21,10 +21,10 @@ ARC_MODULE_EXPORT
 struct PeerNode : Node
 {
     template<class... Traits>
-    using Impl = arc::Build<Node>::template Impl<Traits...>;
+    using Impl = arc::Build<PeerNode>::template Impl<Traits...>;
 
     template<detail::IsDependsItem... DependTraits>
-    using Uses = arc::Build<Node>::template Uses<DependTraits...>;
+    using Uses = arc::Build<PeerNode>::template Uses<DependTraits...>;
 
     // Also exposed in TraitNodeView
     template<class Self>

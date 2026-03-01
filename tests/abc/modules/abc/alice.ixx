@@ -10,7 +10,7 @@ import arc;
 import std;
 #endif
 
-export namespace abc {
+export namespace abc::node {
 
 struct Alice
 {

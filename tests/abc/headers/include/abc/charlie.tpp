@@ -2,11 +2,11 @@
 
 #include "abc/charlie.hpp"
 
-#include "arc/test.hpp"
+#include "arc/test/test.hpp"
 
 #define CHARLIE \
     template<class Context> \
-    auto abc::Charlie::Node<Context>
+    auto abc::node::Charlie::Node<Context>
 
 CHARLIE::Alice::impl(trait::Alice::get) const -> int
 {

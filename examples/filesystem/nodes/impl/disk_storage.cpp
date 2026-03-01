@@ -1,6 +1,6 @@
 module examples.filesystem.disk_storage;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 DiskStorage::DiskStorage()
     : rootPath{"."}
@@ -63,7 +63,7 @@ auto DiskStorage::put(std::string_view path, InMemoryEntry entry) -> std::expect
     return {};
 }
 
-auto DiskStorage::impl(trait::Storage::erase, std::string_view path) -> bool
+auto DiskStorage::impl(Storage::erase, std::string_view path) -> bool
 {
     auto const absPath = toAbsolute(path);
 

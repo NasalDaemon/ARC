@@ -147,25 +147,25 @@ target_generate_arc_src(your_headers_lib
 export module app.traits;
 
 // Traits define interfaces between nodes
-trait app::trait::Greeter
+trait app::Greeter
 {
     greet() const
 }
 
-trait app::trait::Responder
+trait app::Responder
 {
     respondTo(std::string_view name) const
 }
 ```
 ```cpp
-// File: app/alice.ixx
-export module app.alice;
+// File: app/nodes/alice.ixx
+export module app.node.alice;
 
 import app.traits;
 import arc;
 import std;
 
-namespace app {
+namespace app::node {
 
 // Alice is a standard node implementing Greeter and Responder
 export struct Alice
@@ -201,19 +201,19 @@ export struct Alice
 }
 ```
 ```cpp
-// File: app/bob.ixx
-export module app.bob;
+// File: app/nodes/bob.ixx
+export module app.node.bob;
 
 import app.traits;
 import arc;
 import std;
 
-namespace app {
+namespace app::node {
 
 // Bob is a shorthand node with contextless state
 // Context is injected into methods by ARC via deducing-this parameter instead
 export struct Bob : arc::Node::
-    Uses<trait::Responder>:: // provides arc::Depends<...> list and getResponder()
+    Uses<trait::Responder>:: // provides arc::Depends<...> list
     Impl<trait::Greeter, trait::Responder> // provides arc::Traits<...> list
 {
     // impl(trait::Responder::method, ...) redirects here via Impl<..., trait::Responder>
@@ -238,18 +238,18 @@ export struct Bob : arc::Node::
 }
 ```
 ```cpp
-// File: app/forum.ixx.arc
-export module app.forum;
+// File: app/clusters/forum.ixx.arc
+export module app.cluster.forum;
 
-import app.alice;
-import app.bob;
+import app.node.alice;
+import app.node.bob;
 import app.traits;
 
 // Cluster wires nodes together, satisfying dependencies
 cluster app::Forum
 {
-    alice = Alice
-    bob = Bob
+    alice = node::Alice
+    bob = node::Bob
 
     [trait::Responder]
     alice --> bob  // alice depends on bob for trait::Responder
@@ -261,7 +261,7 @@ cluster app::Forum
 ```cpp
 // File: app/main.cpp
 import arc;
-import app.forum;
+import app.cluster.forum;
 import app.traits;
 
 using namespace app;
@@ -269,7 +269,7 @@ using namespace app;
 int main()
 {
     // Instantiate the graph: all nodes with dependencies resolved at compile time
-    arc::Graph<Forum> graph{
+    arc::Graph<cluster::Forum> graph{
         .alice{29},
         .bob{30},
     };

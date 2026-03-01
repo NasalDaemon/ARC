@@ -32,7 +32,8 @@ struct Trait
         struct Applicable{};
         struct Methods{};
         struct DuckMethods{};
-        struct NamedMethods{};
+        struct Impl{};
+        struct ImplQualified{};
         struct Resolver{};
         struct GlobalResolver{};
         struct Converter{};
@@ -61,7 +62,7 @@ concept IsTrait = requires (T trait) {
     requires IsStateless<typename T::Meta>;
     requires IsStateless<typename T::Meta::Applicable>;
     requires IsStateless<typename T::Meta::Methods>;
-    requires IsStateless<typename T::Meta::NamedMethods>;
+    requires IsStateless<typename T::Meta::ImplQualified>;
     requires IsStateless<typename T::Meta::DuckMethods>;
     requires IsStateless<typename T::Meta::Resolver>;
     requires IsStateless<typename T::Meta::GlobalResolver>;
@@ -123,9 +124,17 @@ struct JoinedTrait : Traits...
         };
         struct Methods : Traits::Meta::Methods...
         {};
-        struct NamedMethods : Traits::Meta::NamedMethods...
+        struct MethodTags : Traits::Meta::MethodTags...
+        {};
+        struct DisableImpl : Traits::Meta::DisableImpl...
+        {};
+        struct Impl : Traits::Meta::Impl...
         {
-            using Traits::Meta::NamedMethods::impl...;
+            using Traits::Meta::Impl::impl...;
+        };
+        struct ImplQualified : Traits::Meta::ImplQualified...
+        {
+            using Traits::Meta::ImplQualified::impl...;
         };
         struct DuckMethods : Traits::Meta::DuckMethods...
         {};
@@ -159,8 +168,14 @@ struct AltTrait : Trait_
         struct Resolver{};
         struct GlobalResolver{};
         struct Converter{};
+        // Impl methods should lose the original name
+        struct Impl : protected Trait_::Meta::Impl
+        {
+            // Only underlying impls should be exposed
+            using Trait_::Meta::Impl::impl;
+        };
         // Named methods should lose the original name
-        struct NamedMethods : Trait_::Meta::Methods
+        struct ImplQualified : Trait_::Meta::Methods
         {
             static void impl() = delete;
         };

@@ -116,7 +116,7 @@ TEST_CASE("Union")
         using Node2 = union_::Node2;
     };
 
-    arc::GraphWithGlobal<Cluster, GlobalScheduler, Root> g{
+    arc::GraphWithGlobal<cluster::Cluster, GlobalScheduler, Root> g{
         .global{
             [](auto& scheduler)
             {

@@ -5,19 +5,19 @@ import examples.filesystem.traits;
 import arc;
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 // Filesystem node orchestrates Storage and PathOps to provide high-level operations
 export struct Filesystem
 {
     template<class Context>
     struct Node : arc::Node::
-        Uses<trait::Storage, trait::PathOps>::
+        Uses<Storage, PathOps>::
         Impl<trait::Filesystem>
     {
         struct Types
         {
-            using StorageTypes = arc::ResolveTypes<Node, trait::Storage>;
+            using StorageTypes = arc::ResolveTypes<Node, Storage>;
             using GetResult = StorageTypes::GetResult;
             using Children = StorageTypes::Children;
             // Extract DataView from the entry type returned by get()

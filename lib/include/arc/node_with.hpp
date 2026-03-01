@@ -25,17 +25,17 @@ struct AsTrait<NodeBase>
 };
 
 template<class T>
-auto namedMethods() -> TraitsItem<T>::Trait::Meta::Impl;
+auto getImplBase() -> TraitsItem<T>::Trait::Meta::Impl;
 template<IsQualified T>
-auto namedMethods() -> TraitsItem<RawTrait<T>>::Trait::Meta::NamedMethods;
+auto getImplBase() -> TraitsItem<RawTrait<T>>::Trait::Meta::ImplQualified;
 
 template<class Trait>
-using NamedMethods = decltype(namedMethods<Trait>());
+using ImplBase = decltype(getImplBase<Trait>());
 
 template<class... TraitTs>
-struct Methods : NamedMethods<TraitTs>...
+struct Methods : ImplBase<TraitTs>...
 {
-    using NamedMethods<TraitTs>::impl...;
+    using ImplBase<TraitTs>::impl...;
 };
 
 template<class... DependTraits>

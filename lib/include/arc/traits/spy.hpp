@@ -10,7 +10,7 @@
 #include "arc/traits/detail/spy_base.hxx"
 #pragma pop_macro("ARC_MODULE_EXPORT")
 
-namespace arc::trait {
+namespace arc::inline trait {
 
 ARC_MODULE_EXPORT
 template<class Trait>
@@ -18,14 +18,14 @@ struct SpyOnly : detail::SpyBase
 {
     struct Meta : detail::SpyBase::Meta
     {
-        struct Named
+        struct ImplQualified : detail::SpyBase::Meta::Methods
         {
-            struct SpyOnly : detail::SpyBase::Meta::Methods
+            struct SpyOnly : detail::SpyBase::Meta::MethodTags
             {
-                static void impl() = delete;
+                using Impl = detail::SpyBase::Meta::Methods;
             };
+            static void impl() = delete;
         };
-        using NamedMethods = Named::SpyOnly;
     };
 
     static void canProvide(SpyOnly);
@@ -41,14 +41,14 @@ struct Spy : detail::SpyBase
 {
     struct Meta : detail::SpyBase::Meta
     {
-        struct Named
+        struct ImplQualified : detail::SpyBase::Meta::Methods
         {
-            struct Spy : detail::SpyBase::Meta::Methods
+            struct Spy : detail::SpyBase::Meta::MethodTags
             {
-                static void impl() = delete;
+                using Impl = detail::SpyBase::Meta::Methods;
             };
+            static void impl() = delete;
         };
-        using NamedMethods = Named::Spy;
     };
 
     template<class Trait>

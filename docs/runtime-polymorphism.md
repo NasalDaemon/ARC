@@ -32,8 +32,8 @@ export import app.sheep;
 
 cluster app::Cluster
 {
-    farmer = Farmer
-    animal = arc::Union<Cow, Sheep>
+    farmer = node::Farmer
+    animal = arc::Union<node::Cow, node::Sheep>
 
     [trait::Animal]
     farmer --> animal
@@ -44,18 +44,18 @@ export module app.traits;
 
 import std;
 
-trait app::trait::Animal
+trait app::Animal
 {
     speak() const -> std::string
 }
 ```
 ```cpp
-export module app.cow;
+export module app.node.cow;
 
 import app.traits;
 import arc;
 
-namespace app {
+namespace app::node {
 
 export struct Cow : arc::Node
 {
@@ -70,12 +70,12 @@ export struct Cow : arc::Node
 }
 ```
 ```cpp
-export module app.sheep;
+export module app.node.sheep;
 
 import app.traits;
 import arc;
 
-namespace app {
+namespace app::node {
 
 export struct Sheep : arc::Node
 {
@@ -89,6 +89,8 @@ export struct Sheep : arc::Node
 
 ```cpp
 import app.cluster;
+import app.node.cow;
+import app.node.sheep;
 import std;
 
 enum Animal
@@ -107,11 +109,11 @@ int main(int argc, char** argv)
 {
     Args args = parseArgs(argc, argv);
 
-    arc::Graph<app::Cluster> graph{
+    arc::Graph<app::cluster::Cluster> graph{
         .animal{arc::withFactory,
             [&](auto construct) {
-                if (args.animal == Animal::Cow)
-                    return construct(std::in_place_type<Cow>, true);
+                if (args.animal == ::Animal::Cow)
+                    return construct(std::in_place_type<node::Cow>, true);
                 else
                     // Can use index
                     return construct(std::in_place_index<1 /* Sheep */>);
@@ -124,7 +126,7 @@ int main(int argc, char** argv)
     graph.animal->emplace<0>(false);
     std::println("Unhappy cow says {}", graph.farmer->getNode(trait::animal).speak());
     // Change impl at runtime by type
-    graph.animal->emplace<Sheep>();
+    graph.animal->emplace<node::Sheep>();
     std::println("Sheep says {}", graph.farmer->getNode(trait::animal).speak());
 }
 ```
@@ -177,13 +179,13 @@ trait app::trait::Animal
 }
 ```
 ```cpp
-export module app.animal;
+export module app.node.ianimal;
 
 import app.traits;
 import arc;
 import std;
 
-namespace app {
+namespace app::node {
 
 struct IAnimal : arc::INode
 {
@@ -196,13 +198,13 @@ struct IAnimal : arc::INode
 }
 ```
 ```cpp
-export module app.cow;
+export module app.node.cow;
 
-import app.animal;
+import app.node.ianimal;
 import app.traits;
 import arc;
 
-namespace app {
+namespace app::node {
 
 export struct Cow
 {
@@ -227,14 +229,14 @@ export struct Cow
 }
 ```
 ```cpp
-export module app.sheep;
+export module app.node.sheep;
 
-import app.animal;
+import app.node.ianimal;
+import app.node.goat;
 import app.traits;
-import app.goat;
 import arc;
 
-namespace app {
+namespace app::node {
 
 export struct Sheep {
     template<class Context>
@@ -271,14 +273,14 @@ export struct Sheep {
 }
 ```
 ```cpp
-export module app.goat;
+export module app.node.goat;
 
-import app.animal;
+import app.node.ianimal;
+import app.node.cow;
 import app.traits;
-import app.cow;
 import arc;
 
-namespace app {
+namespace app::node {
 
 export struct Goat {
     template<class Context>
@@ -306,12 +308,12 @@ export struct Goat {
 }
 ```
 ```cpp
-export module app.fox;
+export module app.node.fox;
 
 import app.traits;
 import arc;
 
-namespace app {
+namespace app::node {
 
 // Fox is a static node which we can adapt to IAnimal using arc::Adapt<Fox, IAnimalFacade>
 export struct Fox : arc::Node
@@ -329,15 +331,15 @@ export struct Fox : arc::Node
 }
 ```
 ```cpp
-export module app.animal.facade;
+export module app.node.ianimal.facade;
 
-import app.animal;
-import app.cow;
+import app.node.ianimal;
+import app.node.cow;
 import app.traits;
 import arc;
 import std;
 
-namespace app {
+namespace app::node {
 
 export struct IAnimalFacade
 {
@@ -371,11 +373,11 @@ export struct IAnimalFacade
 }
 ```
 ```cpp
-import app.animal.facade;
+import app.node.ianimal.facade;
+import app.node.cow;
+import app.node.sheep;
+import app.node.fox;
 import app.cluster;
-import app.cow;
-import app.sheep;
-import app.fox;
 import app.traits;
 import std;
 
@@ -397,20 +399,20 @@ int main(int argc, char** argv)
 {
     Args args = parseArgs(argc, argv);
 
-    arc::Graph<app::Cluster> graph{
+    arc::Graph<app::cluster::Cluster> graph{
         .animal{arc::withFactory,
             [&](auto construct) {
                 if (args.animal == Animal::Cow)
-                    return construct(std::in_place_type<Cow>, true);
+                    return construct(std::in_place_type<node::Cow>, true);
                 else
-                    return construct(std::in_place_type<Sheep>);
+                    return construct(std::in_place_type<node::Sheep>);
             }}
     };
 
     auto animal = graph.farmer.getNode(trait::animal); // equivalent to graph.animal.asTrait(trait::animal)
     std::println("Animal says {}", animal.speak());
 
-    graph.animal->emplace<Sheep>(true);
+    graph.animal->emplace<node::Sheep>(true);
     std::println("Black sheep says {}", animal.speak());
 
     // Sheep hotswaps with goat
@@ -424,7 +426,7 @@ int main(int argc, char** argv)
     // The `animal` variable is just a non-owning trait view of the arc::Virtual node in the graph
     std::println("Sad cow says {}", graph.farmer.getNode(trait::animal).speak());
 
-    graph.animal->emplace<arc::Adapt<Fox, IAnimalFacade>>();
+    graph.animal->emplace<arc::Adapt<node::Fox, node::IAnimalFacade>>();
     std::println("Fox says {}", animal.speak());
     // IAnimalFacade hot-swaps with happy cow
     animal.evolve();

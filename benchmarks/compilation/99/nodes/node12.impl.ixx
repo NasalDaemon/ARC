@@ -3,8 +3,8 @@ import arc.bench.compile99.node12;
 
 namespace arc::bench::compile99 {
 template<class Context>
-int Node12::Node<Context>::impl(trait::Trait12::get) const
+int Node12::Node<Context>::impl(Trait12::get) const
 {
-    return i + getNode(trait::trait11).get();
+    return i + getNode(trait11).get();
 }
 }

@@ -23,12 +23,12 @@ cluster arc::bench::compile9::Graph
     node9 = Node9
 
     // Dependencies (each nodeN depends on previous node's trait)
-    [trait::Trait1]  node2  --> node1
-    [trait::Trait2]  node3  --> node2
-    [trait::Trait3]  node4  --> node3
-    [trait::Trait4]  node5  --> node4
-    [trait::Trait5]  node6  --> node5
-    [trait::Trait6]  node7  --> node6
-    [trait::Trait7]  node8  --> node7
-    [trait::Trait8]  node9  --> node8
+    [Trait1]  node2  --> node1
+    [Trait2]  node3  --> node2
+    [Trait3]  node4  --> node3
+    [Trait4]  node5  --> node4
+    [Trait5]  node6  --> node5
+    [Trait6]  node7  --> node6
+    [Trait7]  node8  --> node7
+    [Trait8]  node9  --> node8
 }

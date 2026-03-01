@@ -37,7 +37,7 @@ struct TempDir
 TEST_CASE("DiskStorage")
 {
     TempDir tempDir;
-    arc::test::Graph<DiskStorage> graph;
+    arc::test::Graph<node::DiskStorage> graph;
     auto dirSync = graph.node.asTrait(trait::directorySync);
     REQUIRE(dirSync.loadFromDirectory(tempDir.path.string()).has_value());
     auto storage = graph.node.asTrait(trait::storage);
@@ -181,7 +181,7 @@ TEST_CASE("DiskStorage reads pre-existing files")
     std::filesystem::create_directories(tempDir.path / "existing");
     std::ofstream{tempDir.path / "existing" / "data.txt"} << "pre-existing content";
 
-    arc::test::Graph<DiskStorage> graph;
+    arc::test::Graph<node::DiskStorage> graph;
     auto dirSync = graph.node.asTrait(trait::directorySync);
     REQUIRE(dirSync.loadFromDirectory(tempDir.path.string()).has_value());
     auto storage = graph.node.asTrait(trait::storage);

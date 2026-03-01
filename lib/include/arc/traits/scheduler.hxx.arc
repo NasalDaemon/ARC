@@ -1,5 +1,5 @@
 // To be implemented using C++26 std::execution, until then, this is the contract
-trait arc::trait::Scheduler
+trait arc::Scheduler
 {
     isCurrentThread(std::size_t threadId) const -> std::convertible_to<bool> auto
     currentThreadDetails() const -> std::convertible_to<std::string> decltype(auto)

@@ -132,9 +132,9 @@ namespace arc {
 
     ARC_MODULE_EXPORT
     template<std::size_t Count>
-    constexpr void forAllIndices(auto&& f)
+    constexpr bool forAllIndices(auto&& f)
     {
-        detail::forAllIndices(std::make_index_sequence<Count>{}, ARC_FWD(f));
+        return detail::forAllIndices(std::make_index_sequence<Count>{}, ARC_FWD(f));
     }
 
     ARC_MODULE_EXPORT

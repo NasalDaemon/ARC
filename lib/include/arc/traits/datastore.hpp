@@ -30,6 +30,8 @@ struct Event
     constexpr bool isLatest() const { return eventId == *eventIdPtr; }
 
     constexpr T const* operator->() const { return data; }
+    constexpr T const& operator*() const { return *data; }
+    constexpr T const& get() const { return *data; }
 
 private:
     T const* data;

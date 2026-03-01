@@ -5,7 +5,7 @@
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/empty_types.hpp"
-#include "arc/virtual_fwd.hpp"
+#include "arc/nodes/virtual_fwd.hpp"
 
 #if !ARC_IMPORT_STD
 #include <memory>

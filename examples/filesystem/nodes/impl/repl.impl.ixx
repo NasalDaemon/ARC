@@ -15,7 +15,7 @@ import std;
     template<class Context> \
     auto Repl::Node<Context>
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 void parseLine(std::string_view line, std::vector<std::string_view>& argsOut)
 {
@@ -63,7 +63,7 @@ REPL::run(int argc, char* argv[]) -> int
     else
     {
         std::println("In-Memory Filesystem REPL");
-        std::println("Commands: ls, cat, write, mkdir, rm, tree, {}help, exit", arc::CanResolve<Node, trait::DirectorySync> ? "load, dump, " : "");
+        std::println("Commands: ls, cat, write, mkdir, rm, tree, {}help, exit", arc::CanResolve<Node, DirectorySync> ? "load, dump, " : "");
         std::println("Navigation: ↑/↓ history, ←/→ cursor, Backspace/Delete edit, Tab completion");
         std::println("");
     }
@@ -100,9 +100,9 @@ REPL::runCommand(std::span<std::string_view> args) -> bool
     if (cmd == "exit" || cmd == "quit" || cmd == "q")
         return false;
 
-    if constexpr (arc::CanResolve<Node, trait::DirectorySync>)
+    if constexpr (arc::CanResolve<Node, DirectorySync>)
     {
-        auto sync = getNode(trait::directorySync);
+        auto sync = getNode(directorySync);
 
         if (cmd == "load")
         {

@@ -5,7 +5,7 @@ import abc.traits;
 
 #define ALICE \
     template<class Context> \
-    auto abc::Alice::Node<Context>
+    auto abc::node::Alice::Node<Context>
 
 ALICE::impl(trait::Bob::get) const -> int
 {

@@ -5,13 +5,13 @@ target_link_libraries(arc_example_animals_virtual PUBLIC arc::module)
 # Add module interface units
 target_sources(arc_example_animals_virtual
     PUBLIC FILE_SET CXX_MODULES FILES
-        farmer.ixx
-        cow.ixx
-        sheep.ixx
-        goat.ixx
-        fox.ixx
-        animal_facade.ixx
-        animal.ixx
+        nodes/animal_facade.ixx
+        nodes/cow.ixx
+        nodes/farmer.ixx
+        nodes/fox.ixx
+        nodes/goat.ixx
+        nodes/ianimal.ixx
+        nodes/sheep.ixx
 )
 
 # Generate traits.ixx and farm.ixx from .arc files

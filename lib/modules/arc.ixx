@@ -15,9 +15,12 @@ export import std;
 export using ::operator new;
 
 export namespace arc {
-    // adapt.hpp
+    // nodes/adapt.hpp
     using arc::Adapt;
     using arc::adapt;
+    namespace node {
+        using node::Adapt;
+    }
     // alias.hpp
     using arc::Alias;
     using arc::makeAlias;
@@ -26,11 +29,15 @@ export namespace arc {
     using arc::args;
     using arc::IsArgs;
     using arc::IsArgsOf;
-    // box.hpp
+    // nodes/box.hpp
     using arc::BoxWithRoot;
     using arc::boxWithRoot;
     using arc::Box;
     using arc::box;
+    namespace node {
+        using node::BoxWithRoot;
+        using node::Box;
+    }
     // detail/cast.hpp
     namespace detail {
         using detail::memberPtr;
@@ -46,15 +53,21 @@ export namespace arc {
     using arc::IsDomain;
     using arc::IsRootDomain;
     using arc::DomainParams;
-    // collection.hpp
+    // nodes/collection.hpp
     namespace key {
         using key::Element;
         using key::Elements;
         using key::allElements;
     }
     using arc::Collection;
-    // combine.hpp
+    namespace node {
+        using node::Collection;
+    }
+    // nodes/combine.hpp
     using arc::Combine;
+    namespace node {
+        using node::Combine;
+    }
     // compiler.hpp
     using arc::Version;
     using arc::Compiler;
@@ -87,16 +100,19 @@ export namespace arc {
     // count.hpp
     using arc::nodeCount;
     using arc::IsUnary;
-    // datastore.hpp
+    // nodes/datastore.hpp
     using arc::NoPrivateData;
     using arc::NoEvent;
     using arc::noEvent;
-    using arc::DataStore;
+    using arc::DataStoreNode;
+    namespace node {
+        using node::DataStore;
+    }
     // traits/datastore.hpp
     using arc::EventId;
     using arc::Event;
     using arc::EventItem;
-    namespace trait {
+    inline namespace trait {
         using trait::DataStore;
         using trait::DataListener;
     }
@@ -112,7 +128,7 @@ export namespace arc {
     using arc::Defer;
     // traits/dynamic_node.hxx
     using arc::IsDynamicContext;
-    namespace trait {
+    inline namespace trait {
         using trait::DynamicNode;
         using trait::dynamicNode;
     }
@@ -172,7 +188,11 @@ export namespace arc {
     using arc::IsReadPermittedNode;
     using arc::IsWritePermittedNode;
     using arc::IsReadOnlyPermittedNode;
+    // nodes/in_group.hpp
     using arc::InGroup;
+    namespace node {
+        using node::InGroup;
+    }
     // invoke_method_fwd.hpp
     using arc::invokeMethod;
     using arc::NullNormalInvoker;
@@ -186,8 +206,11 @@ export namespace arc {
         using key::IsKey;
         using key::Trait;
     }
-    // lazy.hpp
+    // nodes/lazy.hpp
     using arc::Lazy;
+    namespace node {
+        using node::Lazy;
+    }
     // link.hpp
     using arc::LinkPriorityMin;
     using arc::LinkPriorityMax;
@@ -196,10 +219,13 @@ export namespace arc {
     using arc::HasTrait;
     using arc::ResolvedLink;
     using arc::IsResolvedLink;
-    // map_info.hpp
+    // nodes/map_info.hpp
     using arc::IsInfoMapper;
     using arc::MapInfo;
-    // mock.hpp
+    namespace node {
+        using node::MapInfo;
+    }
+    // test/mock.hpp
     namespace test {
         using test::MockDefault;
         using test::MockParams;
@@ -207,8 +233,11 @@ export namespace arc {
         using test::argsTuple;
         using test::Mock;
     }
-    // narrow.hpp
+    // nodes/narrow.hpp
     using arc::Narrow;
+    namespace node {
+        using node::Narrow;
+    }
     // node_fwd.hpp
     using arc::Node;
     namespace detail {
@@ -244,11 +273,11 @@ export namespace arc {
     using arc::PeerDetached;
     using arc::PeerDetachedOpen;
     // traits/peer.hxx
-    namespace trait {
+    inline namespace trait {
         using trait::Peer;
         using trait::peer;
     }
-    // repeater.hpp
+    // nodes/repeater.hpp
     namespace key {
         using key::RepeaterIndex;
         using key::repeaterIndex;
@@ -257,6 +286,9 @@ export namespace arc {
     }
     using arc::Repeater;
     using arc::RepeaterTrait;
+    namespace node {
+        using node::Repeater;
+    }
     // resolve.hpp
     using arc::CanResolve;
     using arc::ResolveTypes;
@@ -265,18 +297,18 @@ export namespace arc {
     // traits/scheduler.hpp
     using arc::TerminateSchedulerThreadException;
     using arc::StopSchedulerException;
-    namespace trait {
+    inline namespace trait {
         using trait::Scheduler;
         using trait::scheduler;
     }
     // traits/spy.hpp
-    namespace trait {
+    inline namespace trait {
         using arc::trait::SpyOnly;
         using arc::trait::spyOnly;
         using arc::trait::Spy;
         using arc::trait::spy;
     }
-    // test.hpp
+    // test/test.hpp
     namespace test {
         using test::IsTestContext;
         using test::Local;
@@ -290,7 +322,7 @@ export namespace arc {
         using test::Graph;
         using test::GraphWithGlobal;
     }
-    // thread.hpp
+    // nodes/thread.hpp
     using arc::ThreadEnvironment;
     using arc::OnThread;
     using arc::AnyThread;
@@ -299,6 +331,11 @@ export namespace arc {
     namespace key {
         using key::ThreadPost;
         using key::DynThreadAssert;
+    }
+    namespace node {
+        using node::OnThread;
+        using node::AnyThread;
+        using node::OnDynThread;
     }
     // trait_view.hpp
     using arc::IsTraitView;
@@ -336,9 +373,12 @@ export namespace arc {
     using arc::typeId;
     // type_name.hpp
     using arc::typeName;
-    // union.hpp
+    // nodes/union.hpp
     using arc::Union;
-    // virtual.hpp
+    namespace node {
+        using node::Union;
+    }
+    // nodes/virtual.hpp
     using arc::IDestructible;
     using arc::KeepAlive;
     using arc::IsInterface;
@@ -347,6 +387,9 @@ export namespace arc {
     using arc::INodeImpl;
     using arc::INodeOf;
     using arc::Virtual;
+    namespace node {
+        using node::Virtual;
+    }
     // detail/with_index.hpp
     using arc::indexOf;
     using arc::forAllIndices;

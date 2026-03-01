@@ -2,7 +2,7 @@ module examples.filesystem.memory_storage;
 
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 MemoryStorage::MemoryStorage()
 {
@@ -10,7 +10,7 @@ MemoryStorage::MemoryStorage()
     entries.try_emplace("/", InMemoryEntry::directory());
 }
 
-auto MemoryStorage::impl(trait::Storage::get, std::string_view path) const -> InMemoryEntry const*
+auto MemoryStorage::impl(Storage::get, std::string_view path) const -> InMemoryEntry const*
 {
     auto it = entries.find(path);
     if (it == entries.end())
@@ -18,7 +18,7 @@ auto MemoryStorage::impl(trait::Storage::get, std::string_view path) const -> In
     return &it->second;
 }
 
-auto MemoryStorage::impl(trait::Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
+auto MemoryStorage::impl(Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
 {
     auto const [it, inserted] = entries.try_emplace(std::string(path), std::move(entry));
     if (inserted)
@@ -55,7 +55,7 @@ auto MemoryStorage::parent(std::string_view path) -> std::string_view
     return path.substr(0, slashPos);
 }
 
-auto MemoryStorage::impl(trait::Storage::erase, std::string_view path) -> bool
+auto MemoryStorage::impl(Storage::erase, std::string_view path) -> bool
 {
     auto parentDir = parent(path);
     if (auto const it = children.find(parentDir); it != children.end())
@@ -64,7 +64,7 @@ auto MemoryStorage::impl(trait::Storage::erase, std::string_view path) -> bool
     return entries.erase(std::string(path)) > 0;
 }
 
-auto MemoryStorage::impl(trait::Storage::children, std::string_view path) const -> std::vector<std::string_view>
+auto MemoryStorage::impl(Storage::children, std::string_view path) const -> std::vector<std::string_view>
 {
     std::vector<std::string_view> result;
     auto it = children.find(path);

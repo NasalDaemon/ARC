@@ -9,12 +9,8 @@ using namespace examples::animals;
 
 int main()
 {
-    arc::Graph<Farm> graph{
-        .animal{arc::withFactory,
-            [&](auto construct) {
-                return construct(std::in_place_type<Cow>, true);
-            }
-        },
+    arc::Graph<cluster::Farm> graph{
+        .animal{std::in_place_type<node::Cow>, true},
     };
 
     graph.farmer->greetAnimal();  // Animal says: moo
@@ -24,7 +20,7 @@ int main()
     std::println("Unhappy cow says {}", graph.farmer.getNode(trait::animal).speak());
 
     // Change impl at runtime by type
-    graph.animal->emplace<Sheep>();
+    graph.animal->emplace<node::Sheep>();
     graph.farmer->greetAnimal();  // Animal says: baa!
 
     return 0;

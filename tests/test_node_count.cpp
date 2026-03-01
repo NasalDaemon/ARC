@@ -1,8 +1,7 @@
 import arc.tests.count;
 import arc;
 
-/*
-arc-embed-begin
+/* arc-embed-begin
 
 export module arc.tests.count;
 
@@ -29,8 +28,7 @@ cluster OuterCluster [R = Root]
 
 }
 
-arc-embed-end
-*/
+arc-embed-end */
 
 namespace arc::tests::count {
 
@@ -43,7 +41,7 @@ struct Root
     using Node = count::Node;
 };
 
-using Graph = arc::Graph<OuterCluster, Root>;
+using Graph = arc::Graph<cluster::OuterCluster, Root>;
 
 static_assert(arc::IsUnary<decltype(Graph::a)>);
 static_assert(arc::IsUnary<decltype(Graph::innerUnary)>);

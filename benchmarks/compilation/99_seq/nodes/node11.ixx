@@ -9,12 +9,12 @@ namespace arc::bench::compile99_seq {
 export
 struct Node11 : arc::Node
 {
-    using Depends = arc::Depends<trait::Trait10>;
-    using Traits = arc::Traits<trait::Trait11>;
+    using Depends = arc::Depends<Trait10>;
+    using Traits = arc::Traits<Trait11>;
 
-    int impl(this auto const& self, trait::Trait11::get)
+    int impl(this auto const& self, Trait11::get)
     {
-        return self.i + self.getNode(trait::trait10).get();
+        return self.i + self.getNode(trait10).get();
     }
 
     Node11() = default;

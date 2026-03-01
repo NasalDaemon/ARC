@@ -2,7 +2,7 @@
 
 #include "arc/manual/trait.hpp"
 
-namespace abc::trait {
+namespace abc::inline trait {
 
 struct AliceRead : arc::Trait
 {

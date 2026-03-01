@@ -22,7 +22,7 @@
 #include "arc/node.hpp"
 #include "arc/node_with.hpp"
 #include "arc/resolve.hpp"
-#include "arc/repeater.hpp"
+#include "arc/nodes/repeater.hpp"
 #include "arc/traits.hpp"
 #include "arc/trait_view.hpp"
 

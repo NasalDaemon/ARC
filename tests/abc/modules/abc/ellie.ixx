@@ -15,6 +15,8 @@ export namespace abc {
 struct EllieType{};
 struct EllieType3{};
 
+namespace node {
+
 struct Ellie : arc::NodeUses<trait::Charlie>
 {
     struct Charlie;
@@ -70,4 +72,5 @@ struct Ellie::Charlie : Ellie
     }
 };
 
-}
+} // namespace node
+} // namespace abc

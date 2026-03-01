@@ -8,7 +8,7 @@ namespace abc {
 
 struct GraphWrapper
 {
-    arc::Graph<abc::AliceBob> graph;
+    arc::Graph<abc::cluster::AliceBob> graph;
 };
 
 }

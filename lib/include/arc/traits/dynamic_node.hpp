@@ -4,8 +4,8 @@
 #include "arc/traits/dynamic_node.hxx"
 
 #include "arc/macros.hpp"
-#include "arc/union_fwd.hpp"
-#include "arc/virtual_fwd.hpp"
+#include "arc/nodes/union_fwd.hpp"
+#include "arc/nodes/virtual_fwd.hpp"
 
 namespace arc {
 

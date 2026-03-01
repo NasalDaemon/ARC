@@ -51,7 +51,7 @@ namespace detail {
 
 ARC_MODULE_EXPORT
 template<class T>
-using ContextParameterOf = decltype(detail::getContextParameter(std::declval<T>()));
+using ContextParameterOf = decltype(detail::getContextParameter(std::declval<T const&>()));
 
 ARC_MODULE_EXPORT
 template<class T>

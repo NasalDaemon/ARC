@@ -12,6 +12,8 @@ namespace abc {
 struct EllieType{};
 struct EllieType3{};
 
+namespace node {
+
 struct Ellie : arc::Node
 {
     using Depends = arc::Depends<trait::Charlie>;
@@ -69,4 +71,6 @@ struct Ellie::Charlie : Ellie
     }
 };
 
-}
+} // namespace node
+
+} // namespace abc

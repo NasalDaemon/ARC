@@ -3,7 +3,7 @@ export module examples.filesystem.traits;
 import examples.filesystem.entry;
 import std;
 
-namespace examples::filesystem::trait {
+namespace examples::filesystem {
 
 // Path manipulation utilities
 trait PathOps

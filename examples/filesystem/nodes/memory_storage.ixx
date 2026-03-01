@@ -5,7 +5,7 @@ import examples.filesystem.traits;
 import arc;
 import std;
 
-namespace examples::filesystem {
+namespace examples::filesystem::node {
 
 struct hash_str : std::hash<std::string_view>, std::hash<std::string>
 {
@@ -15,7 +15,7 @@ struct hash_str : std::hash<std::string_view>, std::hash<std::string>
 };
 
 // MemoryStorage node holds the filesystem tree in memory
-export struct MemoryStorage : arc::NodeImpl<trait::Storage*, trait::DirectorySync*>
+export struct MemoryStorage : arc::NodeImpl<Storage*, DirectorySync*>
 {
     struct Types
     {
@@ -25,14 +25,13 @@ export struct MemoryStorage : arc::NodeImpl<trait::Storage*, trait::DirectorySyn
 
     MemoryStorage();
 
-    auto impl(trait::Storage::get, std::string_view path) const -> InMemoryEntry const*;
-    auto impl(trait::Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>;
-    auto impl(trait::Storage::erase, std::string_view path) -> bool;
-    auto impl(trait::Storage::children, std::string_view path) const -> std::vector<std::string_view>;
+    auto impl(Storage::get, std::string_view path) const -> InMemoryEntry const*;
+    auto impl(Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>;
+    auto impl(Storage::erase, std::string_view path) -> bool;
+    auto impl(Storage::children, std::string_view path) const -> std::vector<std::string_view>;
 
-    // Not part of trait::Storage, but useful for persistence
-    auto impl(trait::DirectorySync::loadFromDirectory, std::string_view directory) -> std::expected<void, FsError>;
-    auto impl(trait::DirectorySync::dumpToDirectory, std::string_view directory) const -> std::expected<void, FsError>;
+    auto impl(DirectorySync::loadFromDirectory, std::string_view directory) -> std::expected<void, FsError>;
+    auto impl(DirectorySync::dumpToDirectory, std::string_view directory) const -> std::expected<void, FsError>;
 
 private:
     // Full path -> Entry mapping

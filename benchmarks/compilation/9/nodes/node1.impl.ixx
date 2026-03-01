@@ -6,7 +6,7 @@ import arc;
 namespace arc::bench::compile9 {
 
 template<class Context>
-int Node1::Node<Context>::impl(trait::Trait1::get) const
+int Node1::Node<Context>::impl(Trait1::get) const
 {
     return i;
 }

@@ -18,7 +18,7 @@ target_sources(arc_bench_compile9
 
 target_generate_arc_src(arc_bench_compile9
     GRAPH_MODULE arc.bench.compile9.graph
-    GRAPH_TYPE   arc::Graph<arc::bench::compile9::Graph>
+    GRAPH_TYPE   arc::Graph<arc::bench::compile9::cluster::Graph>
     NODES
         node1    arc.bench.compile9.node1
         node2    arc.bench.compile9.node2

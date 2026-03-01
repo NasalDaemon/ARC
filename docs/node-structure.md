@@ -17,6 +17,8 @@ There are two ways to define a node, each with different pros and cons:
 1. More concise: inline node with contextless state
 
       ```cpp
+      namespace node {
+
       struct PiCache : arc::Node
       {
          // (Optional) list dependencies of this node
@@ -40,6 +42,8 @@ There are two ways to define a node, each with different pros and cons:
 
          double piValue = NAN;
       };
+
+      } // namespace node
       ```
 
       - Best suited to a node that has few or no dependencies of its own:
@@ -49,6 +53,8 @@ There are two ways to define a node, each with different pros and cons:
 2. More flexible: nested template node with contextful state
 
       ```cpp
+      namespace node {
+
       struct PiCache
       {
          // Nested node *must* be a unary class template called `Node`
@@ -70,6 +76,8 @@ There are two ways to define a node, each with different pros and cons:
             Float piValue = std::numeric_limits<Float>::quiet_NaN();
          };
       };
+
+      } // namespace node
       ```
 
       - Types **can** be resolved in the state from the node's injected `Context`, which is the single template parameter of the node's state
@@ -82,6 +90,8 @@ There are two ways to define a node, each with different pros and cons:
          ```cpp
          // pi_cache.hpp
          #include <arc/arc.hpp>
+
+         namespace node {
 
          struct PiCache
          {
@@ -98,13 +108,15 @@ There are two ways to define a node, each with different pros and cons:
                Float piValue = std::numeric_limits<Float>::quiet_NaN();
             };
          };
+
+         } // namespace node
          ```
          ```cpp
          // pi_cache.tpp
          #include "pi_cache.hpp"
 
          template<class Context>
-         auto PiCache::Node<Context>::impl(trait::Pi::Calc) -> Float
+         auto node::PiCache::Node<Context>::impl(trait::Pi::Calc) -> Float
          {
             if (std::isnan(piValue)) [[unlikely]]
                piValue = getNode(trait::pi).calc();
@@ -115,14 +127,14 @@ There are two ways to define a node, each with different pros and cons:
          # CMakeLists.txt
          add_executable(math_lib main.cpp)
 
-         # Generates math.hxx from math.hxx.arc (which defines MathCluster)
+         # Generates math.hxx from math.hxx.arc (which defines cluster::MathCluster)
          target_generate_arc_headers(math_lib)
 
          # Generates {build_dir}/src/piCache.cpp, which instantiates PiCache::Node<Context>
-         # with the Context injected by MathCluster, and adds it to math_lib
+         # with the Context injected by cluster::MathCluster, and adds it to math_lib
          target_generate_arc_src(math_lib
             GRAPH_HEADER   math.hxx
-            GRAPH_TYPE     arc::Graph<MathCluster>
+            GRAPH_TYPE     arc::Graph<cluster::MathCluster>
             NODES
                piCache     pi_cache.tpp
                # ... other nodes not shown here
@@ -135,15 +147,21 @@ There are two ways to define a node, each with different pros and cons:
 
          #include "pi_cache.tpp"
 
-         ARC_INSTANTIATE(arc::Graph<MathCluster>, piCache)
+         ARC_INSTANTIATE(arc::Graph<cluster::MathCluster>, piCache)
          ```
          </details>
+
+## Namespace
+
+It is good practice is to define all nodes inside a `namespace node` block, but this is not strictly necessary. All other DSL generated entities (clusters, domains, traits, policies) are already placed in the respective namespaces `cluster`, `domain`, `inline trait`, `policy`. Placing nodes in a `namespace node` block provides a consistent structure and clear separation of concerns between all the different entities in ARC, especially since trait namespaces are especially inlined for convenience. Alternatively, node type names should have the `Node` suffix such as `struct PiCacheNode` for clarity and to avoid potential naming conflicts with traits.
 
 ## Fluent Builder API
 
 For most nodes, ARC provides a more ergonomic way to define dependencies and implemented traits using a fluent builder API. This avoids manual type aliasing and provides named accessors for dependencies.
 
 ```cpp
+namespace node {
+
 struct PiCache : arc::Node::
    Uses<trait::Pi>::
    Impl<trait::Pi>
@@ -160,6 +178,8 @@ struct PiCache : arc::Node::
 
     double piValue = NAN;
 };
+
+} // namespace node
 ```
 
 The `Node::Uses<...>::Impl<...>` chain performs several tasks:
@@ -184,7 +204,7 @@ ARC provides a template to define this mapping in the form `arc::Traits<{TraitMa
 |`trait::Trait*(TraitTypes)`|`trait::Trait`|`{Node}`|`TraitTypes`|
 |`trait::Trait(TraitImpl, TraitTypes)`|`trait::Trait`|`TraitImpl`|`TraitTypes`|
 
-Most nodes will have a flat structure, with `Traits` in the shorthand form `arc::Traits<trait::Trait1, trait::Trait2>`, i.e. `arc::Traits<{Trait}...>`. THis is usually sufficient unless the node is particularly complex.
+Most nodes will have a flat structure, with `Traits` in the shorthand form `arc::Traits<trait::Trait1, trait::Trait2>`, i.e. `arc::Traits<{Trait}...>`. This is usually sufficient unless the node is particularly complex.
 
 <details>
 <summary>:eyes: Code: Exhaustive arc::Traits example</summary>
@@ -230,6 +250,8 @@ trait Orange [Types]
 trait Tangerine = Orange
 ```
 ```cpp
+namespace node {
+
 struct FruitBasket
 {
    template<class Context>
@@ -305,8 +327,12 @@ struct FruitBasket::Node<Context>::Tangerine : Node
       return take(tangerines, amount);
    }
 };
+
+} // namespace node
 ```
 ```cpp
+namespace node {
+
 struct Guest : arc::Node::
    Impl<trait::Guest>::
    Uses<trait::Apple, trait::Banana, trait::Orange, trait::Tangerine>
@@ -343,6 +369,8 @@ struct Guest : arc::Node::
       assert(tangerines == 3);
    }
 };
+
+} // namespace node
 ```
 </details>
 
