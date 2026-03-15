@@ -19,6 +19,7 @@
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #endif
@@ -114,6 +115,26 @@ namespace detail {
     };
 }
 
+ARC_MODULE_EXPORT
+struct ContractViolation : std::logic_error
+{
+    using std::logic_error::logic_error;
+};
+
+ARC_MODULE_EXPORT
+struct DefaultAssertHandler
+{
+    ARC_INLINE constexpr void operator()(bool value, const char* message) const
+    {
+        #if __cpp_contracts >= 202502L
+        contract_assert(value);
+        #else
+        if (not value) [[unlikely]]
+            throw ContractViolation(message);
+        #endif
+    }
+};
+
 struct NullContext : detail::ContextBase
 {
     // May not be overridden
@@ -147,10 +168,20 @@ struct NullContext : detail::ContextBase
         {
             return {};
         }
+
+        static constexpr DefaultAssertHandler ContractAssert{};
     };
 
     static constexpr std::size_t Depth = 0;
 };
+
+namespace detail {
+    template<class Root>
+    auto getRootAssertHandler() -> DefaultAssertHandler;
+    template<class Root>
+    requires requires { typename Root::ArcContractAssertHandler; }
+    auto getRootAssertHandler() -> Root::ArcContractAssertHandler;
+}
 
 template<class Root_>
 struct RootContext : NullContext
@@ -158,6 +189,10 @@ struct RootContext : NullContext
     struct Root : Root_
     {
         using Context = RootContext;
+    };
+    struct Info : NullContext::Info
+    {
+        static constexpr decltype(detail::getRootAssertHandler<Root_>()) ContractAssert{};
     };
 };
 

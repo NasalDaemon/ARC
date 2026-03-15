@@ -2,32 +2,32 @@ export module arc.tests.domain;
 
 namespace arc::tests::domain {
 
-trait trait::Domain
+trait DomainTrait
 {
     get()
 }
 
-trait trait::Parent
+trait Parent
 {
     get()
 }
 
-trait trait::Global
+trait Global
 {
     get()
 }
 
-trait trait::Unary
+trait Unary
 {
     get()
 }
 
-trait trait::Unary2
+trait Unary2
 {
     get()
 }
 
-trait trait::Unary3
+trait Unary3
 {
     get()
 }
@@ -40,7 +40,7 @@ domain Domain [R = Root]
     unary1 = R::Unary
     unary2 = R::Unary
 
-    [trait::Domain]
+    [trait::DomainTrait]
     .. --> nexus --> DOMAIN1 --> DOMAIN2
     // .. --> unary1
     // .. --> DOMAIN1

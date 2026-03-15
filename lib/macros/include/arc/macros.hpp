@@ -5,13 +5,14 @@
 #   define ARC_MODULE_EXPORT
 #endif
 
+#define ARC_ASSERT_ARGS(pos, ...) static_cast<bool>(__VA_ARGS__), "ARC trait contract failure: " #__VA_ARGS__ " (" pos ")"
 #define ARC_CAT(l, r) l ## r
 #define ARC_JOIN(l, r) l r
 #define ARC_APPLY(macro, ...) ARC_JOIN(macro, (__VA_ARGS__))
-#define ARC_DEPAREN(X) ARC_ESC(ARC_ISH X)
 #define ARC_ISH(...) ARC_ISH __VA_ARGS__
-#define ARC_ESC(...) ARC_ESC_(__VA_ARGS__)
 #define ARC_ESC_(...) ARC_VANISH_ ## __VA_ARGS__
+#define ARC_ESC(...) ARC_ESC_(__VA_ARGS__)
+#define ARC_DEPAREN(X) ARC_ESC(ARC_ISH X)
 #define ARC_VANISH_ARC_ISH
 
 // Count number of arguments
@@ -156,10 +157,7 @@
         { \
             METHOD_LIST(ARC_METHOD_TAG_APPLICABLE) \
         }; \
-        struct SignaturesByTag \
-        { \
-            static auto impl(auto&&...) -> ::arc::NullNormalInvoker; \
-        }; \
+        struct SignaturesByTag : ::arc::NullSignaturesByTag {}; \
         struct Methods \
         { \
             METHOD_LIST(ARC_DUCK_METHOD) \

@@ -34,6 +34,11 @@ grammar_file = dir_path.joinpath(dir_path, 'arc_module.lark' if is_module else '
 arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True)
 
 reconstructor = Reconstructor(arc_parser)
+
+def reconstruct(tree) -> str:
+    """Reconstruct a parse tree to a C++ string, stripping DSL backtick escapes."""
+    return reconstructor.reconstruct(tree).replace('`', '')
+
 section_lines: list[tuple[int, int, int]] = []
 
 
@@ -154,7 +159,7 @@ class CppType:
 
     @classmethod
     def from_tree(cls, tree):
-        string = reconstructor.reconstruct(tree)
+        string = reconstruct(tree)
         return cls(string, tree=tree)
 
     @cached_property
@@ -513,7 +518,7 @@ class Cluster:
                     name = child.children[0].value
                     if name in nodes:
                         raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in {self.cluster_class} '{self.full_name}'")
-                    impl = reconstructor.reconstruct(child.children[1])
+                    impl = reconstruct(child.children[1])
                     intermediate_aliases: list[tuple[str, str]] = []
                     if len(child.children) > 2:
                         for wrapper in child.children[2:]:
@@ -523,7 +528,7 @@ class Cluster:
                             intermediate_aliases.append((impl_alias, impl))
                             args = [impl_alias]
                             if len(wrapper.children) > 1:
-                                args.extend(reconstructor.reconstruct(arg) for arg in wrapper.children[1].children[1:-1:2])
+                                args.extend(reconstruct(arg) for arg in wrapper.children[1].children[1:-1:2])
                             impl = f"{cls}<{', '.join(args)}>"
 
                     is_first = len(nodes) == 2
@@ -536,21 +541,21 @@ class Cluster:
                             for child in child.children:
                                 current_token = child
                                 alias = get_value(child.children[0])
-                                type_string = reconstructor.reconstruct(child.children[1])
+                                type_string = reconstruct(child.children[1])
                                 if alias in aliases:
                                     if aliases.get(alias) != type_string:
                                         raise SyntaxError(f"{get_pos(alias)} Alias '{alias}' changed from {aliases.get(alias)} to {type_string}")
                                 else:
                                     aliases[alias] = type_string
                         elif child.data == imported('connection_trait'):
-                            left_trait = reconstructor.reconstruct(child.children[0])
+                            left_trait = reconstruct(child.children[0])
 
                             if len(child.children) == 1:
                                 bi_trait = False
                                 right_trait = left_trait
                             else:
                                 bi_trait = True
-                                right_trait = reconstructor.reconstruct(child.children[-1])
+                                right_trait = reconstruct(child.children[-1])
 
                             if left_trait in GLOBAL_TRAIT or right_trait in GLOBAL_TRAIT:
                                 if bi_trait:
@@ -632,38 +637,38 @@ class Cluster:
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
                                 elif arrow.data == imported('left_arrow_from'):
                                     validate_fanout(right_arrow=False)
-                                    from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    from_trait = reconstruct(arrow.children[-1].children[0])
                                     to_trait = left_trait
                                     for lnode, rnode in lrnodes:
                                         rnode.add_connection(pos, tid, lfid, is_override, lnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('right_arrow_from'):
                                     validate_fanout(right_arrow=True)
-                                    from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
+                                    from_trait = reconstruct(arrow.children[0].children[0])
                                     to_trait = right_trait
                                     for lnode, rnode in lrnodes:
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('left_arrow_to'):
                                     validate_fanout(right_arrow=False)
                                     from_trait = left_trait
-                                    to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
+                                    to_trait = reconstruct(arrow.children[0].children[0])
                                     for lnode, rnode in lrnodes:
                                         rnode.add_connection(pos, tid, lfid, is_override, lnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('right_arrow_to'):
                                     validate_fanout(right_arrow=True)
                                     from_trait = right_trait
-                                    to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    to_trait = reconstruct(arrow.children[-1].children[0])
                                     for lnode, rnode in lrnodes:
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('left_arrow_both'):
                                     validate_fanout(right_arrow=False)
-                                    to_trait = reconstructor.reconstruct(arrow.children[0].children[0])
-                                    from_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    to_trait = reconstruct(arrow.children[0].children[0])
+                                    from_trait = reconstruct(arrow.children[-1].children[0])
                                     for lnode, rnode in lrnodes:
                                         rnode.add_connection(pos, tid, lfid, is_override, lnode, from_trait, to_trait=to_trait)
                                 elif arrow.data == imported('right_arrow_both'):
                                     validate_fanout(right_arrow=True)
-                                    from_trait = reconstructor.reconstruct(arrow.children[0].children[0])
-                                    to_trait = reconstructor.reconstruct(arrow.children[-1].children[0])
+                                    from_trait = reconstruct(arrow.children[0].children[0])
+                                    to_trait = reconstruct(arrow.children[-1].children[0])
                                     for lnode, rnode in lrnodes:
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, from_trait, to_trait=to_trait)
                                 else:
@@ -809,6 +814,8 @@ class Method:
         self.params: list[tuple[CppType, str]] = []
         self.is_const: bool = False
         self.optional: bool = False
+        self.pre_exprs: list[tuple[str, str]] = []
+        self.post_exprs: list[tuple[str, str, str]] = []
 
     def add_template(self, children):
         for c in children:
@@ -852,6 +859,14 @@ class Method:
                     self.params.append((type_, name))
             elif c.data == imported('method_qualifier'):
                 self.is_const = True
+            elif c.data == imported('pre_contract'):
+                if len(self.params) == 0:
+                    raise SyntaxError(f"{get_pos(c)} Pre-contracts cannot be specified on methods with no parameters")
+                self.pre_exprs.append((get_pos(c), reconstruct(c.children[0])))
+            elif c.data == imported('post_contract'):
+                if self.return_type.str == "void":
+                    raise SyntaxError(f"{get_pos(c)} Post-contracts cannot be specified on methods with void return type")
+                self.post_exprs.append((get_pos(c.children[0]), c.children[0], reconstruct(c.children[1])))
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown method entity: {c.data}')
 
@@ -913,9 +928,9 @@ class Trait:
                 elif c.data == imported('trait_requires'):
                     if c.children[0].data == imported('trait_requires_block'):
                         add_colon_to_requires_statements.visit(c.children[0])
-                        requires = "requires " + reconstructor.reconstruct(c.children[0])
+                        requires = "requires " + reconstruct(c.children[0])
                     else:
-                        requires = reconstructor.reconstruct(c.children[0].children[0])
+                        requires = reconstruct(c.children[0].children[0])
                     if not requires.endswith(';'):
                         requires += ';'
                     self.requires.append(requires)
@@ -961,7 +976,7 @@ class Policy:
                     groups[group_val] = Group(group_val)
                 elif c.data == imported('group_alias'):
                     alias = get_value(c.children[0])
-                    group_type = reconstructor.reconstruct(c.children[1])
+                    group_type = reconstruct(c.children[1])
                     if alias in aliases:
                         if aliases[alias] != group_type:
                             raise SyntaxError(f"{get_pos(c)} Alias '{alias}' changed from {aliases[alias]} to {group_type}")
@@ -1179,7 +1194,10 @@ class Repr:
     def visit_trait_alias(self, source_ns: str, tree: Tree):
         # tree is trait_alias node with FQNAME tokens
         name, namespace = self.split_namespace(tree, source_ns, tree.children[0].value)
-        namespace.add_trait_alias([c.value for c in tree.children], tree)
+        names = [tree.children[0].value]
+        for rhs in tree.children[1:]:
+            names.append(reconstruct(rhs))
+        namespace.add_trait_alias(names, tree)
 
     def split_namespace(self, tree: Tree, source_ns: str, fq_name: str) -> tuple[str, Namespace]:
         pos = fq_name.rfind("::")

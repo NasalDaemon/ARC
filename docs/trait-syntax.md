@@ -50,7 +50,12 @@ trait Complex
     // the return type must be exactly `double`
     // any non-conformant implementation will compile until the method is called
     template<std::size_t I, class T, class U, std::same_as<int> Int>
-    complex(T t, U&& u, Int i, auto a, std::same_as<double> auto d) -> std::same_as<double>
+    complex(T t, U&& u, Int i, auto a, std::same_as<double> auto d) -> std::same_as<double> auto
+
+    // C++26 contract syntax is supported in C++23
+    withContracts(int i) const -> int
+        pre (i >= 0)
+        post (r: r >= 0)
 }
 
 // If requirements on the trait types need to be enforced, use annotations.

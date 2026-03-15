@@ -30,7 +30,9 @@ TRAIT: "trait"
 cluster_scope:  FQNAME [cluster_annotations] "{" node+ connection_block* "}"
 policy_scope:   FQNAME                       "{" group+ group_connection+ "}"
 trait_scope:    FQNAME [trait_annotations]   "{" trait_body+ "}" -> trait_def
-           |    FQNAME "=" FQNAME ("+" FQNAME)*                  -> trait_alias
+           |    FQNAME "=" trait_alias_rhs ("+" trait_alias_rhs)* -> trait_alias
+
+trait_alias_rhs: FQNAME [full_templ_args]
 
 group: group_name                          -> group_name
      | group_name "=" cpp_type_no_typename -> group_alias
@@ -85,8 +87,39 @@ trait_requires_block: "requires" [cpp_func_params] "{" cpp_requires_statement "}
 !cpp_requires_statement: cpp_expr [SEMICOLON]
                        | "{" cpp_expr "}" ["->" cpp_type] [SEMICOLON]
 
-trait_method: [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] -> trait_method_signature
+trait_method: [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] (pre_contract | post_contract)* -> trait_method_signature
             | NAME "(...)"                                                                     -> trait_method_elipsis
+
+pre_contract:  "pre"  "("          bracket_content ")"
+post_contract: "post" "(" NAME ":" bracket_content ")"
+
+# Bracket-symmetric C++ expression content.
+# Accepts any sequence of non-bracket tokens and recursively balanced () [] {}.
+# Angle brackets are not tracked: they are indistinguishable from comparison
+# operators and template delimiters in a context-free grammar. The C++ compiler
+# validates the expression text once it is embedded in the generated code.
+bracket_content: bracket_item*
+!bracket_item: BRACKET_ATOM
+             | "(" bracket_content ")"
+             | "[" bracket_content "]"
+             | "{" bracket_content "}"
+BRACKET_ATOM: /[^()\[\]{}`]+/ | /`[^`]*`/
+
+# Full bracket-symmetric content including angle brackets.
+# Used in positions where < and > are unambiguously template delimiters
+# (not comparison operators). Bare < or > that are NOT template delimiters
+# (e.g. comparison operators in non-type template value arguments) must be
+# escaped by surrounding them with backticks, e.g. `<` or `N >= 0`.
+# Backticks are stripped from the reconstructed C++ output.
+full_bracket_content: full_bracket_item*
+!full_bracket_item: FULL_BRACKET_ATOM
+             | "(" full_bracket_content ")"
+             | "[" full_bracket_content "]"
+             | "{" full_bracket_content "}"
+             | "<" full_bracket_content ">"
+FULL_BRACKET_ATOM: /[^()\[\]{}<>`]+/ | /`[^`]*`/
+
+!full_templ_args: "<" full_bracket_content ">"
 
 method_name: [OPTIONAL_METHOD] NAME
 method_qualifier: "const"
@@ -156,8 +189,8 @@ BARROW: "<"+ "-"+ ">"+
 cpp_func_params: "(" [cpp_func_param ("," cpp_func_param)*] ")"
 cpp_func_param: cpp_type NAME
 
-!cpp_func_args:  "(" [cpp_expr ("," cpp_expr)*] ")"
-!cpp_templ_args: "<" [cpp_expr ("," cpp_expr)*] ">"
+!cpp_func_args:  "(" [full_bracket_content] ")"
+!cpp_templ_args: "<" [full_bracket_content] ">"
 
 
 !cpp_expr: CPP_LITERALS | cpp_expr_complex
@@ -185,7 +218,7 @@ FQNAME: ["::"] NAMESPACE+
 CPP_REF: "*"+ | "&"+
 CPP_MEM_ACCESS: "." | "->"
 CPP_UNARY_OP: "*" | "&" | "!" | "not" | "+" | "-"
-CPP_BINARY_OP: "+" | "-" | "/" | "*" | "%" | "|" | "&" | "||" | "&&" | "or" | "and" | "==" | "!=" | ".*" | "->*"
+CPP_BINARY_OP: "+" | "-" | "/" | "*" | "%" | "|" | "&" | "||" | "&&" | "or" | "and" | "==" | "!=" | ">=" | "<=" | "<=>" | ".*" | "->*"
 
 TYPENAME: "typename"
 TEMPLATE: "template"

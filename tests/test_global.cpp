@@ -15,7 +15,7 @@ export module arc.tests.global;
 
 namespace arc::tests::global {
 
-trait trait::Log
+trait Log
 {
     log(auto message) -> std::same_as<void> auto
 }

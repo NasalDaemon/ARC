@@ -124,17 +124,50 @@ struct {{ trait.name }} : ::arc::Trait
             ARC_METHOD_TAG_APPLICABLE({{ method_name }})
             {% endfor %}
         };
-        // Return type constraints in method signatures
+        // Contracts and return type constraints of method signatures
         struct Constraints
         {
             {% for method in trait.methods %}
-            {% if method.return_type.is_auto and method.return_type.str != "decltype(auto)" %}
-            struct {{ capitalise(method.name) }}{{ loop.index }}
+            {% if method.pre_exprs or method.post_exprs or (method.return_type.is_auto and method.return_type.str != "decltype(auto)") %}
+            struct {{ capitalise(method.name) }}{{ loop.index }} : ::arc::NoConstraints
             {
+                {% if method.return_type.is_auto and method.return_type.str != "decltype(auto)" %}
                 template<class T, class {{ trait.types_name or "" }}>
                 static consteval {{ method.return_type.str }} Return() { return ARC_DECLVAL(T); }
                 static constexpr bool DecltypeAuto = {{ cppbool(method.return_type.str.endswith("decltype(auto)")) }};
+                {% endif %}
+                {% if method.pre_exprs %}
+                static constexpr void pre(auto& _arc_contract_assert_
+                    {%- for type, name in method.params -%}
+                    , [[maybe_unused]] auto const&{{ type.pack }} {{ name }}
+                    {%- endfor -%}
+                )
+                {
+                    ARC_IF_GCC(::arc::ignoreArgs(
+                    {%- set comma = joiner(", ") -%}
+                    {%- for type, name in method.params -%}
+                    {{ comma() }}{{ name }}
+                    {%- endfor -%}
+                    ));
+                    {% for pos, pre in method.pre_exprs %}
+                    _arc_contract_assert_(ARC_ASSERT_ARGS("{{ pos }}", {{ pre }}));
+                    {% endfor %}
+                }
+                {% endif %}
+                {% if method.post_exprs %}
+                static constexpr void post(auto& _arc_contract_assert_, auto const& _arc_post_return_contract_value_)
+                {
+                    {% for pos, name, expr in method.post_exprs %}
+                    {
+                        auto const& {{ name }} = _arc_post_return_contract_value_;
+                        _arc_contract_assert_(ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
+                    }
+                    {% endfor %}
+                }
+                {% endif %}
             };
+            {% else %}
+            using {{ capitalise(method.name) }}{{ loop.index }} = ::arc::NoConstraints;
             {% endif %}
             {% endfor %}
         };
@@ -166,12 +199,12 @@ struct {{ trait.name }} : ::arc::Trait
             )
             {% if method.return_type.is_auto %}
             {% if method.return_type.str == "decltype(auto)" %}
-                -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}{{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% else %}
                 -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% endif %}
             {% else %}
-                -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
             {% endif %}
             {% endfor %}
         };

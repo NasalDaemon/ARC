@@ -78,6 +78,26 @@ namespace detail {
         }
 
         template<class T>
+        constexpr operator T() const &
+        {
+            if (std::any const* any = std::get_if<std::any>(&value))
+            {
+                if (T const* p = std::any_cast<T>(any))
+                    return *p;
+            }
+            else if (Ref const* ref = std::get_if<Ref>(&value))
+            {
+                if (ref->convertibleTo<T const&>())
+                    return *static_cast<T const*>(ref->ptr);
+            }
+            else if (returnDefault)
+            {
+                return T();
+            }
+            throw std::bad_any_cast();
+        }
+
+        template<class T>
         constexpr operator T&() &
         {
             if (std::any* any = std::get_if<std::any>(&value))
@@ -129,6 +149,20 @@ namespace detail {
         constexpr void reset() { value.emplace<std::monostate>(); }
 
         constexpr void setReturnDefault() { returnDefault = true; }
+
+        auto operator<=>(MockReturn const& other) const = delete;
+        bool operator==(MockReturn const& other) const = delete;
+
+        template<class T>
+        constexpr auto operator<=>(T const& other) const
+        {
+            return static_cast<T const&>(*this) <=> other;
+        }
+        template<class T>
+        constexpr bool operator==(T const& other) const
+        {
+            return static_cast<T const&>(*this) == other;
+        }
 
     private:
         bool returnDefault = false;

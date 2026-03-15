@@ -17,18 +17,18 @@ export module arc.tests.collection;
 
 namespace arc::tests::collection {
 
-trait trait::Element
+trait Element
 {
     get() const -> int
     count(int& counter) const
 }
 
-trait trait::Outside
+trait Outside
 {
     get() const -> int
 }
 
-trait trait::Global
+trait Global
 {
     get() const -> int
 }

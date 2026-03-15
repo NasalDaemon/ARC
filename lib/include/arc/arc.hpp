@@ -16,6 +16,7 @@
 #include "arc/nodes/thread.hpp"
 #include "arc/nodes/union.hpp"
 #include "arc/nodes/virtual.hpp"
+#include "arc/nodes/with_assert_handler.hpp"
 
 #include "arc/test/test.hpp"
 #include "arc/test/mock.hpp"

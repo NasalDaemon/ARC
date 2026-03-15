@@ -5,15 +5,26 @@
 #include "arc/macros.hpp"
 #include "arc/trait_view_fwd.hpp"
 
+#if !ARC_IMPORT_STD
+#include <type_traits>
+#endif
+
 namespace arc {
 
 ARC_MODULE_EXPORT
-template<class Node, class Method, class... Args>
+struct NoConstraints
+{
+    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void pre(auto&, auto&&...) {}
+    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void post(auto&, auto&&) {}
+};
+
+ARC_MODULE_EXPORT
+template<class Constraints = arc::NoConstraints, class Node, class Method, class... Args>
 requires (not IsTraitView<Node>) and requires { typename ContextOf<detail::NodeOf<Node>>; }
 ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args);
 
 ARC_MODULE_EXPORT
-template<class Node, class Method, class... Args>
+template<class Constraints = arc::NoConstraints, class Node, class Method, class... Args>
 ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args)
 {
     return node.impl(method, ARC_FWD(args)...);
@@ -29,6 +40,7 @@ struct NullNormalInvoker
             return ARC_FWD(f)(ARC_FWD(args)...);
         }
     };
+    using Constraints = NoConstraints;
 };
 
 template<class... NormalArgs>
@@ -42,29 +54,31 @@ struct NormalInvoker
 };
 
 ARC_MODULE_EXPORT
-template<bool Const, class... NormalArgs>
+template<bool Const, class Constraints_, class... NormalArgs>
 struct InvokeMethod
 {
     using Normaliser = NormalInvoker<NormalArgs...>;
+    using Constraints = Constraints_;
 
     ARC_INLINE static constexpr decltype(auto) invoke(auto& node, auto method, auto&&... args)
     {
-        return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
     }
 };
 
 ARC_MODULE_EXPORT
-template<bool Const, class Return, class... NormalArgs>
+template<bool Const, class Constraints_, class R, class... NormalArgs>
 struct InvokeMethodR
 {
     using Normaliser = NormalInvoker<NormalArgs...>;
+    using Constraints = Constraints_;
 
-    ARC_INLINE static constexpr Return invoke(auto& node, auto method, auto&&... args)
+    ARC_INLINE static constexpr R invoke(auto& node, auto method, auto&&... args)
     {
-        if constexpr (std::is_void_v<Return>)
-            arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        if constexpr (std::is_void_v<R>)
+            arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
         else
-            return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+            return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
     }
 };
 
@@ -73,25 +87,32 @@ template<class T, class ReturnConstraint, class Types>
 concept MatchesReturnConstraint = requires { ReturnConstraint::template Return<T, Types>(); };
 
 ARC_MODULE_EXPORT
-template<bool Const, class ReturnConstraint, class... NormalArgs>
+template<bool Const, class Constraints_, class... NormalArgs>
 struct InvokeMethodC
 {
     using Normaliser = NormalInvoker<NormalArgs...>;
+    using Constraints = Constraints_;
 
     template<class Node>
     ARC_INLINE static constexpr auto invoke(Node& node, auto method, auto&&... args)
-        -> MatchesReturnConstraint<ReturnConstraint, typename Node::Types> auto
+        -> MatchesReturnConstraint<Constraints, typename Node::Types> auto
     {
-        return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
     }
 
     template<class Node>
-    requires ReturnConstraint::DecltypeAuto
+    requires Constraints::DecltypeAuto
     ARC_INLINE static constexpr auto invoke(Node& node, auto method, auto&&... args)
-        -> MatchesReturnConstraint<ReturnConstraint, typename Node::Types> decltype(auto)
+        -> MatchesReturnConstraint<Constraints, typename Node::Types> decltype(auto)
     {
-        return arc::invokeMethod(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
     }
+};
+
+ARC_MODULE_EXPORT
+struct NullSignaturesByTag
+{
+    static auto impl(auto&&...) -> ::arc::NullNormalInvoker;
 };
 
 } // namespace arc

@@ -10,6 +10,9 @@
 namespace arc {
 
 ARC_MODULE_EXPORT
+consteval void ignoreArgs(auto&&...) {}
+
+ARC_MODULE_EXPORT
 template<class Tag_, class... Ts>
 struct Args
 {

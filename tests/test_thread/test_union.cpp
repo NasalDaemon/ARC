@@ -15,12 +15,12 @@ export module arc.tests.thread.union_;
 
 namespace arc::tests::thread::union_ {
 
-trait trait::Query
+trait Query
 {
     query() const -> int
 }
 
-trait trait::Swap
+trait Swap
 {
     swap()
 }

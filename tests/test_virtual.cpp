@@ -17,23 +17,23 @@ export module arc.tests.virtual_;
 
 namespace arc::tests::virtual_ {
 
-trait trait::Apple
+trait Apple
 {
     seeds() const -> int
     testExchange() -> bool
 }
 
-trait trait::Bread
+trait Bread
 {
     slices() const -> int
 }
 
-trait trait::Egg
+trait Egg
 {
     yolks() const -> int
 }
 
-trait trait::Global
+trait Global
 {
     get() const -> int
 }
@@ -125,7 +125,7 @@ struct AppleEgg
     };
 };
 
-struct Bread
+struct BreadNode
 {
     template<class Context>
     struct Node : arc::Uses<IBread, trait::Apple, trait::Egg, arc::Global<trait::Global>>
@@ -204,13 +204,13 @@ TEST_CASE("arc::Virtual")
         .global{ARC_EMPLACE({.i = 9})},
         .main{
             .node{std::in_place_type<AppleEgg>},
-            .mocks{arc::withFactory, []<class C>(C) -> C::type { return std::in_place_type<Bread>; }},
+            .mocks{arc::withFactory, []<class C>(C) -> C::type { return std::in_place_type<BreadNode>; }},
         },
     };
     test(virt);
     testExchange(virt);
 
-    using Static = arc::test::GraphWithGlobal<AppleEgg, GlobalNode, Bread>;
+    using Static = arc::test::GraphWithGlobal<AppleEgg, GlobalNode, BreadNode>;
     Static stat;
     test(stat);
 }

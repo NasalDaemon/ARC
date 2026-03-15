@@ -25,6 +25,7 @@ export namespace arc {
     using arc::Alias;
     using arc::makeAlias;
     // args.hpp
+    using arc::ignoreArgs;
     using arc::Args;
     using arc::args;
     using arc::IsArgs;
@@ -95,6 +96,8 @@ export namespace arc {
     using arc::HasContext;
     using arc::InlineContext;
     // context.hpp
+    using arc::ContractViolation;
+    using arc::DefaultAssertHandler;
     using arc::ContextHasTrait;
     using arc::ContextHasTraitPred;
     // count.hpp
@@ -194,12 +197,14 @@ export namespace arc {
         using node::InGroup;
     }
     // invoke_method_fwd.hpp
+    using arc::NoConstraints;
     using arc::invokeMethod;
     using arc::NullNormalInvoker;
     using arc::InvokeMethod;
     using arc::InvokeMethodR;
     using arc::MatchesReturnConstraint;
     using arc::InvokeMethodC;
+    using arc::NullSignaturesByTag;
     // key.hpp
     namespace key {
         using key::Default;
@@ -389,6 +394,11 @@ export namespace arc {
     using arc::Virtual;
     namespace node {
         using node::Virtual;
+    }
+    // nodes/with_assert_handler.hpp
+    using arc::WithAssertHandler;
+    namespace node {
+        using node::WithAssertHandler;
     }
     // detail/with_index.hpp
     using arc::indexOf;
