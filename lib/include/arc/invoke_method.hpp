@@ -17,7 +17,7 @@ namespace detail {
     template<class Constraints, class Context, class Trait, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethod(auto& node, Method method, Args&&... args)
     {
-        Constraints::pre(Context::Info::ContractAssert, args...);
+        Constraints::pre(Context::Info::ContractAssert, node, args...);
         using R = decltype(node.impl(method, ARC_FWD(args)...));
         if constexpr (std::is_void_v<R>)
         {
@@ -26,7 +26,7 @@ namespace detail {
         else
         {
             decltype(auto) value = node.impl(method, ARC_FWD(args)...);
-            Constraints::post(Context::Info::ContractAssert, value);
+            Constraints::post(Context::Info::ContractAssert, node, value);
             if constexpr (std::is_rvalue_reference_v<decltype(value)>)
                 return std::move(value);
             else
@@ -39,7 +39,7 @@ namespace detail {
     ARC_INLINE constexpr decltype(auto) invokeMethod(auto& node, Method method, Args&&... args)
     {
         // Enforce pre-contracts before invoking the spy, to ensure the caller is contract-compliant
-        Constraints::pre(Context::Info::ContractAssert, args...);
+        Constraints::pre(Context::Info::ContractAssert, node, args...);
 
         auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
         {
@@ -55,7 +55,7 @@ namespace detail {
         {
             decltype(auto) value = node.getGlobal(arc::trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
             // Enforce post-contracts on the value returned to the caller
-            Constraints::post(Context::Info::ContractAssert, value);
+            Constraints::post(Context::Info::ContractAssert, node, value);
             if constexpr (std::is_rvalue_reference_v<decltype(value)>)
                 return std::move(value);
             else

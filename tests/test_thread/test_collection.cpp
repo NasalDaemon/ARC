@@ -11,7 +11,7 @@ import arc.tests.thread.global_scheduler;
 import arc.tests.thread.poster;
 import arc;
 
-/* arc-embed-begin
+/* arc-begin
 
 export module arc.tests.thread.collection;
 
@@ -54,7 +54,7 @@ cluster CollectionCluster [R = Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::thread {
 

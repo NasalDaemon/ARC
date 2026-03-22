@@ -4,7 +4,7 @@
 import arc.tests.joined_trait;
 import arc;
 
-/* arc-embed-begin
+/* arc-begin
 
 export module arc.tests.joined_trait;
 
@@ -41,7 +41,7 @@ cluster TestCluster [Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::joined_trait {
 

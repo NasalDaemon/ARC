@@ -4,18 +4,18 @@ import arc.tests.embedded;
 import arc;
 
 #if 0
-// arc-embed-begin
+// arc-begin
 export module arc.tests.embedded;
 
 trait arc::tests::trait::Embedded
 {
     get() const
 }
-// arc-embed-end
+// arc-end
 
 random code between two sections will be ignored
 
-// arc-embed-begin
+// arc-begin
 cluster arc::tests::EmbeddedCluster [R = Root]
 {
     embedded = R::Embedded
@@ -23,7 +23,7 @@ cluster arc::tests::EmbeddedCluster [R = Root]
     [trait::Embedded]
     .. --> embedded
 }
-// arc-embed-end
+// arc-end
 #endif
 
 namespace arc::tests {

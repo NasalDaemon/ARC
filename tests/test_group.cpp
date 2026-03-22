@@ -11,7 +11,7 @@ import arc;
 
 namespace arc::tests::group {
 
-/* arc-embed-begin
+/* arc-begin
 export module arc.tests.group;
 
 namespace arc::tests::group {
@@ -79,7 +79,7 @@ cluster Outer [Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 struct Root
 {

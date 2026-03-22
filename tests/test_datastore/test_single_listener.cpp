@@ -4,7 +4,7 @@
 import arc;
 import arc.tests.datastore.single;
 
-/* arc-embed-begin
+/* arc-begin
 export module arc.tests.datastore.single;
 
 namespace arc::tests::datastore::single {
@@ -18,7 +18,7 @@ cluster Cluster [R = Root] {
 }
 
 }
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::datastore::single {
 

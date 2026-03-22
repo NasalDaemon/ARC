@@ -10,7 +10,7 @@ import arc;
 
 namespace arc::tests::global {
 
-/* arc-embed-begin
+/* arc-begin
 export module arc.tests.global;
 
 namespace arc::tests::global {
@@ -53,7 +53,7 @@ cluster GlobalCluster [R = Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 struct Root
 {

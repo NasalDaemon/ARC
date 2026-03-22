@@ -13,7 +13,7 @@ import arc.tests.datastore.cluster;
 import arc.tests.datastore.types;
 import arc;
 
-/* arc-embed-begin
+/* arc-begin
 module;
 #include <map>
 export module arc.tests.datastore.cluster;
@@ -37,7 +37,7 @@ cluster Cluster [R = Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::datastore {
 

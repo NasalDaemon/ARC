@@ -17,7 +17,15 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     string(APPEND CMAKE_CXX_FLAGS " "
         "-Werror -Wall -Wextra -Wpedantic "
         "-fdiagnostics-all-candidates -fconcepts-diagnostics-depth=5 "
-    )
+        )
+
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.1.0")
+        # std::stacktrace works well with GCC 15.1+, but requires libstdc++exp to be linked in
+        string(APPEND CMAKE_EXE_LINKER_FLAGS " "
+            "-lstdc++exp "
+        )
+        set(ARC_STACKTRACE_ENABLED TRUE)
+    endif()
 
     if(ARC_BUILD_LTO)
         if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "15.1.0")

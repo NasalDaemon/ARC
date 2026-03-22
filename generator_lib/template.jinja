@@ -137,7 +137,7 @@ struct {{ trait.name }} : ::arc::Trait
                 static constexpr bool DecltypeAuto = {{ cppbool(method.return_type.str.endswith("decltype(auto)")) }};
                 {% endif %}
                 {% if method.pre_exprs %}
-                static constexpr void pre(auto& _arc_contract_assert_
+                static constexpr void pre(auto& _arc_contract_assert_, auto const& self
                     {%- for type, name in method.params -%}
                     , [[maybe_unused]] auto const&{{ type.pack }} {{ name }}
                     {%- endfor -%}
@@ -150,17 +150,17 @@ struct {{ trait.name }} : ::arc::Trait
                     {%- endfor -%}
                     ));
                     {% for pos, pre in method.pre_exprs %}
-                    _arc_contract_assert_(ARC_ASSERT_ARGS("{{ pos }}", {{ pre }}));
+                    _arc_contract_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ pre }}));
                     {% endfor %}
                 }
                 {% endif %}
                 {% if method.post_exprs %}
-                static constexpr void post(auto& _arc_contract_assert_, auto const& _arc_post_return_contract_value_)
+                static constexpr void post(auto& _arc_contract_assert_, auto const& self, auto const& _arc_post_return_contract_value_)
                 {
                     {% for pos, name, expr in method.post_exprs %}
                     {
                         auto const& {{ name }} = _arc_post_return_contract_value_;
-                        _arc_contract_assert_(ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
+                        _arc_contract_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
                     }
                     {% endfor %}
                 }

@@ -1,7 +1,7 @@
 import arc.tests.count;
 import arc;
 
-/* arc-embed-begin
+/* arc-begin
 
 export module arc.tests.count;
 
@@ -28,7 +28,7 @@ cluster OuterCluster [R = Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::count {
 

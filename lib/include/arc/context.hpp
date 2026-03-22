@@ -6,6 +6,7 @@
 
 #include "arc/traits/spy.hpp"
 
+#include "arc/assert_handlers.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
@@ -114,26 +115,6 @@ namespace detail {
         }
     };
 }
-
-ARC_MODULE_EXPORT
-struct ContractViolation : std::logic_error
-{
-    using std::logic_error::logic_error;
-};
-
-ARC_MODULE_EXPORT
-struct DefaultAssertHandler
-{
-    ARC_INLINE constexpr void operator()(bool value, const char* message) const
-    {
-        #if __cpp_contracts >= 202502L
-        contract_assert(value);
-        #else
-        if (not value) [[unlikely]]
-            throw ContractViolation(message);
-        #endif
-    }
-};
 
 struct NullContext : detail::ContextBase
 {

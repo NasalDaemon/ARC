@@ -25,6 +25,11 @@ if(ARC_COMPRESS_TYPES)
     target_compile_definitions(arc_lib        INTERFACE ARC_COMPRESS_TYPES=1)
 endif()
 
+if(ARC_STACKTRACE_ENABLED)
+    target_compile_definitions(arc_module_lib PRIVATE   ARC_STACKTRACE_ENABLED=1)
+    target_compile_definitions(arc_lib        INTERFACE ARC_STACKTRACE_ENABLED=1)
+endif()
+
 if(CMAKE_CXX_MODULE_STD)
     target_compile_definitions(arc_module_lib PUBLIC ARC_IMPORT_STD=1)
 endif()

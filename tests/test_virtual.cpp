@@ -11,7 +11,7 @@ import arc.tests.virtual_;
 import arc;
 
 
-/* arc-embed-begin
+/* arc-begin
 
 export module arc.tests.virtual_;
 
@@ -38,7 +38,7 @@ trait Global
     get() const -> int
 }
 
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::virtual_ {
 
@@ -341,7 +341,7 @@ struct EggFacade
     };
 };
 
-/* arc-embed-begin
+/* arc-begin
 
 cluster EggBread [R = Root]
 {
@@ -352,7 +352,7 @@ cluster EggBread [R = Root]
     egg <-> bread
 }
 
-arc-embed-end */
+arc-end */
 
 ARC_INSTANTIATE_BOX(StaticBread, BreadFacade, EggFacade, IEgg)
 
@@ -388,8 +388,8 @@ TEST_CASE("arc::Box with no outnode")
     CHECK(g2.node.asTrait(trait::egg).yolks() == 4);
 }
 
-// arc-embed-begin
+// arc-begin
 
 } // namespace arc::tests::virtual_
 
-// arc-embed-end
+// arc-end

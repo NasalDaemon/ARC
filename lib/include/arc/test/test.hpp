@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ARC_TEST_HPP
 #define INCLUDE_ARC_TEST_HPP
 
+#include "arc/assert_handlers.hpp"
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
 #include "arc/depends.hpp"
@@ -80,6 +81,11 @@ requires (sizeof...(Traits) > 0)
 using TestOnlyNodeImpl = Impl<TestOnlyNode, Traits...>;
 
 namespace detail {
+    template<class Root>
+    auto getRootAssertHandler() -> arc::ThrowAssertHandler;
+    template<class Root>
+    requires requires { typename Root::ArcContractAssertHandler; }
+    auto getRootAssertHandler() -> Root::ArcContractAssertHandler;
 
     struct TestMapInfo
     {
@@ -98,6 +104,7 @@ namespace detail {
         {
             struct Node;
             struct Mocks;
+            using AssertHandler = decltype(getRootAssertHandler<typename Context::Root>());
 
             template<class Trait>
             static ResolvedLink<Node, Trait> resolveLink(Trait, arc::LinkPriorityMin);
@@ -121,6 +128,7 @@ namespace detail {
                 struct Info : Context::Info
                 {
                     using DefaultKey = MockKey;
+                    static constexpr AssertHandler ContractAssert{};
                 };
             };
 
@@ -142,10 +150,17 @@ namespace detail {
                 // Allow explicitly resolving the node being tested
                 template<class Trait>
                 static ResolvedLink<Node, Trait> resolveLink(Local<Trait>, arc::LinkExact<Local<Trait>>);
+
+                struct Info : Context::Info
+                {
+                    static constexpr AssertHandler ContractAssert{};
+                };
             };
 
             ARC_NODE(Node, node)
             ARC_NODE(Mocks, mocks)
+
+            constexpr auto* operator->(this auto& self) { return std::addressof(self.node); }
 
             constexpr void visit(this auto& self, auto&& visitor)
             {

@@ -11,7 +11,7 @@ import arc;
 
 namespace arc::tests::spy {
 
-/* arc-embed-begin
+/* arc-begin
 export module arc.tests.spy;
 
 namespace arc::tests::spy {
@@ -50,7 +50,7 @@ trait SomethingElse
 
 }
 
-arc-embed-end */
+arc-end */
 
 struct Root
 {

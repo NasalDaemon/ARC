@@ -14,8 +14,8 @@ namespace arc {
 ARC_MODULE_EXPORT
 struct NoConstraints
 {
-    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void pre(auto&, auto&&...) {}
-    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void post(auto&, auto&&) {}
+    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void pre(auto const&, auto&, auto&&...) {}
+    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void post(auto const&, auto&, auto&&) {}
 };
 
 ARC_MODULE_EXPORT

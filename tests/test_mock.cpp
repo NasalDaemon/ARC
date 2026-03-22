@@ -11,7 +11,7 @@
 import arc.tests.mock;
 import arc;
 
-/* arc-embed-begin
+/* arc-begin
 
 export module arc.tests.mock;
 
@@ -22,7 +22,7 @@ trait arc::tests::mock::Trait
     returnsRef() -> int&
 }
 
-arc-embed-end */
+arc-end */
 
 namespace arc::tests::mock {
 

@@ -21,6 +21,7 @@ option(ARC_BUILD_BENCH "Build benchmarks for ARC" FALSE)
 option(ARC_BUILD_EXAMPLES "Build examples for ARC" FALSE)
 option(ARC_BUILD_LTO "Enable LTO when building tests/benchmarks/examples" TRUE)
 option(ARC_TESTS_DEBUG_SAN "Enable sanitisers when building tests in debug" TRUE)
+option(ARC_STACKTRACE_ENABLED "Enable std::stacktrace support" FALSE)
 
 if(ARC_BUILD_TESTS)
     enable_testing()

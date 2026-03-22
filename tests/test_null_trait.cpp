@@ -8,7 +8,7 @@ import arc;
 
 namespace arc::tests::null_trait {
 
-/* arc-embed-begin
+/* arc-begin
 export module arc.tests.null_trait;
 
 namespace arc::tests::null_trait {
@@ -25,7 +25,7 @@ cluster Cluster [R = Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 struct Root
 {

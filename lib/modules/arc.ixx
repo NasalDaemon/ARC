@@ -30,6 +30,14 @@ export namespace arc {
     using arc::args;
     using arc::IsArgs;
     using arc::IsArgsOf;
+    // assert_handlers.hpp
+    using arc::ContractViolation;
+    using arc::ContractAssertHandler;
+    using arc::IgnoreAssertHandler;
+    using arc::AssumeAssertHandler;
+    using arc::AbortAssertHandler;
+    using arc::ThrowAssertHandler;
+    using arc::DefaultAssertHandler;
     // nodes/box.hpp
     using arc::BoxWithRoot;
     using arc::boxWithRoot;
@@ -96,8 +104,6 @@ export namespace arc {
     using arc::HasContext;
     using arc::InlineContext;
     // context.hpp
-    using arc::ContractViolation;
-    using arc::DefaultAssertHandler;
     using arc::ContextHasTrait;
     using arc::ContextHasTraitPred;
     // count.hpp

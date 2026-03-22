@@ -50,7 +50,7 @@ def get_line(line: int, col: int) -> tuple[int, int]:
 
     if line == section_lines[index][0] or line == 1:
         col += section_lines[index][2]
-        col += len("arc-embed-begin") - 1
+        col += len("arc-begin") - 1
     line = line - section_lines[index][0] + section_lines[index][1]
 
     return line, col
@@ -62,8 +62,8 @@ with open(input_file, 'r') as file:
         sections = []
         outer_line_count = 0
         inner_line_count = 0
-        begin = 'arc-embed-begin'
-        end = 'arc-embed-end'
+        begin = 'arc-begin'
+        end = 'arc-end'
         while True:
             begin_pos = text.find(begin)
             if begin_pos == -1:
@@ -856,6 +856,8 @@ class Method:
                 for c in c.children:
                     type_ = CppType.from_tree(c.children[0])
                     name = c.children[1].value
+                    if name == "self":
+                        raise SyntaxError(f"{get_pos(c)} Method parameters cannot be named 'self' as this is a reserved name")
                     self.params.append((type_, name))
             elif c.data == imported('method_qualifier'):
                 self.is_const = True

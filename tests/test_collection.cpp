@@ -11,7 +11,7 @@ import arc.tests.collection;
 
 namespace arc::tests::collection {
 
-/* arc-embed-begin
+/* arc-begin
 
 export module arc.tests.collection;
 
@@ -61,7 +61,7 @@ cluster Collection [R = Root]
 
 }
 
-arc-embed-end */
+arc-end */
 
 struct ElementNode : arc::PeerNode
 {

@@ -87,8 +87,8 @@ trait_requires_block: "requires" [cpp_func_params] "{" cpp_requires_statement "}
 !cpp_requires_statement: cpp_expr [SEMICOLON]
                        | "{" cpp_expr "}" ["->" cpp_type] [SEMICOLON]
 
-trait_method: [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] (pre_contract | post_contract)* -> trait_method_signature
-            | NAME "(...)"                                                                     -> trait_method_elipsis
+trait_method: NAME "(...)" -> trait_method_elipsis
+            | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] (pre_contract | post_contract)* -> trait_method_signature
 
 pre_contract:  "pre"  "("          bracket_content ")"
 post_contract: "post" "(" NAME ":" bracket_content ")"
