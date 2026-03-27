@@ -163,8 +163,8 @@ For most nodes, ARC provides a more ergonomic way to define dependencies and imp
 namespace node {
 
 struct PiCache : arc::Node::
-   Uses<trait::Pi>::
-   Impl<trait::Pi>
+   Impl<trait::Pi>::
+   Uses<trait::Pi>
 {
     // Both 'Depends' and 'Traits' are automatically defined.
     // getPi() is automatically provided as a named getter for the Pi dependency.

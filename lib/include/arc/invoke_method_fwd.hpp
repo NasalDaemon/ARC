@@ -76,9 +76,17 @@ struct InvokeMethodR
     ARC_INLINE static constexpr R invoke(auto& node, auto method, auto&&... args)
     {
         if constexpr (std::is_void_v<R>)
+        {
             arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        }
         else
-            return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        {
+            using T = decltype(arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...));
+            if constexpr (not std::is_convertible_v<T, R> and requires { ARC_DECLVAL(T).operator R(); })
+                return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...).operator R();
+            else
+                return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+        }
     }
 };
 

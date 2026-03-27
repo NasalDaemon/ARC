@@ -19,11 +19,14 @@
 #if !ARC_IMPORT_STD
 #include <any>
 #include <cstddef>
+#include <concepts>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
 #include <stdexcept>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -63,6 +66,150 @@ ARC_MODULE_EXPORT
 inline constexpr ArgsTuple argsTuple{};
 
 namespace detail {
+    // Utilities to store arguments with view semantics in the call log
+    template<std::copy_constructible T>
+    constexpr T toValue(T const& ref) noexcept
+    {
+        return ref;
+    }
+    constexpr std::string toValue(std::string_view sv)
+    {
+        return std::string(sv);
+    }
+    template<class T>
+    constexpr std::vector<std::remove_cvref_t<T>> toValue(std::span<T> span)
+    {
+        return std::vector<std::remove_cvref_t<T>>(span.begin(), span.end());
+    }
+    template<class T>
+    constexpr T const& toView(AdlTag<T>, T const& owner)
+    {
+        return owner;
+    }
+    constexpr std::string_view toView(AdlTag<std::string_view>, auto const& owner)
+    {
+        return owner;
+    }
+    template<class T>
+    constexpr std::span<T> toView(AdlTag<std::span<T>>, auto const& owner)
+    {
+        return std::span(owner);
+    }
+
+    template<class... Ts>
+    constexpr auto toValueHolder(Ts const&... args)
+    {
+        using Values = std::tuple<decltype(toValue(args))...>;
+        using Views = std::tuple<decltype(toView(AdlTag<Ts>{}, std::declval<decltype(toValue(args)) const&>()))...>;
+        using Voids = std::array<void const*, sizeof...(Ts)>;
+        struct ValueHolder
+        {
+            constexpr ValueHolder(Ts const&... args)
+                : values(toValue(args)...)
+                , views(toViews())
+            {}
+
+            constexpr ValueHolder(ValueHolder const& other)
+                : values(other.values)
+                , views(toViews())
+            {}
+
+            constexpr ValueHolder(ValueHolder&& other)
+                : values(std::move(other.values))
+                , views(toViews())
+            {}
+
+            ValueHolder& operator=(ValueHolder const&) = delete;
+            ValueHolder& operator=(ValueHolder&&) = delete;
+
+            Voids toVoids() const
+            {
+                return [this]<std::size_t... I>(std::index_sequence<I...>) {
+                    // Ensure the void pointers are of the same types as the original arguments
+                    return Voids{static_cast<Ts const*>(std::addressof(std::get<I>(views)))...};
+                }(std::index_sequence_for<Ts...>{});
+            }
+
+        private:
+            Views toViews() const
+            {
+                return [this]<std::size_t... I>(std::index_sequence<I...>) {
+                    return Views(toView(AdlTag<Ts>{}, std::get<I>(values))...);
+                }(std::index_sequence_for<Ts...>{});
+            }
+
+            Values values;
+            Views views;
+        };
+        return ValueHolder(args...);
+    }
+
+    struct AnyUniquePtr
+    {
+        template<class T>
+        explicit constexpr AnyUniquePtr(std::in_place_type_t<T>, auto&&... args)
+            : ptr{new Derived<T>(ARC_FWD(args)...)}
+        {}
+
+        AnyUniquePtr(AnyUniquePtr&&) = default;
+        constexpr AnyUniquePtr(AnyUniquePtr const& other)
+            : ptr(other.ptr ? other.ptr->copyFunc(other.ptr.get()) : nullptr)
+        {}
+
+        template<class T>
+        constexpr T* get(this auto& self)
+        {
+            if (self.ptr and self.ptr->typeId == arc::typeId<T>)
+                return std::addressof(static_cast<Derived<T>*>(self.ptr.get())->value);
+            return nullptr;
+        }
+
+    private:
+        struct Deleter;
+
+        struct Base
+        {
+            TypeId typeId;
+            Base*(&copyFunc)(Base const* self);
+            void(&destroyFunc)(Base const* self);
+        };
+        template<class T>
+        struct Derived : Base
+        {
+            template<class... Args>
+            constexpr Derived(Args&&... args)
+                : Base(arc::typeId<T>, copy, destroy)
+                , value(std::forward<Args>(args)...)
+            {
+                static_assert(not std::is_reference_v<T>);
+            }
+
+            static constexpr Base* copy(Base const* self)
+            {
+                if constexpr (std::is_copy_constructible_v<T>)
+                    return new Derived(static_cast<Derived const*>(self)->value);
+                else
+                    throw std::runtime_error(std::format("Copying non-copyable ({}) in a mock return value. Consider using a copyable type or returning a reference.", typeName<T>));
+            }
+
+            static constexpr void destroy(Base const* self)
+            {
+                delete static_cast<Derived const*>(self);
+            }
+
+            [[no_unique_address]] T value;
+        };
+
+        struct Deleter
+        {
+            constexpr void operator()(Base const* ptr) const
+            {
+                ptr->destroyFunc(ptr);
+            }
+        };
+
+        std::unique_ptr<Base, Deleter> ptr;
+    };
 
     struct MockReturn
     {
@@ -85,6 +232,11 @@ namespace detail {
                 if (T const* p = std::any_cast<T>(any))
                     return *p;
             }
+            else if (AnyUniquePtr const* anyPtr = std::get_if<AnyUniquePtr>(&value))
+            {
+                if (T const* p = anyPtr->get<T>())
+                    return *p;
+            }
             else if (Ref const* ref = std::get_if<Ref>(&value))
             {
                 if (ref->convertibleTo<T const&>())
@@ -105,6 +257,11 @@ namespace detail {
                 if (T* p = std::any_cast<T>(any))
                     return *p;
             }
+            else if (AnyUniquePtr* anyPtr = std::get_if<AnyUniquePtr>(&value))
+            {
+                if (T* p = anyPtr->get<T>())
+                    return *p;
+            }
             else if (Ref* ref = std::get_if<Ref>(&value))
             {
                 if (ref->convertibleTo<T&>())
@@ -112,7 +269,10 @@ namespace detail {
             }
             else if (returnDefault)
             {
-                return value.emplace<std::any>().emplace<T>();
+                if constexpr (std::is_copy_constructible_v<T>)
+                    return value.emplace<std::any>().emplace<T>();
+                else
+                    return *value.emplace<AnyUniquePtr>(std::in_place_type<T>).template get<T>();
             }
             throw std::bad_any_cast();
         }
@@ -120,19 +280,28 @@ namespace detail {
         template<class T>
         constexpr operator T&&() &&
         {
+            using TDecay = std::remove_cvref_t<T>;
             if (std::any* any = std::get_if<std::any>(&value))
             {
-                if (T* p = std::any_cast<T>(any))
+                if (TDecay* p = std::any_cast<TDecay>(any))
+                    return std::forward<T>(*p);
+            }
+            else if (AnyUniquePtr* anyPtr = std::get_if<AnyUniquePtr>(&value))
+            {
+                if (TDecay* p = anyPtr->get<TDecay>())
                     return std::forward<T>(*p);
             }
             else if (Ref* ref = std::get_if<Ref>(&value))
             {
                 if (ref->convertibleTo<T&&>())
-                    return std::forward<T>(*static_cast<T*>(ref->ptr));
+                    return std::forward<T>(*static_cast<TDecay*>(ref->ptr));
             }
             else if (returnDefault)
             {
-                return std::forward<T>(value.emplace<std::any>().emplace<std::remove_cvref_t<T>>());
+                if constexpr (std::is_copy_constructible_v<T>)
+                    return std::forward<T>(value.emplace<std::any>().emplace<std::remove_cvref_t<T>>());
+                else
+                    return std::forward<T>(*value.emplace<AnyUniquePtr>(std::in_place_type<T>).template get<T>());
             }
             throw std::bad_any_cast();
         }
@@ -142,8 +311,10 @@ namespace detail {
         {
             if constexpr (std::is_reference_v<T>)
                 value.emplace<Ref>(std::addressof(arg), typeId<std::remove_cvref_t<T>>, std::is_lvalue_reference_v<T>, std::is_const_v<std::remove_reference_t<T>>);
-            else
+            else if constexpr (std::is_copy_constructible_v<T>)
                 value.emplace<std::any>(std::in_place_type<T>, ARC_FWD(arg));
+            else
+                value.emplace<AnyUniquePtr>(std::in_place_type<T>, ARC_FWD(arg));
         }
 
         constexpr void reset() { value.emplace<std::monostate>(); }
@@ -183,7 +354,7 @@ namespace detail {
                    and typeId == arc::typeId<std::remove_cvref_t<T>>;
             }
         };
-        std::variant<std::monostate, std::any, Ref> value;
+        std::variant<std::monostate, std::any, AnyUniquePtr, Ref> value;
     };
 
     using UniversalFn = arc::Function<void(void* result, void** args), arc::FunctionPolicy{.copyable = true, .mutableCall = true, .constCall = false}>;
@@ -378,8 +549,8 @@ namespace detail {
                 MockReturn result;
                 if constexpr (sizeof...(args) > 0)
                 {
-                    void* a[] = {std::addressof(args)...};
-                    (*impl)(std::addressof(result), a);
+                    void const* a[] = {std::addressof(args)...};
+                    (*impl)(std::addressof(result), const_cast<void**>(a));
                 }
                 else
                 {
@@ -431,6 +602,12 @@ namespace detail {
             auto const implType_ = implType<Method, Args...>();
             impls.erase(implType_);
             returnsMap.erase(implType_);
+        }
+        template<class Method>
+        constexpr void undefineMethod()
+        {
+            auto const methodType_ = methodType<Method>();
+            returnsMap.erase(methodType_);
         }
         template<class Method, class... Args>
         constexpr void undefineConst()
@@ -518,13 +695,13 @@ namespace detail {
                 }
 
                 CallDesc::ArgVisitor argVisitor;
-                if constexpr (sizeof...(args) > 0 and (std::is_copy_constructible_v<std::remove_cvref_t<Args>> and ...))
+                if constexpr (sizeof...(args) > 0 and (... and requires { toValue(std::as_const(args)); }))
                 {
                     argVisitor =
-                        [...args = std::as_const(args)](void* r, UniversalFn& f)
+                        [values = toValueHolder(args...)](void* r, UniversalFn& f)
                         {
-                            void const* a[] = {std::addressof(args)...};
-                            f(r, const_cast<void**>(a));
+                            auto voids = values.toVoids();
+                            f(r, const_cast<void**>(voids.data()));
                         };
                 }
                 // If we will evict an entry, ensure to remove it from trackers pointing to it
@@ -819,7 +996,7 @@ namespace detail {
 
             // Get the index of the next matching call after the current index with the given return value
             // Does not advance the index
-            std::optional<std::size_t> findNext(Result const& value) const
+            std::optional<std::size_t> findNext(Result const& value)
             {
                 assertValid();
                 std::optional<std::size_t> foundIndex;
@@ -837,7 +1014,7 @@ namespace detail {
 
             // Get the index of the last matching call after the current index with the given return value
             // Does not advance the index
-            std::optional<std::size_t> findLast(Result const& value) const
+            std::optional<std::size_t> findLast(Result const& value)
             {
                 assertValid(false); // only check for evicted if we don't find anything
                 std::optional<std::size_t> foundIndex;

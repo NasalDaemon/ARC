@@ -8,6 +8,8 @@
             "program": "${workspaceFolder}/build/examples/greet/Debug/arc_example_greet",
             // "program": "${workspaceFolder}/build/examples/animals/Debug/arc_example_animals",
             // "program": "${workspaceFolder}/build/examples/animals_virtual/Debug/arc_example_animals_virtual",
+            // "program": "${workspaceFolder}/build/examples/calculator/Debug/arc_example_calculator",
+            // "program": "${workspaceFolder}/build/examples/calculator/Debug/arc_example_calculator_tests",
             // "program": "${workspaceFolder}/build/examples/filesystem/Debug/arc_example_filesystem_tests",
             // "program": "${workspaceFolder}/build/examples/filesystem/Debug/arc_example_filesystem_in_memory_repl",
             // "program": "${workspaceFolder}/build/tests/Debug/arc_tests_headers",

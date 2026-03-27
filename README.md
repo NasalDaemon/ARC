@@ -213,8 +213,8 @@ namespace app::node {
 // Bob is a shorthand node with contextless state
 // Context is injected into methods by ARC via deducing-this parameter instead
 export struct Bob : arc::Node::
-    Uses<trait::Responder>:: // provides arc::Depends<...> list
-    Impl<trait::Greeter, trait::Responder> // provides arc::Traits<...> list
+    Impl<trait::Greeter, trait::Responder>:: // provides arc::Traits<...> list
+    Uses<trait::Responder> // provides arc::Depends<...> list
 {
     // impl(trait::Responder::method, ...) redirects here via Impl<..., trait::Responder>
     void respondTo(std::string_view name) const

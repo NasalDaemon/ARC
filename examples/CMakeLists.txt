@@ -4,5 +4,6 @@ endif()
 
 add_subdirectory(animals)
 add_subdirectory(animals_virtual)
+add_subdirectory(calculator)
 add_subdirectory(filesystem)
 add_subdirectory(greet)
