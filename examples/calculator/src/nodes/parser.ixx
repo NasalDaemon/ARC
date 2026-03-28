@@ -12,4 +12,4 @@ export struct Parser : arc::NodeImpl<trait::Parser>
     auto parse(std::span<Token const> tokens) const -> std::expected<ExprPtr, ParseError>;
 };
 
-}
+} // namespace examples::calculator::node

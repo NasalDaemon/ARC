@@ -135,4 +135,4 @@ FILESYSTEM::isDir(std::string_view path) const -> bool
     return entry && entry->isDir();
 }
 
-}
+} // namespace examples::filesystem::node

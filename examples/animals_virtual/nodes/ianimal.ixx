@@ -15,4 +15,4 @@ export struct IAnimal : arc::INodeImpl<Animal>
     virtual void evolve() = 0;
 };
 
-}
+} // namespace examples::animals_virtual::node

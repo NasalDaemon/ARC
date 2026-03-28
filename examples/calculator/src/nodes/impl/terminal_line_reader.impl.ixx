@@ -163,4 +163,4 @@ TERMINAL_LINE_READER::readLine(std::string_view prompt) -> std::optional<std::st
     return line;
 }
 
-}
+} // namespace examples::calculator::node

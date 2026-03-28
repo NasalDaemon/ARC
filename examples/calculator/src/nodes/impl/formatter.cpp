@@ -59,4 +59,4 @@ auto Formatter::formatFunctions(std::span<std::string const> names) const -> std
     return result;
 }
 
-}
+} // namespace examples::calculator::node

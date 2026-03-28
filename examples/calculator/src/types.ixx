@@ -63,4 +63,4 @@ export struct EvalError
     std::string message;
 };
 
-}
+} // namespace examples::calculator

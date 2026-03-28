@@ -14,4 +14,4 @@ auto ConsoleOutput::writeLine(std::string_view text) -> void
     std::println("{}", text);
 }
 
-}
+} // namespace examples::calculator::node

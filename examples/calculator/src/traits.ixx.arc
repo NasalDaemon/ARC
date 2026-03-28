@@ -95,4 +95,4 @@ trait Persistence
     load(std::string_view path) -> std::expected<void, std::string>
 }
 
-}
+} // namespace examples::calculator

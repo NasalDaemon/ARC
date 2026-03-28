@@ -15,4 +15,4 @@ private:
     std::vector<std::string> entries_;
 };
 
-}
+} // namespace examples::calculator::node

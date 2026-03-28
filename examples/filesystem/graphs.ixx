@@ -22,4 +22,4 @@ struct DiskRoot
 export using Disk = arc::Graph<cluster::Filesystem, DiskRoot>;
 export using DiskRepl = arc::Graph<cluster::Repl, DiskRoot>;
 
-}
+} // namespace examples::filesystem::graph

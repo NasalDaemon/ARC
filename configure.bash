@@ -22,8 +22,13 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# sudo apt install cmake ninja-build mold python3 pipx
+# pipx install conan
+conan install . --output-folder=build --build=missing --profile=conanprofile.txt --settings=build_type=$BUILD_TYPE
 cd build
-
-set -e
-cmake --build . --config $BUILD_TYPE
-ctest --build-config $BUILD_TYPE --output-on-failure
+cmake .. --preset conan-default \
+    -DARC_BUILD_TESTS=TRUE \
+    -DARC_BUILD_EXAMPLES=$BUILD_EXAMPLES \
+    -DARC_COMPRESS_TYPES=TRUE \
+    -DCMAKE_COLOR_DIAGNOSTICS=TRUE \
+    -DCMAKE_CXX_MODULE_STD=$STD_MODULE

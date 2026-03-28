@@ -23,4 +23,4 @@ export struct SharedData
     std::string extra{};
 };
 
-}
+} // namespace arc::tests::datastore

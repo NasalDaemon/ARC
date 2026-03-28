@@ -18,4 +18,4 @@ export struct FilePersistence
     };
 };
 
-}
+} // namespace examples::calculator::node

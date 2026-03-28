@@ -208,4 +208,4 @@ TEST_CASE("arc::Collection using threads")
     scheduler.run();
 }
 
-}
+} // namespace arc::tests::thread

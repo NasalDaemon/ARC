@@ -15,4 +15,4 @@ export struct Repl
     };
 };
 
-}
+} // namespace examples::calculator::node

@@ -31,4 +31,4 @@ export struct Bob : arc::Node::
     int age; // State specific to this node
 };
 
-}
+} // namespace examples::greet::node

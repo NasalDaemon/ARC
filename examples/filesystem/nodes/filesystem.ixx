@@ -38,4 +38,4 @@ export struct Filesystem
     };
 };
 
-}
+} // namespace examples::filesystem::node

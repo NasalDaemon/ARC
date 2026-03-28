@@ -140,4 +140,4 @@ TEST_CASE("arc::JoinedTrait")
     static_assert(not g.aandb.hasTrait(aB));
 }
 
-}
+} // namespace arc::tests::joined_trait

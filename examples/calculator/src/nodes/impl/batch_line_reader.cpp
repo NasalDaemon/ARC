@@ -4,7 +4,7 @@ import std;
 
 namespace examples::calculator::node {
 
-auto BatchLineReader::readLine(std::string_view prompt) -> std::optional<std::string>
+auto BatchLineReader::readLine([[maybe_unused]] std::string_view prompt) -> std::optional<std::string>
 {
     if (index_ < inputs_.size())
         return inputs_[index_++];

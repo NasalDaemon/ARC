@@ -10,4 +10,4 @@ export struct Sheep : arc::NodeImpl<Animal*>
     std::string impl(Animal::speak) const { return "baa!"; }
 };
 
-}
+} // namespace examples::animals::node

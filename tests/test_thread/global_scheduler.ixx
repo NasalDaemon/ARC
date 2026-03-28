@@ -86,4 +86,4 @@ struct GlobalScheduler_ : arc::Node
 export
 using GlobalScheduler = arc::AnyThread<GlobalScheduler_>;
 
-}
+} // namespace arc::tests::thread

@@ -142,4 +142,4 @@ TEST_CASE("MemberPtr edge cases")
     CHECK(&(ARC_MEM_PTR(Packed, b).getClassFromMember(pk.b)) == &pk);
 }
 
-}
+} // namespace arc::tests

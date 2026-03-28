@@ -207,4 +207,4 @@ TEST_CASE("arc::test::Mock")
     CHECK(123 == g.node->testRef());
 }
 
-}
+} // namespace arc::tests::mock

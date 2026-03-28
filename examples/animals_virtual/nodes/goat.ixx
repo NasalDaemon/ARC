@@ -30,4 +30,4 @@ export struct Goat {
     };
 };
 
-}
+} // namespace examples::animals_virtual::node

@@ -12,4 +12,4 @@ export struct ConsoleOutput : arc::NodeImpl<Output>
     auto writeLine(std::string_view text) -> void;
 };
 
-}
+} // namespace examples::calculator::node

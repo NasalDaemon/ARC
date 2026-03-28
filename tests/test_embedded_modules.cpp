@@ -35,7 +35,7 @@ struct EmbeddedNode : arc::Node
     int impl(trait::Embedded::get) const { return 42; }
 };
 
-}
+} // namespace arc::tests
 
 using namespace arc::tests;
 

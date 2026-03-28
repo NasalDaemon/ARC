@@ -500,4 +500,4 @@ REPL::getPathCompletions(std::string_view prefix) -> std::vector<std::string>
     return completions;
 }
 
-}
+} // namespace examples::filesystem::node

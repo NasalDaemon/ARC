@@ -17,4 +17,4 @@ export struct TerminalLineReader
     };
 };
 
-}
+} // namespace examples::calculator::node

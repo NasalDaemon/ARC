@@ -121,4 +121,4 @@ TEST_CASE("arc::Global hosted locally")
 
 // TODO: Support arc::Box?
 
-}
+} // namespace arc::tests::global

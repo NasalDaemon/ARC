@@ -81,4 +81,4 @@ auto MemoryStorage::impl(Storage::children, std::string_view path) const -> std:
     return result;
 }
 
-}
+} // namespace examples::filesystem::node

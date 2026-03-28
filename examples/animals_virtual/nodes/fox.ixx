@@ -18,4 +18,4 @@ export struct Fox : arc::Node
     }
 };
 
-}
+} // namespace examples::animals_virtual::node

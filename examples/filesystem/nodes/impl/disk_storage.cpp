@@ -132,4 +132,4 @@ auto DiskStorage::dumpToDirectory(std::string_view directory) const -> std::expe
     return {};
 }
 
-}
+} // namespace examples::filesystem::node

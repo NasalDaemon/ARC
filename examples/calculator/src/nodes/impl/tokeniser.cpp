@@ -77,4 +77,4 @@ auto Tokeniser::tokenise(std::string_view input) const
     return tokens;
 }
 
-}
+} // namespace examples::calculator::node

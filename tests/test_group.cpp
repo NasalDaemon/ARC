@@ -393,4 +393,4 @@ TEST_CASE("arc::InGroup nested")
 
 }
 
-}
+} // namespace arc::tests::group

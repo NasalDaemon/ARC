@@ -37,4 +37,4 @@ export struct IAnimalFacade
     };
 };
 
-}
+} // namespace examples::animals_virtual::node

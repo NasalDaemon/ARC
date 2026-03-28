@@ -62,4 +62,4 @@ auto Functions::list() const -> std::vector<std::string>
     return names;
 }
 
-}
+} // namespace examples::calculator::node

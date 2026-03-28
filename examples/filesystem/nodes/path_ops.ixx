@@ -16,4 +16,4 @@ export struct PathOps : arc::NodeImpl<trait::PathOps*>
     auto impl(trait::PathOps::isRoot, std::string_view path) const -> bool;
 };
 
-}
+} // namespace examples::filesystem::node

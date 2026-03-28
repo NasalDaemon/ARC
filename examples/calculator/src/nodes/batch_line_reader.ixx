@@ -19,4 +19,4 @@ private:
     std::size_t index_ = 0;
 };
 
-}
+} // namespace examples::calculator::node

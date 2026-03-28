@@ -42,4 +42,4 @@ private:
     static std::string_view parent(std::string_view path);
 };
 
-}
+} // namespace examples::filesystem::node

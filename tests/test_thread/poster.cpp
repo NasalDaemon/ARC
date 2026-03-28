@@ -454,4 +454,4 @@ void Scheduler::run()
     }
 }
 
-}
+} // namespace arc::tests::thread

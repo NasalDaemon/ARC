@@ -105,4 +105,4 @@ auto PathOps::impl(trait::PathOps::isRoot, std::string_view path) const -> bool
     return normalise(path) == "/";
 }
 
-}
+} // namespace examples::filesystem::node

@@ -74,4 +74,4 @@ TEST_CASE("arc::DataStore single listener") {
     graph.store->notify("test", 1);
 }
 
-}
+} // namespace arc::tests::datastore::single

@@ -80,4 +80,4 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
     }, static_cast<Expression::variant const&>(expr));
 }
 
-}
+} // namespace examples::calculator::node

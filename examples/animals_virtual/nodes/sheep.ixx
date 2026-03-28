@@ -39,4 +39,4 @@ export struct Sheep {
     };
 };
 
-}
+} // namespace examples::animals_virtual::node

@@ -14,4 +14,4 @@ export struct Farmer : arc::NodeUses<Animal>
     }
 };
 
-}
+} // namespace examples::animals_virtual::node

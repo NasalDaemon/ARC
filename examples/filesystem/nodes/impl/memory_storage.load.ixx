@@ -111,4 +111,4 @@ auto MemoryStorage::impl(DirectorySync::dumpToDirectory, std::string_view dirPat
     }
 }
 
-}
+} // namespace examples::filesystem::node

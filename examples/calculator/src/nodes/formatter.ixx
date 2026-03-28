@@ -15,4 +15,4 @@ export struct Formatter : arc::NodeImpl<trait::Formatter>
     auto formatFunctions(std::span<std::string const> names) const -> std::string;
 };
 
-}
+} // namespace examples::calculator::node

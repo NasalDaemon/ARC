@@ -293,4 +293,4 @@ TEST_CASE("arc::DataStore")
     CHECK(graph.r1->received.at(6).getValue() == 13);
 }
 
-}
+} // namespace arc::tests::datastore

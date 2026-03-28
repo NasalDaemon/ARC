@@ -51,4 +51,4 @@ static_assert(arc::IsUnary<decltype(Graph::innerBinary.e)>);
 static_assert(not arc::IsUnary<decltype(Graph::innerBinary)>);
 static_assert(not arc::IsUnary<Graph>);
 
-}
+} // namespace arc::tests::count

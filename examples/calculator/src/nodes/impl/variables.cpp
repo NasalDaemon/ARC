@@ -27,4 +27,4 @@ void Variables::clear()
     vars_.clear();
 }
 
-}
+} // namespace examples::calculator::node

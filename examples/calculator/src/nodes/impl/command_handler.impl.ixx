@@ -96,4 +96,4 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
     return std::unexpected(std::string("Unknown command: ") + std::string(cmd));
 }
 
-}
+} // namespace examples::calculator::node

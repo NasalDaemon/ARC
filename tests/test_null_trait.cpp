@@ -57,4 +57,4 @@ TEST_CASE("arc::NullTrait")
     CHECK(graph.node2->doSomething() == 1);
 }
 
-}
+} // namespace arc::tests::null_trait

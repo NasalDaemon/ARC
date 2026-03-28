@@ -26,4 +26,4 @@ export struct Cow
     };
 };
 
-}
+} // namespace examples::animals_virtual::node

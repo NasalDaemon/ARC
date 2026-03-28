@@ -13,4 +13,4 @@ export struct Cow : arc::NodeImpl<Animal*>
     bool happy;
 };
 
-}
+} // namespace examples::animals::node

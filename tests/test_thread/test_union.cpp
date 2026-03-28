@@ -174,4 +174,4 @@ TEST_CASE("Union")
     CHECK(taskCount.load() == 3);
 }
 
-}
+} // namespace arc::tests::thread::union_

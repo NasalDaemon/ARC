@@ -186,4 +186,4 @@ auto Parser::parse(std::span<Token const> tokens) const
     return expr;
 }
 
-}
+} // namespace examples::calculator::node

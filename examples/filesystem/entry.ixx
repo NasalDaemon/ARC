@@ -119,4 +119,4 @@ private:
     {}
 };
 
-}
+} // namespace examples::filesystem

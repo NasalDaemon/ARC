@@ -144,4 +144,4 @@ TEST_CASE("arc::trait::Spy")
     CHECK(graph.global->spy2->doSomethingElseCount == 4);
 }
 
-}
+} // namespace arc::tests::spy

@@ -81,4 +81,4 @@ REPL::run() -> int
     return 0;
 }
 
-}
+} // namespace examples::calculator::node

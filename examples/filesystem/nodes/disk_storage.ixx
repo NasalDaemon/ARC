@@ -36,4 +36,4 @@ private:
     auto toAbsolute(std::string_view path) const -> std::filesystem::path;
 };
 
-}
+} // namespace examples::filesystem::node

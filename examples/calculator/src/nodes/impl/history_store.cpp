@@ -14,4 +14,4 @@ auto HistoryStore::entries() const -> std::vector<std::string>
     return entries_;
 }
 
-}
+} // namespace examples::calculator::node

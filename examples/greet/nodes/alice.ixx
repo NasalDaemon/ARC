@@ -37,4 +37,4 @@ export struct Alice
     };
 };
 
-}
+} // namespace examples::greet::node

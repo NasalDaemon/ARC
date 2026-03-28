@@ -63,4 +63,4 @@ struct Alice
     };
 };
 
-}
+} // namespace abc::node

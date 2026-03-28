@@ -29,7 +29,7 @@ namespace trait {
         using Implements = void;
     };
 
-} // trait
+} // namespace trait
 
 struct MouseType;
 
@@ -158,6 +158,6 @@ TEST_CASE("arc::Union")
     CHECK(cat.onion.asTrait(trait::Name{}).get() == 42);
 }
 
-} // arc::tests::union_
+} // namespace arc::tests::union_
 
 ARC_INSTANTIATE(arc::Graph<arc::tests::union_::Union>, onion->get<1>())

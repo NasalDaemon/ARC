@@ -12,4 +12,4 @@ export struct Tokeniser : arc::NodeImpl<trait::Tokeniser>
     auto tokenise(std::string_view input) const -> std::expected<std::vector<Token>, ParseError>;
 };
 
-}
+} // namespace examples::calculator::node

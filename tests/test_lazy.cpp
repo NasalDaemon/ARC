@@ -51,4 +51,4 @@ TEST_CASE("arc::Lazy")
     CHECK(g3.node.asTrait(trait).get() == 43);
 }
 
-}
+} // namespace arc::tests::lazy

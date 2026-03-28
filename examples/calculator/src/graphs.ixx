@@ -22,4 +22,4 @@ struct BatchRoot
 };
 export using Batch = arc::Graph<cluster::Calculator, BatchRoot>;
 
-}
+} // namespace examples::calculator::graph

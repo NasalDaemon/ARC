@@ -74,4 +74,4 @@ FILE_PERSISTENCE::load(std::string_view path) -> std::expected<void, std::string
     return {};
 }
 
-}
+} // namespace examples::calculator::node

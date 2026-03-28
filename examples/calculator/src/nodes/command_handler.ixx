@@ -18,4 +18,4 @@ export struct CommandHandler
     };
 };
 
-}
+} // namespace examples::calculator::node

@@ -18,4 +18,4 @@ export struct Evaluator
     };
 };
 
-}
+} // namespace examples::calculator::node

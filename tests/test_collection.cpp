@@ -184,4 +184,4 @@ TEST_CASE("arc::Collection")
     CHECK(g->collection->atId(0).element.getNode(trait::global).get() == 14);
 }
 
-}
+} // namespace arc::tests::collection

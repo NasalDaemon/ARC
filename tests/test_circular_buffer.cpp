@@ -1100,4 +1100,4 @@ TEST_CASE("CircularBuffer append") {
     }
 }
 
-}
+} // namespace arc::tests::circular_buffer

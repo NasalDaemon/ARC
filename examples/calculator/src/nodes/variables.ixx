@@ -17,4 +17,4 @@ private:
     std::map<std::string, double, std::less<>> vars_;
 };
 
-}
+} // namespace examples::calculator::node

@@ -13,4 +13,4 @@ export struct Functions : arc::NodeImpl<trait::Functions>
     auto list() const -> std::vector<std::string>;
 };
 
-}
+} // namespace examples::calculator::node
