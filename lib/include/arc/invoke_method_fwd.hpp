@@ -91,6 +91,12 @@ struct InvokeMethodR
 };
 
 ARC_MODULE_EXPORT
+template<typename From, typename To>
+concept InvokeConvertibleTo = std::convertible_to<From, To> or requires {
+    ARC_DECLVAL(From).operator To();
+};
+
+ARC_MODULE_EXPORT
 template<class T, class ReturnConstraint, class Types>
 concept MatchesReturnConstraint = requires { ReturnConstraint::template Return<T, Types>(); };
 

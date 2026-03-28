@@ -604,7 +604,7 @@ namespace detail {
             returnsMap.erase(implType_);
         }
         template<class Method>
-        constexpr void undefineMethod()
+        constexpr void undefineMethodReturns()
         {
             auto const methodType_ = methodType<Method>();
             returnsMap.erase(methodType_);

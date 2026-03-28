@@ -441,3 +441,22 @@ SCENARIO("Parsing errors")
         }
     }
 }
+
+SCENARIO("Parser contract: parse rejects empty token span")
+{
+    arc::test::Graph<node::Parser> graph;
+    auto parser = graph.node.asTrait(trait::parser);
+
+    GIVEN("a Parser node")
+    {
+        WHEN("calling parse with an empty token list")
+        {
+            std::vector<Token> empty;
+
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(parser.parse(empty), arc::ContractViolation);
+            }
+        }
+    }
+}

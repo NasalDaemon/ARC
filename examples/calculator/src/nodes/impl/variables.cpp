@@ -22,4 +22,9 @@ auto Variables::list() const -> std::vector<std::pair<std::string, double>>
     return {vars_.begin(), vars_.end()};
 }
 
+void Variables::clear()
+{
+    vars_.clear();
+}
+
 }

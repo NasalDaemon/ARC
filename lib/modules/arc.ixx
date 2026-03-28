@@ -208,6 +208,7 @@ export namespace arc {
     using arc::NullNormalInvoker;
     using arc::InvokeMethod;
     using arc::InvokeMethodR;
+    using arc::InvokeConvertibleTo;
     using arc::MatchesReturnConstraint;
     using arc::InvokeMethodC;
     using arc::NullSignaturesByTag;

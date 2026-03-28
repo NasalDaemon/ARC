@@ -312,7 +312,7 @@ struct {{ trait.name }} : ::arc::Trait
         {% elif method.is_auto_return %}
             { {{ require_invoke() }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, {{ trait.types_name or "void" }}>;
         {% else %}
-            { {{ require_invoke() }} } -> std::convertible_to<ARC_TYPENAME({{ method.return_type }})>;
+            { {{ require_invoke() }} } -> ::arc::InvokeConvertibleTo<ARC_TYPENAME({{ method.return_type }})>;
         {% endif %}
         };
         {% endfor %}

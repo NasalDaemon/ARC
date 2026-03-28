@@ -7,6 +7,7 @@ import arc;
 import std;
 
 using namespace examples::calculator;
+using namespace std::string_view_literals;
 
 SCENARIO("Tokenising numeric literals")
 {
@@ -17,7 +18,7 @@ SCENARIO("Tokenising numeric literals")
     {
         WHEN("tokenising \"42\"")
         {
-            auto result = tokeniser.tokenise("42");
+            auto result = tokeniser.tokenise("42"sv);
 
             THEN("produces a single Number token with value 42")
             {
@@ -31,7 +32,7 @@ SCENARIO("Tokenising numeric literals")
         }
         AND_WHEN("tokenising \"3.14\"")
         {
-            auto result = tokeniser.tokenise("3.14");
+            auto result = tokeniser.tokenise("3.14"sv);
 
             THEN("produces a single Number token with value 3.14")
             {
@@ -45,7 +46,7 @@ SCENARIO("Tokenising numeric literals")
         }
         AND_WHEN("tokenising \".5\"")
         {
-            auto result = tokeniser.tokenise(".5");
+            auto result = tokeniser.tokenise(".5"sv);
 
             THEN("produces a single Number token with value 0.5")
             {
@@ -69,7 +70,7 @@ SCENARIO("Tokenising operators")
     {
         WHEN("tokenising \"+-*/^\"")
         {
-            auto result = tokeniser.tokenise("+-*/^");
+            auto result = tokeniser.tokenise("+-*/^"sv);
 
             THEN("produces Plus, Minus, Star, Slash, Caret tokens in order")
             {
@@ -95,7 +96,7 @@ SCENARIO("Tokenising parentheses and comma")
     {
         WHEN("tokenising \"(a, b)\"")
         {
-            auto result = tokeniser.tokenise("(a, b)");
+            auto result = tokeniser.tokenise("(a, b)"sv);
 
             THEN("produces LParen, Identifier, Comma, Identifier, RParen tokens")
             {
@@ -123,7 +124,7 @@ SCENARIO("Tokenising identifiers")
     {
         WHEN("tokenising \"x\"")
         {
-            auto result = tokeniser.tokenise("x");
+            auto result = tokeniser.tokenise("x"sv);
 
             THEN("produces a single Identifier token with text \"x\"")
             {
@@ -136,7 +137,7 @@ SCENARIO("Tokenising identifiers")
         }
         AND_WHEN("tokenising \"sqrt\"")
         {
-            auto result = tokeniser.tokenise("sqrt");
+            auto result = tokeniser.tokenise("sqrt"sv);
 
             THEN("produces a single Identifier token with text \"sqrt\"")
             {
@@ -159,7 +160,7 @@ SCENARIO("Tokenising assignment")
     {
         WHEN("tokenising \"x = 5\"")
         {
-            auto result = tokeniser.tokenise("x = 5");
+            auto result = tokeniser.tokenise("x = 5"sv);
 
             THEN("produces Identifier, Equals, Number tokens")
             {
@@ -185,7 +186,7 @@ SCENARIO("Tokenising complex expressions")
     {
         WHEN("tokenising \"2 + 3 * (4 - 1)\"")
         {
-            auto result = tokeniser.tokenise("2 + 3 * (4 - 1)");
+            auto result = tokeniser.tokenise("2 + 3 * (4 - 1)"sv);
 
             THEN("produces correct token sequence with End")
             {
@@ -220,12 +221,29 @@ SCENARIO("Tokenising errors")
     {
         WHEN("tokenising \"&\"")
         {
-            auto result = tokeniser.tokenise("&");
+            auto result = tokeniser.tokenise("&"sv);
 
             THEN("returns a ParseError with position")
             {
                 REQUIRE_FALSE(result.has_value());
                 CHECK(result.error().position == 0);
+            }
+        }
+    }
+}
+
+SCENARIO("Tokeniser contract: tokenise rejects empty input")
+{
+    arc::test::Graph<node::Tokeniser> graph;
+    auto tokeniser = graph.node.asTrait(trait::tokeniser);
+
+    GIVEN("a Tokeniser node")
+    {
+        WHEN("calling tokenise with an empty string")
+        {
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(tokeniser.tokenise(""sv), arc::ContractViolation);
             }
         }
     }

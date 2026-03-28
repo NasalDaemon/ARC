@@ -7,29 +7,41 @@ import examples.calculator.variables;
 import examples.calculator.functions;
 import examples.calculator.formatter;
 import examples.calculator.repl;
+import examples.calculator.history_store;
+import examples.calculator.command_handler;
+import examples.calculator.file_persistence;
 import examples.calculator.traits;
 
 namespace examples::calculator {
 
-domain Calculator
+cluster Calculator [Root]
 {
     repl = node::Repl
+    lineReader = Root::LineReader
+    output = Root::Output
     tokeniser = node::Tokeniser
     parser = node::Parser
     evaluator = node::Evaluator
-    Variables = node::Variables
+    variables = node::Variables
     functions = node::Functions
     formatter = node::Formatter
+    history = node::HistoryStore
+    commands = node::CommandHandler
+    persistence = node::FilePersistence
 
-    [Tokeniser]  repl --> tokeniser
-    [Parser]     repl --> parser
-    [Evaluator]  repl --> evaluator
-    [Formatter]  repl --> formatter
-    [Functions]  repl --> functions
-    [Variables]  repl --> Variables
+    // Repl orchestrates the pipeline
+    [LineReader]   repl --> lineReader
+    [Commands]     repl --> commands
+    [Tokeniser]    repl --> tokeniser
+    [Parser]       repl --> parser
+    [Evaluator]    repl --> evaluator
+    [Output]       repl --> output
+    [History]      repl --> history     <-- lineReader, commands
+    [Variables]    repl --> variables   <-- evaluator, commands, persistence
+    [Formatter]    repl --> formatter   <-- commands
 
-    [Functions]  evaluator --->>> functions
-    [Variables]  evaluator --->>> Variables
+    [Functions]             functions   <-- evaluator, commands
+    [Persistence]           persistence <-- commands
 }
 
-}
+} // namespace examples::calculator

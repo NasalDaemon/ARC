@@ -4,6 +4,9 @@ add_library(arc_example_calculator_modules OBJECT
     src/nodes/impl/variables.cpp
     src/nodes/impl/functions.cpp
     src/nodes/impl/formatter.cpp
+    src/nodes/impl/history_store.cpp
+    src/nodes/impl/batch_line_reader.cpp
+    src/nodes/impl/console_output.cpp
 )
 
 target_link_libraries(arc_example_calculator_modules PUBLIC arc::module)
@@ -18,8 +21,18 @@ target_sources(arc_example_calculator_modules
         src/nodes/formatter.ixx
         src/nodes/evaluator.ixx
         src/nodes/impl/evaluator.impl.ixx
+        src/nodes/history_store.ixx
+        src/nodes/batch_line_reader.ixx
+        src/nodes/console_output.ixx
+        src/nodes/terminal_line_reader.ixx
+        src/nodes/impl/terminal_line_reader.impl.ixx
+        src/nodes/command_handler.ixx
+        src/nodes/impl/command_handler.impl.ixx
+        src/nodes/file_persistence.ixx
+        src/nodes/impl/file_persistence.impl.ixx
         src/nodes/repl.ixx
         src/nodes/impl/repl.impl.ixx
+        src/graphs.ixx
 )
 
 target_generate_arc_modules(arc_example_calculator_modules GLOB src)
@@ -37,12 +50,27 @@ endif()
 
 target_generate_arc_src(arc_example_calculator_modules
     GRAPH_MODULE
-        examples.calculator.clusters
+        examples.calculator.graphs
     GRAPH_TYPE
-        "arc::Graph<examples::calculator::domain::Calculator>"
+        "examples::calculator::graph::Batch"
     NODES
-        evaluator examples.calculator.evaluator
-        repl      examples.calculator.repl
+        evaluator   examples.calculator.evaluator
+        repl        examples.calculator.repl
+        commands    examples.calculator.command_handler
+        persistence examples.calculator.file_persistence
+)
+
+target_generate_arc_src(arc_example_calculator_modules
+    GRAPH_MODULE
+        examples.calculator.graphs
+    GRAPH_TYPE
+        "examples::calculator::graph::Interactive"
+    NODES
+        evaluator   examples.calculator.evaluator
+        repl        examples.calculator.repl
+        lineReader  examples.calculator.terminal_line_reader
+        commands    examples.calculator.command_handler
+        persistence examples.calculator.file_persistence
 )
 
 if(ARC_BUILD_TESTS)
@@ -53,7 +81,16 @@ if(ARC_BUILD_TESTS)
         tests/test_variables.cpp
         tests/test_functions.cpp
         tests/test_formatter.cpp
+        tests/test_history.cpp
+        tests/test_batch_line_reader.cpp
+        tests/test_persistence.cpp
+        tests/test_commands.cpp
         tests/test_cluster.cpp
+    )
+
+    target_sources(arc_example_calculator_tests
+        PRIVATE FILE_SET CXX_MODULES FILES
+            tests/graphs.ixx
     )
 
     target_link_libraries(arc_example_calculator_tests PUBLIC
@@ -63,11 +100,41 @@ if(ARC_BUILD_TESTS)
 
     target_generate_arc_src(arc_example_calculator_tests
         GRAPH_MODULE
-            examples.calculator.clusters
+            examples.calculator.evaluator
         GRAPH_TYPE
             "arc::test::Graph<examples::calculator::node::Evaluator>"
         NODES
             node examples.calculator.evaluator
+    )
+
+    target_generate_arc_src(arc_example_calculator_tests
+        GRAPH_MODULE
+            examples.calculator.file_persistence
+        GRAPH_TYPE
+            "arc::test::Graph<examples::calculator::node::FilePersistence>"
+        NODES
+            node examples.calculator.file_persistence
+    )
+
+    target_generate_arc_src(arc_example_calculator_tests
+        GRAPH_MODULE
+            examples.calculator.command_handler
+        GRAPH_TYPE
+            "arc::test::Graph<examples::calculator::node::CommandHandler>"
+        NODES
+            node examples.calculator.command_handler
+    )
+
+    target_generate_arc_src(arc_example_calculator_tests
+        GRAPH_MODULE
+            examples.calculator.tests.graphs
+        GRAPH_TYPE
+            "examples::calculator::tests::IntegrationGraph"
+        NODES
+            repl        examples.calculator.repl
+            evaluator   examples.calculator.evaluator
+            commands    examples.calculator.command_handler
+            persistence examples.calculator.file_persistence
     )
 
     add_test(arc_example_calculator_tests arc_example_calculator_tests)

@@ -7,6 +7,7 @@ import arc;
 import std;
 
 using namespace examples::calculator;
+using namespace std::string_view_literals;
 
 SCENARIO("Formatting results")
 {
@@ -45,7 +46,7 @@ SCENARIO("Formatting errors")
     {
         WHEN("formatting error \"undefined variable: x\"")
         {
-            auto result = formatter.formatError("undefined variable: x");
+            auto result = formatter.formatError("undefined variable: x"sv);
 
             THEN("returns \"Error: undefined variable: x\"")
             {
@@ -64,7 +65,7 @@ SCENARIO("Formatting assignments")
     {
         WHEN("formatting assignment \"x\" = 5")
         {
-            auto result = formatter.formatAssignment("x", 5);
+            auto result = formatter.formatAssignment("x"sv, 5);
 
             THEN("returns \"x = 5\"")
             {
@@ -111,6 +112,78 @@ SCENARIO("Formatting function listing")
             THEN("returns readable list")
             {
                 CHECK(result == "abs, add, sqrt");
+            }
+        }
+    }
+}
+
+SCENARIO("Formatter contract: pre-contract violations")
+{
+    arc::test::Graph<node::Formatter> graph;
+    auto formatter = graph.node.asTrait(trait::formatter);
+
+    GIVEN("a Formatter node")
+    {
+        WHEN("calling formatError with empty message")
+        {
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(formatter.formatError(""sv), arc::ContractViolation);
+            }
+        }
+        AND_WHEN("calling formatAssignment with empty name")
+        {
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(formatter.formatAssignment(""sv, 42.0), arc::ContractViolation);
+            }
+        }
+        AND_WHEN("calling formatVariables with empty span")
+        {
+            std::vector<std::pair<std::string, double>> empty;
+
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(formatter.formatVariables(empty), arc::ContractViolation);
+            }
+        }
+        AND_WHEN("calling formatFunctions with empty span")
+        {
+            std::vector<std::string> empty;
+
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(formatter.formatFunctions(empty), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+namespace {
+
+struct BuggyFormatter : arc::NodeImpl<trait::Formatter>
+{
+    std::string formatResult(double) const { return ""; }
+    std::string formatError(std::string_view) const { return "err"; }
+    std::string formatAssignment(std::string_view name, double) const { return std::string(name); }
+    std::string formatVariables(std::span<std::pair<std::string, double> const>) const { return "vars"; }
+    std::string formatFunctions(std::span<std::string const>) const { return "fns"; }
+};
+
+} // namespace
+
+SCENARIO("Formatter contract: formatResult post-contract fires when result is empty")
+{
+    arc::test::Graph<BuggyFormatter> graph;
+    auto formatter = graph.node.asTrait(trait::formatter);
+
+    GIVEN("a buggy Formatter that returns empty string from formatResult")
+    {
+        WHEN("calling formatResult")
+        {
+            THEN("triggers a post-contract violation")
+            {
+                CHECK_THROWS_AS(formatter.formatResult(42.0), arc::ContractViolation);
             }
         }
     }

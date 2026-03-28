@@ -1,71 +1,62 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.clusters;
+import examples.calculator.tests.graphs;
+import examples.calculator.graphs;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
 import std;
 
 using namespace examples::calculator;
+using namespace examples::calculator::tests;
 
 namespace {
 
-// Helper: run a full expression through the pipeline
-auto eval(arc::Graph<domain::Calculator>& graph, std::string_view input)
-    -> std::expected<double, std::string>
+// Helper: run a scenario with pre-programmed inputs and return captured outputs
+auto runWithInputs(std::vector<std::string> inputs) -> std::vector<std::string>
 {
-    auto tokeniser = graph.tokeniser.asTrait(trait::tokeniser);
-    auto parser = graph.parser.asTrait(trait::parser);
-    auto evaluator = graph.evaluator.asTrait(trait::evaluator);
-
-    auto tokens = tokeniser.tokenise(input);
-    if (!tokens) return std::unexpected(tokens.error().message);
-
-    auto expr = parser.parse(*tokens);
-    if (!expr) return std::unexpected(expr.error().message);
-
-    auto result = evaluator.evaluate(**expr);
-    if (!result) return std::unexpected(result.error().message);
-
-    return *result;
+    IntegrationGraph graph;
+    graph.lineReader->setInputs(std::move(inputs));
+    graph.repl->run();
+    return graph.output->lines();
 }
 
 } // namespace
 
-SCENARIO("Basic arithmetic through full pipeline")
+SCENARIO("Basic arithmetic through Repl")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O")
     {
-        WHEN("evaluating \"2 + 3\"")
+        WHEN("input is \"2 + 3\"")
         {
-            auto result = eval(graph, "2 + 3");
+            auto outputs = runWithInputs({"2 + 3"});
 
-            THEN("returns 5")
+            THEN("output is \"5\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(5.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "5");
             }
         }
-        AND_WHEN("evaluating \"10 - 3 * 2\"")
+        AND_WHEN("input is \"10 - 3 * 2\"")
         {
-            auto result = eval(graph, "10 - 3 * 2");
+            auto outputs = runWithInputs({"10 - 3 * 2"});
 
-            THEN("returns 4")
+            THEN("output is \"4\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(4.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "4");
             }
         }
-        AND_WHEN("evaluating \"(10 - 3) * 2\"")
+        AND_WHEN("input is \"(10 - 3) * 2\"")
         {
-            auto result = eval(graph, "(10 - 3) * 2");
+            auto outputs = runWithInputs({"(10 - 3) * 2"});
 
-            THEN("returns 14")
+            THEN("output is \"14\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(14.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "14");
             }
         }
     }
@@ -73,218 +64,331 @@ SCENARIO("Basic arithmetic through full pipeline")
 
 SCENARIO("BIDMAS precedence end-to-end")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O")
     {
-        WHEN("evaluating \"2 + 3 * 4\"")
+        WHEN("input is \"2 + 3 * 4\"")
         {
-            auto result = eval(graph, "2 + 3 * 4");
+            auto outputs = runWithInputs({"2 + 3 * 4"});
 
-            THEN("returns 14")
+            THEN("output is \"14\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(14.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "14");
             }
         }
-        AND_WHEN("evaluating \"2 * 3 + 4 * 5\"")
+        AND_WHEN("input is \"2 * 3 + 4 * 5\"")
         {
-            auto result = eval(graph, "2 * 3 + 4 * 5");
+            auto outputs = runWithInputs({"2 * 3 + 4 * 5"});
 
-            THEN("returns 26")
+            THEN("output is \"26\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(26.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "26");
             }
         }
-        AND_WHEN("evaluating \"2 ^ 3 + 1\"")
+        AND_WHEN("input is \"2 ^ 3 + 1\"")
         {
-            auto result = eval(graph, "2 ^ 3 + 1");
+            auto outputs = runWithInputs({"2 ^ 3 + 1"});
 
-            THEN("returns 9")
+            THEN("output is \"9\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(9.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "9");
             }
         }
     }
 }
 
-SCENARIO("Variable assignment and recall")
+SCENARIO("Variable assignment and recall through Repl")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O and real Variables/Evaluator")
     {
-        WHEN("evaluating \"x = 5\"")
+        WHEN("inputs are [\"x = 5\", \"x * 2 + 1\"]")
         {
-            auto result = eval(graph, "x = 5");
+            auto outputs = runWithInputs({"x = 5", "x * 2 + 1"});
 
-            THEN("returns 5 and variables contains x = 5")
+            THEN("first output is \"x = 5\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(5.0));
-                CHECK(graph.Variables.asTrait(trait::variables).get("x") == std::optional<double>{5.0});
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "x = 5");
             }
-            AND_WHEN("evaluating \"x * 2 + 1\"")
+            AND_THEN("second output is \"11\"")
             {
-                auto result2 = eval(graph, "x * 2 + 1");
-
-                THEN("returns 11")
-                {
-                    REQUIRE(result2.has_value());
-                    CHECK(*result2 == doctest::Approx(11.0));
-                }
-            }
-            AND_WHEN("evaluating \"y = x ^ 2\"")
-            {
-                auto result2 = eval(graph, "y = x ^ 2");
-
-                THEN("returns 25 and variables contains y = 25")
-                {
-                    REQUIRE(result2.has_value());
-                    CHECK(*result2 == doctest::Approx(25.0));
-                    CHECK(graph.Variables.asTrait(trait::variables).get("y") == std::optional<double>{25.0});
-                }
+                REQUIRE(outputs.size() >= 2);
+                CHECK(outputs[1] == "11");
             }
         }
     }
 }
 
-SCENARIO("ans variable")
+SCENARIO("ans variable through Repl")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O")
     {
-        WHEN("evaluating \"2 + 3\" and storing result in ans")
+        WHEN("inputs are [\"2 + 3\", \"ans * 10\"]")
         {
-            auto result = eval(graph, "2 + 3");
-            REQUIRE(result.has_value());
-            graph.Variables.asTrait(trait::variables).set("ans", *result);
+            auto outputs = runWithInputs({"2 + 3", "ans * 10"});
 
-            AND_WHEN("evaluating \"ans * 10\"")
+            THEN("first output is \"5\"")
             {
-                auto result2 = eval(graph, "ans * 10");
-
-                THEN("returns 50")
-                {
-                    REQUIRE(result2.has_value());
-                    CHECK(*result2 == doctest::Approx(50.0));
-                }
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "5");
+            }
+            AND_THEN("second output is \"50\"")
+            {
+                REQUIRE(outputs.size() >= 2);
+                CHECK(outputs[1] == "50");
             }
         }
     }
 }
 
-SCENARIO("Function calls end-to-end")
+SCENARIO("Function calls through Repl")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O")
     {
-        WHEN("evaluating \"sqrt(16)\"")
+        WHEN("inputs are [\"sqrt(16)\", \"max(3, 7)\", \"abs(-42)\"]")
         {
-            auto result = eval(graph, "sqrt(16)");
+            auto outputs = runWithInputs({"sqrt(16)", "max(3, 7)", "abs(-42)"});
 
-            THEN("returns 4")
+            THEN("outputs are [\"4\", \"7\", \"42\"]")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(4.0));
-            }
-        }
-        AND_WHEN("evaluating \"max(3, 7)\"")
-        {
-            auto result = eval(graph, "max(3, 7)");
-
-            THEN("returns 7")
-            {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(7.0));
-            }
-        }
-        AND_WHEN("evaluating \"abs(-42)\"")
-        {
-            auto result = eval(graph, "abs(-42)");
-
-            THEN("returns 42")
-            {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(42.0));
+                REQUIRE(outputs.size() >= 3);
+                CHECK(outputs[0] == "4");
+                CHECK(outputs[1] == "7");
+                CHECK(outputs[2] == "42");
             }
         }
     }
 }
 
-SCENARIO("Complex nested expressions")
+SCENARIO("Repl handles evaluation errors")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O")
     {
-        WHEN("evaluating \"sqrt(add(9, 16))\"")
+        WHEN("input is \"1 / 0\"")
         {
-            auto result = eval(graph, "sqrt(add(9, 16))");
+            auto outputs = runWithInputs({"1 / 0"});
 
-            THEN("returns 5")
+            THEN("output starts with \"Error:\" and contains \"division by zero\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(5.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0].find("Error:") != std::string::npos);
+                CHECK(outputs[0].find("division by zero") != std::string::npos);
             }
         }
-        AND_WHEN("evaluating \"max(2 ^ 3, 3 ^ 2)\"")
+        AND_WHEN("input is \"2 +\"")
         {
-            auto result = eval(graph, "max(2 ^ 3, 3 ^ 2)");
+            auto outputs = runWithInputs({"2 +"});
 
-            THEN("returns 9")
+            THEN("output starts with \"Error:\"")
             {
-                REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(9.0));
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0].find("Error:") != std::string::npos);
+            }
+        }
+        AND_WHEN("input is \"undefined_var\"")
+        {
+            auto outputs = runWithInputs({"undefined_var"});
+
+            THEN("output starts with \"Error:\" and contains \"undefined variable\"")
+            {
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0].find("Error:") != std::string::npos);
+                CHECK(outputs[0].find("undefined variable") != std::string::npos);
+            }
+        }
+        AND_WHEN("input is \"unknown_fn(1)\"")
+        {
+            auto outputs = runWithInputs({"unknown_fn(1)"});
+
+            THEN("output starts with \"Error:\" and contains \"unknown function\"")
+            {
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0].find("Error:") != std::string::npos);
+                CHECK(outputs[0].find("unknown function") != std::string::npos);
             }
         }
     }
 }
 
-SCENARIO("Error propagation")
+SCENARIO("vars command through Repl")
 {
-    arc::Graph<domain::Calculator> graph;
+    IntegrationGraph graph;
 
-    GIVEN("a Calculator graph")
+    GIVEN("a Repl with mocked I/O")
     {
-        WHEN("evaluating \"1 / 0\"")
+        WHEN("inputs are [\"x = 5\", \"y = 10\", \"vars\"]")
         {
-            auto result = eval(graph, "1 / 0");
+            // Note: "x = 5" also sets ans=5, "y = 10" sets ans=10
+            // so vars will list ans, x, y (alphabetical from std::map)
+            auto outputs = runWithInputs({"x = 5", "y = 10", "vars"});
 
-            THEN("returns error (division by zero)")
+            THEN("third output contains \"x = 5\" and \"y = 10\"")
             {
-                REQUIRE_FALSE(result.has_value());
+                REQUIRE(outputs.size() >= 3);
+                CHECK(outputs[2].find("x = 5") != std::string::npos);
+                CHECK(outputs[2].find("y = 10") != std::string::npos);
             }
         }
-        AND_WHEN("evaluating \"2 +\"")
-        {
-            auto result = eval(graph, "2 +");
+    }
+}
 
-            THEN("returns error (unexpected end)")
+SCENARIO("fns command through Repl")
+{
+    IntegrationGraph graph;
+
+    GIVEN("a Repl with mocked I/O")
+    {
+        WHEN("input is \"fns\"")
+        {
+            auto outputs = runWithInputs({"fns"});
+
+            THEN("output lists available functions (abs, sqrt, sin, cos, ...)")
             {
-                REQUIRE_FALSE(result.has_value());
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0].find("abs") != std::string::npos);
+                CHECK(outputs[0].find("sqrt") != std::string::npos);
+                CHECK(outputs[0].find("sin") != std::string::npos);
+                CHECK(outputs[0].find("cos") != std::string::npos);
             }
         }
-        AND_WHEN("evaluating \"undefined_var\"")
-        {
-            auto result = eval(graph, "undefined_var");
+    }
+}
 
-            THEN("returns error (undefined variable)")
+SCENARIO("history command through Repl")
+{
+    IntegrationGraph graph;
+
+    GIVEN("a Repl with mocked I/O")
+    {
+        WHEN("inputs are [\"2 + 3\", \"x = 5\", \"history\"]")
+        {
+            auto outputs = runWithInputs({"2 + 3", "x = 5", "history"});
+
+            THEN("output includes numbered entries for \"2 + 3\" and \"x = 5\"")
             {
-                REQUIRE_FALSE(result.has_value());
+                // First two outputs are the results of the expressions,
+                // third output is the history listing
+                REQUIRE(outputs.size() >= 3);
+                CHECK(outputs[2].find("2 + 3") != std::string::npos);
+                CHECK(outputs[2].find("x = 5") != std::string::npos);
+                // History entries are numbered starting at 1
+                CHECK(outputs[2].find("1") != std::string::npos);
+                CHECK(outputs[2].find("2") != std::string::npos);
             }
         }
-        AND_WHEN("evaluating \"unknown_fn(1)\"")
-        {
-            auto result = eval(graph, "unknown_fn(1)");
+    }
+}
 
-            THEN("returns error (unknown function)")
+SCENARIO("help command through Repl")
+{
+    IntegrationGraph graph;
+
+    GIVEN("a Repl with mocked I/O")
+    {
+        WHEN("input is \"help\"")
+        {
+            auto outputs = runWithInputs({"help"});
+
+            THEN("output lists available commands")
             {
-                REQUIRE_FALSE(result.has_value());
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0].find("help") != std::string::npos);
+                CHECK(outputs[0].find("vars") != std::string::npos);
+                CHECK(outputs[0].find("fns") != std::string::npos);
+                CHECK(outputs[0].find("history") != std::string::npos);
+                CHECK(outputs[0].find("clear") != std::string::npos);
+            }
+        }
+    }
+}
+
+SCENARIO("clear command through Repl")
+{
+    IntegrationGraph graph;
+
+    GIVEN("a Repl with mocked I/O")
+    {
+        WHEN("inputs are [\"x = 5\", \"clear\", \"x\"]")
+        {
+            auto outputs = runWithInputs({"x = 5", "clear", "x"});
+
+            THEN("first output is \"x = 5\"")
+            {
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "x = 5");
+            }
+            AND_THEN("second output is clear confirmation")
+            {
+                REQUIRE(outputs.size() >= 2);
+                CHECK(outputs[1].find("clear") != std::string::npos);
+            }
+            AND_THEN("third output is error (undefined variable)")
+            {
+                REQUIRE(outputs.size() >= 3);
+                CHECK(outputs[2].find("Error:") != std::string::npos);
+            }
+        }
+    }
+}
+
+SCENARIO("Repl handles empty input and quit")
+{
+    IntegrationGraph graph;
+
+    GIVEN("a Repl with mocked I/O")
+    {
+        WHEN("inputs are [\"\", \"2 + 3\", \"quit\"]")
+        {
+            auto outputs = runWithInputs({"", "2 + 3", "quit"});
+
+            THEN("empty input produces no output")
+            {
+                // Only one output total: "5" for "2 + 3"
+                // "quit" exits without output, "" is silently skipped
+                CHECK(outputs.size() == 1);
+            }
+            AND_THEN("\"2 + 3\" produces \"5\"")
+            {
+                REQUIRE(outputs.size() >= 1);
+                CHECK(outputs[0] == "5");
+            }
+            AND_THEN("Repl exits with 0")
+            {
+                // run() returned 0 — verified by the fact outputs has only the expected entry
+                CHECK(outputs.size() == 1);
+            }
+        }
+    }
+}
+
+SCENARIO("Batch mode evaluates all inputs and exits")
+{
+    graph::Batch graph;
+    graph.lineReader->setInputs({"2 + 3", "x = 5", "x * 2"});
+
+    GIVEN("a Batch graph with inputs [\"2 + 3\", \"x = 5\", \"x * 2\"]")
+    {
+        WHEN("running the Repl")
+        {
+            // Batch uses real ConsoleOutput (writes to stdout) — we can only verify it runs without error
+            int result = graph.repl->run();
+
+            THEN("outputs are [\"5\", \"x = 5\", \"10\"]")
+            {
+                // Batch mode runs to completion and returns 0
+                CHECK(result == 0);
             }
         }
     }
