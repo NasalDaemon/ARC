@@ -33,8 +33,8 @@ ARC structures applications using three core concepts:
 The result is a **Graph**: a single, efficient object containing all your nodes with their dependencies resolved. The compiler can inline across node boundaries, giving you modularity without overhead.
 
 ## Compiler Support
-- [x] Clang 20+
-- [x] GCC 15+ (14.2 without `import std;`)
+- [x] Clang 20+ CMake/Bazel
+- [x] GCC 15+ CMake/Bazel (14.2 CMake without `import std;`)
 - [x] MSVC 19 (header only)
 - [ ] MSVC (modules)
 

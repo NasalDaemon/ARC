@@ -45,7 +45,7 @@ private:
         std::size_t busyThreads : MaxThreads = 1;
     };
 
-    std::atomic<State> state;
+    std::atomic<State> state = State{};
     static_assert(decltype(state)::is_always_lock_free);
 
     CircularBuffer<Function<void()>> exclusiveTasks{std::numeric_limits<std::size_t>::max()};

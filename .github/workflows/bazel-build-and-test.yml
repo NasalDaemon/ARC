@@ -1,0 +1,69 @@
+name: Bazel build and test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  bazel-build-and-test:
+    name: bazel / ${{ matrix.compiler.name }}-${{ matrix.compiler.version }}
+    runs-on: ${{ matrix.compiler.os }}
+    container: ${{ matrix.compiler.container }}
+
+    strategy:
+      fail-fast: ${{ github.ref_name != 'main' }}
+      matrix:
+        compiler:
+          - name: gcc
+            version: 15
+            os: ubuntu-latest
+            container: ghcr.io/mattkretz/cplusplus-ci/gcc15
+            config: gcc
+            cc: gcc
+            cxx: g++
+
+          - name: clang
+            version: 20
+            os: ubuntu-latest
+            config: clang
+            cc: clang-20
+            cxx: clang++-20
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: bazel-contrib/setup-bazel@0.19.0
+      with:
+        bazelisk-version: 1.x        # forces a download into RUNNER_TOOL_CACHE
+        # Avoid downloading Bazel every time.
+        bazelisk-cache: true
+        # Store build cache per workflow.
+        disk-cache: ${{ github.workflow }}
+        # Share repository cache between workflows.
+        repository-cache: true
+
+    - name: Link bazel into PATH
+      if: matrix.compiler.container != ''
+      run: |
+        BAZEL_BIN=$(find $RUNNER_TOOL_CACHE -type f \( -name bazel -o -name bazelisk \) 2>/dev/null | head -1)
+        if [ -z "$BAZEL_BIN" ]; then
+          echo "::error::Could not find bazel or bazelisk in RUNNER_TOOL_CACHE"
+          exit 1
+        fi
+        ln -sf "$BAZEL_BIN" /usr/local/bin/bazel
+        echo "Linked $BAZEL_BIN -> /usr/local/bin/bazel"
+
+    - name: Set up Clang ${{ matrix.compiler.version }}
+      if: matrix.compiler.name == 'clang'
+      run: |
+        wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.compiler.version }}
+        sudo apt install -y libc++-${{ matrix.compiler.version }}-dev libc++abi-${{ matrix.compiler.version }}-dev clang-tools-${{ matrix.compiler.version }}
+        sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${{ matrix.compiler.version }}   100
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ matrix.compiler.version }} 100
+        sudo update-alternatives --install /usr/bin/cc      cc      /usr/bin/clang-${{ matrix.compiler.version }}   100
+        sudo update-alternatives --install /usr/bin/c++     c++     /usr/bin/clang++-${{ matrix.compiler.version }} 100
+
+    - name: Test
+      run: bazel test //... --config=${{ matrix.compiler.config }} --repo_env=CC=${{ matrix.compiler.cc }} --repo_env=CXX=${{ matrix.compiler.cxx }} --test_output=errors

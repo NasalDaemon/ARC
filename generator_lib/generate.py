@@ -22,6 +22,7 @@ arg_parser = argparse.ArgumentParser(
 arg_parser.add_argument('-i', '--input')
 arg_parser.add_argument('-o', '--output')
 arg_parser.add_argument('-m', '--module', action='store_true')
+arg_parser.add_argument('-q', '--quiet', action='store_true')
 
 args = arg_parser.parse_args()
 
@@ -30,6 +31,7 @@ input_path = Path(input_file).resolve()
 output_file: str = args.output
 is_module: bool = args.module
 is_embedded: bool = input_path.suffixes[-1] != '.arc'
+quiet: bool = args.quiet
 
 grammar_file = dir_path.joinpath(dir_path, 'arc_module.lark' if is_module else 'arc_header.lark')
 arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True)
@@ -100,10 +102,10 @@ def imported(lark_rule: str):
 
 def get_pos(t: Tree | Token | None, full_path: bool = True) -> str:
     if t is None:
-        return str(input_path) if full_path else input_file
+        return str(input_path) if full_path else input_path.name
     if isinstance(t, Token):
         line, col = get_line(t.line, t.column)
-        return f"{str(input_path) if full_path else input_file}:{line}:{col}"
+        return f"{str(input_path) if full_path else input_path.name}:{line}:{col}"
     if isinstance(t, Tree):
         return get_pos(t.children[0], full_path=full_path)
     else:
@@ -1743,6 +1745,7 @@ with open(output_file, 'a+') as file:
     file.seek(0)
     currentText = file.read()
     if currentText != output_text:
-        print(f"ARC {"created" if currentText == "" else "changed"}: {output_file}")
+        if not quiet:
+            print(f"ARC {'created' if currentText == '' else 'changed'}: {output_file}")
         file.truncate(0)
         file.write(output_text)
