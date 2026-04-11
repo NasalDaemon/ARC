@@ -13,7 +13,7 @@ trait Tokeniser
 
 trait Parser
 {
-    parse(std::span<Token const> tokens) const -> std::expected<ExprPtr, ParseError>
+    parse(std::span<Token const> tokens, std::string_view originalLine) const -> std::expected<ExprPtr, ParseError>
         pre(not tokens.empty())
 }
 
@@ -28,16 +28,30 @@ trait Variables
         pre(not name.empty())
     set(std::string name, double value)
         pre(not name.empty())
+    remove(std::string_view name) -> bool
+        pre(not name.empty())
     list() const -> std::vector<std::pair<std::string, double>>
     clear()
-        post(_: self.asTrait(Variables{}).list().empty())
+        post(_: self.list().empty())
 }
 
 trait Functions
 {
     call(std::string_view name, std::span<double const> args) const -> std::expected<double, EvalError>
         pre(not name.empty())
-    list() const -> std::vector<std::string>
+    listBuiltins() const -> std::vector<std::string>
+    define(std::span<FunctionDefinition const> functions) -> std::expected<void, EvalError>
+        pre(not functions.empty())
+    define(std::string name, std::vector<std::string> params, ExprPtr body, std::string source) -> std::expected<void, EvalError>
+        pre(not name.empty())
+        pre(body != nullptr)
+    removeFunctions(std::span<std::string const> names) -> std::expected<void, EvalError>
+        pre(not names.empty())
+    getUserFunction(std::string_view name, std::size_t arity) const -> UserFunction const*
+        pre(not name.empty())
+    listUserFunctions() const -> std::vector<std::pair<std::string, UserFunction const*>>
+    clearUserFunctions() -> void
+        post(_: self.listUserFunctions().empty())
 }
 
 trait Formatter
@@ -50,8 +64,10 @@ trait Formatter
         pre(not name.empty())
     formatVariables(std::span<std::pair<std::string, double> const> vars) const -> std::string
         pre(not vars.empty())
-    formatFunctions(std::span<std::string const> names) const -> std::string
-        pre(not names.empty())
+    formatFunctions(std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const> userFuncs) const -> std::string
+        pre(not builtins.empty() or not userFuncs.empty())
+    formatFunctionDef(std::string_view name, std::span<std::string const> params) const -> std::string
+        pre(not name.empty())
 }
 
 // Abstracts line input for testability and mode switching.

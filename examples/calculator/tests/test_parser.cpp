@@ -21,7 +21,7 @@ SCENARIO("Parsing numeric literals")
                 {TokenType::Number, "42", 42.0},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces a NumberExpr with value 42")
             {
@@ -47,7 +47,7 @@ SCENARIO("Parsing variable references")
                 {TokenType::Identifier, "x", 0},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces a VariableExpr with name \"x\"")
             {
@@ -77,7 +77,7 @@ SCENARIO("Parsing binary operations with BIDMAS precedence")
                 {TokenType::Number, "4", 4},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces Add(2, Mul(3, 4))")
             {
@@ -102,7 +102,7 @@ SCENARIO("Parsing binary operations with BIDMAS precedence")
                 CHECK(mulRight->value == doctest::Approx(4.0));
             }
         }
-        AND_WHEN("parsing \"2 ^ 3 ^ 2\"")
+        WHEN("parsing \"2 ^ 3 ^ 2\"")
         {
             std::vector<Token> tokens{
                 {TokenType::Number, "2", 2},
@@ -112,7 +112,7 @@ SCENARIO("Parsing binary operations with BIDMAS precedence")
                 {TokenType::Number, "2", 2},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces Pow(2, Pow(3, 2)) — right-associative")
             {
@@ -136,7 +136,7 @@ SCENARIO("Parsing binary operations with BIDMAS precedence")
                 CHECK(pow2Right->value == doctest::Approx(2.0));
             }
         }
-        AND_WHEN("parsing \"10 - 3 - 2\"")
+        WHEN("parsing \"10 - 3 - 2\"")
         {
             std::vector<Token> tokens{
                 {TokenType::Number, "10", 10},
@@ -146,7 +146,7 @@ SCENARIO("Parsing binary operations with BIDMAS precedence")
                 {TokenType::Number, "2", 2},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces Sub(Sub(10, 3), 2) — left-associative")
             {
@@ -193,7 +193,7 @@ SCENARIO("Parsing parenthesised expressions")
                 {TokenType::Number, "4", 4},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces Mul(Add(2, 3), 4)")
             {
@@ -235,7 +235,7 @@ SCENARIO("Parsing unary negation")
                 {TokenType::Number, "5", 5},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces Negate(5)")
             {
@@ -248,7 +248,7 @@ SCENARIO("Parsing unary negation")
                 CHECK(operand->value == doctest::Approx(5.0));
             }
         }
-        AND_WHEN("parsing \"-(2 + 3)\"")
+        WHEN("parsing \"-(2 + 3)\"")
         {
             std::vector<Token> tokens{
                 {TokenType::Minus, "-", 0},
@@ -259,7 +259,7 @@ SCENARIO("Parsing unary negation")
                 {TokenType::RParen, ")", 0},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces Negate(Add(2, 3))")
             {
@@ -296,7 +296,7 @@ SCENARIO("Parsing assignment")
                 {TokenType::Number, "5", 5},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces AssignExpr with name \"x\" and NumberExpr value 5")
             {
@@ -309,7 +309,7 @@ SCENARIO("Parsing assignment")
                 CHECK(val->value == doctest::Approx(5.0));
             }
         }
-        AND_WHEN("parsing \"y = 2 + 3\"")
+        WHEN("parsing \"y = 2 + 3\"")
         {
             std::vector<Token> tokens{
                 {TokenType::Identifier, "y", 0},
@@ -319,7 +319,7 @@ SCENARIO("Parsing assignment")
                 {TokenType::Number, "3", 3},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces AssignExpr with name \"y\" and Add(2, 3)")
             {
@@ -357,7 +357,7 @@ SCENARIO("Parsing function calls")
                 {TokenType::RParen, ")", 0},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces CallExpr with name \"sqrt\" and one arg")
             {
@@ -371,7 +371,7 @@ SCENARIO("Parsing function calls")
                 CHECK(arg->value == doctest::Approx(4.0));
             }
         }
-        AND_WHEN("parsing \"max(1, 2)\"")
+        WHEN("parsing \"max(1, 2)\"")
         {
             std::vector<Token> tokens{
                 {TokenType::Identifier, "max", 0},
@@ -382,7 +382,7 @@ SCENARIO("Parsing function calls")
                 {TokenType::RParen, ")", 0},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("produces CallExpr with name \"max\" and two args")
             {
@@ -416,14 +416,14 @@ SCENARIO("Parsing errors")
                 {TokenType::Plus, "+", 0},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("returns ParseError (unexpected end)")
             {
                 REQUIRE_FALSE(result.has_value());
             }
         }
-        AND_WHEN("parsing \"(2 + 3\"")
+        WHEN("parsing \"(2 + 3\"")
         {
             std::vector<Token> tokens{
                 {TokenType::LParen, "(", 0},
@@ -432,7 +432,7 @@ SCENARIO("Parsing errors")
                 {TokenType::Number, "3", 3},
                 {TokenType::End, "", 0},
             };
-            auto result = parser.parse(tokens);
+            auto result = parser.parse(tokens, std::string_view{});
 
             THEN("returns ParseError (missing closing paren)")
             {
@@ -455,7 +455,344 @@ SCENARIO("Parser contract: parse rejects empty token span")
 
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(parser.parse(empty), arc::ContractViolation);
+                CHECK_THROWS_AS(parser.parse(empty, std::string_view{}), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+SCENARIO("Parsing single-parameter function definitions")
+{
+    GIVEN("a Parser node")
+    {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
+
+        WHEN("parsing tokens for `f(x) = x + 1`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Number, "1", 1},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a FuncDefExpr with name \"f\", params [\"x\"], body Add(Var(\"x\"), Num(1))")
+            {
+                REQUIRE(result.has_value());
+                auto* funcDef = std::get_if<FuncDefExpr>(result->get());
+                REQUIRE(funcDef != nullptr);
+                CHECK(funcDef->name == "f");
+                REQUIRE(funcDef->params.size() == 1);
+                CHECK(funcDef->params[0] == "x");
+                auto* add = std::get_if<BinaryExpr>(funcDef->body.get());
+                REQUIRE(add != nullptr);
+                CHECK(add->op == BinaryOp::Add);
+                auto* left = std::get_if<VariableExpr>(add->left.get());
+                REQUIRE(left != nullptr);
+                CHECK(left->name == "x");
+                auto* right = std::get_if<NumberExpr>(add->right.get());
+                REQUIRE(right != nullptr);
+                CHECK(right->value == doctest::Approx(1.0));
+            }
+        }
+        WHEN("parsing tokens for `sq(n) = n ^ 2`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "sq", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "n", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "n", 0},
+                {TokenType::Caret, "^", 0},
+                {TokenType::Number, "2", 2},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a FuncDefExpr with name \"sq\", params [\"n\"], body Pow(Var(\"n\"), Num(2))")
+            {
+                REQUIRE(result.has_value());
+                auto* funcDef = std::get_if<FuncDefExpr>(result->get());
+                REQUIRE(funcDef != nullptr);
+                CHECK(funcDef->name == "sq");
+                REQUIRE(funcDef->params.size() == 1);
+                CHECK(funcDef->params[0] == "n");
+                auto* pow = std::get_if<BinaryExpr>(funcDef->body.get());
+                REQUIRE(pow != nullptr);
+                CHECK(pow->op == BinaryOp::Pow);
+                auto* left = std::get_if<VariableExpr>(pow->left.get());
+                REQUIRE(left != nullptr);
+                CHECK(left->name == "n");
+                auto* right = std::get_if<NumberExpr>(pow->right.get());
+                REQUIRE(right != nullptr);
+                CHECK(right->value == doctest::Approx(2.0));
+            }
+        }
+    }
+}
+
+SCENARIO("Parsing multi-parameter function definitions")
+{
+    GIVEN("a Parser node")
+    {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
+
+        WHEN("parsing tokens for `g(x, y) = x + y`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "g", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Comma, ",", 0},
+                {TokenType::Identifier, "y", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Identifier, "y", 0},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a FuncDefExpr with name \"g\", params [\"x\", \"y\"], body Add(Var(\"x\"), Var(\"y\"))")
+            {
+                REQUIRE(result.has_value());
+                auto* funcDef = std::get_if<FuncDefExpr>(result->get());
+                REQUIRE(funcDef != nullptr);
+                CHECK(funcDef->name == "g");
+                REQUIRE(funcDef->params.size() == 2);
+                CHECK(funcDef->params[0] == "x");
+                CHECK(funcDef->params[1] == "y");
+                auto* add = std::get_if<BinaryExpr>(funcDef->body.get());
+                REQUIRE(add != nullptr);
+                CHECK(add->op == BinaryOp::Add);
+                auto* left = std::get_if<VariableExpr>(add->left.get());
+                REQUIRE(left != nullptr);
+                CHECK(left->name == "x");
+                auto* right = std::get_if<VariableExpr>(add->right.get());
+                REQUIRE(right != nullptr);
+                CHECK(right->name == "y");
+            }
+        }
+        WHEN("parsing tokens for `h(a, b, c) = a * b + c`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "h", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "a", 0},
+                {TokenType::Comma, ",", 0},
+                {TokenType::Identifier, "b", 0},
+                {TokenType::Comma, ",", 0},
+                {TokenType::Identifier, "c", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "a", 0},
+                {TokenType::Star, "*", 0},
+                {TokenType::Identifier, "b", 0},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Identifier, "c", 0},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a FuncDefExpr with name \"h\", params [\"a\", \"b\", \"c\"]")
+            {
+                REQUIRE(result.has_value());
+                auto* funcDef = std::get_if<FuncDefExpr>(result->get());
+                REQUIRE(funcDef != nullptr);
+                CHECK(funcDef->name == "h");
+                REQUIRE(funcDef->params.size() == 3);
+                CHECK(funcDef->params[0] == "a");
+                CHECK(funcDef->params[1] == "b");
+                CHECK(funcDef->params[2] == "c");
+                auto* add = std::get_if<BinaryExpr>(funcDef->body.get());
+                REQUIRE(add != nullptr);
+                CHECK(add->op == BinaryOp::Add);
+            }
+        }
+    }
+}
+
+SCENARIO("Function definition with complex body")
+{
+    GIVEN("a Parser node")
+    {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
+
+        WHEN("parsing tokens for `f(x) = x ^ 2 + 2 * x + 1`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Caret, "^", 0},
+                {TokenType::Number, "2", 2},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Number, "2", 2},
+                {TokenType::Star, "*", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Number, "1", 1},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a FuncDefExpr with correct nested expression body")
+            {
+                REQUIRE(result.has_value());
+                auto* funcDef = std::get_if<FuncDefExpr>(result->get());
+                REQUIRE(funcDef != nullptr);
+                CHECK(funcDef->name == "f");
+                REQUIRE(funcDef->params.size() == 1);
+                CHECK(funcDef->params[0] == "x");
+                auto* add1 = std::get_if<BinaryExpr>(funcDef->body.get());
+                REQUIRE(add1 != nullptr);
+                CHECK(add1->op == BinaryOp::Add);
+            }
+        }
+    }
+}
+
+SCENARIO("Function definition vs variable assignment disambiguation")
+{
+    GIVEN("a Parser node")
+    {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
+
+        WHEN("parsing tokens for `x = 5`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Number, "5", 5},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces an AssignExpr (not FuncDefExpr)")
+            {
+                REQUIRE(result.has_value());
+                CHECK(std::holds_alternative<AssignExpr>(**result));
+            }
+        }
+        WHEN("parsing tokens for `f(x) = x + 1`")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Number, "1", 1},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a FuncDefExpr (not AssignExpr or CallExpr)")
+            {
+                REQUIRE(result.has_value());
+                CHECK(std::holds_alternative<FuncDefExpr>(**result));
+            }
+        }
+    }
+}
+
+SCENARIO("Malformed function definitions produce errors")
+{
+    GIVEN("a Parser node")
+    {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
+
+        WHEN("parsing tokens for `f(1) = x` (number as parameter)")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Number, "1", 1},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("does not produce a FuncDefExpr (falls through to expression parsing, which errors)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+        WHEN("parsing tokens for `f(x,) = x` (trailing comma)")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Comma, ",", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("produces a ParseError")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+        WHEN("parsing tokens for `f(,x) = x` (leading comma)")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Comma, ",", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::RParen, ")", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("does not produce a FuncDefExpr (falls through to expression parsing)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+        WHEN("parsing tokens for `f(x = x + 1` (missing closing paren)")
+        {
+            std::vector<Token> tokens{
+                {TokenType::Identifier, "f", 0},
+                {TokenType::LParen, "(", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Equals, "=", 0},
+                {TokenType::Identifier, "x", 0},
+                {TokenType::Plus, "+", 0},
+                {TokenType::Number, "1", 1},
+                {TokenType::End, "", 0},
+            };
+            auto result = parser.parse(tokens, std::string_view{});
+
+            THEN("does not produce a FuncDefExpr")
+            {
+                REQUIRE_FALSE(result.has_value());
             }
         }
     }

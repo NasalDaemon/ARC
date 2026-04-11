@@ -866,8 +866,8 @@ class Method:
                     raise SyntaxError(f"{get_pos(c)} Pre-contracts cannot be specified on methods with no parameters")
                 self.pre_exprs.append((get_pos(c), reconstruct(c.children[0])))
             elif c.data == imported('post_contract'):
-                if self.return_type.str == "void":
-                    raise SyntaxError(f"{get_pos(c)} Post-contracts cannot be specified on methods with void return type")
+                if self.return_type.str == "void" and c.children[0] != "_":
+                    raise SyntaxError(f"{get_pos(c)} Post-contracts cannot bind void to a name, use '_' instead")
                 self.post_exprs.append((get_pos(c.children[0]), c.children[0], reconstruct(c.children[1])))
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown method entity: {c.data}')

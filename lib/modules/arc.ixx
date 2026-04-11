@@ -31,6 +31,8 @@ export namespace arc {
     using arc::IsArgs;
     using arc::IsArgsOf;
     // assert_handlers.hpp
+    using arc::AssertHandlerBase;
+    using arc::IsAssertHandler;
     using arc::ContractViolation;
     using arc::ContractAssertHandler;
     using arc::IgnoreAssertHandler;

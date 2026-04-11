@@ -1,14 +1,12 @@
 #ifndef INCLUDE_ARC_NODES_WITH_ASSERT_HANDLER_HPP
 #define INCLUDE_ARC_NODES_WITH_ASSERT_HANDLER_HPP
 
+#include "arc/assert_handlers.hpp"
 #include "arc/nodes/map_info.hpp"
 
 namespace arc {
 
 namespace detail {
-
-    template<class T>
-    concept IsAssertHandler = std::invocable<T const, bool, const char*>;
 
     template<IsAssertHandler AssertHandler>
     struct WithAssertHandler
@@ -23,7 +21,7 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<detail::IsAssertHandler AssertHandler>
+template<IsAssertHandler AssertHandler>
 struct WithAssertHandler : MapInfo<Node, detail::WithAssertHandler<AssertHandler>> {};
 
 namespace node {

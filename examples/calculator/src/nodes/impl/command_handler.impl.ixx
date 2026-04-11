@@ -12,9 +12,8 @@ namespace examples::calculator::node {
 COMMAND_HANDLER::isCommand(std::string_view input) const -> bool
 {
     static constexpr std::string_view commands[] = {
-        "help", "vars", "fns", "history", "clear", "save", "load"
+        "help", "vars", "fns", "history", "clear", "save", "load", "undef"
     };
-    // Match the first word of input against known commands
     auto space = input.find(' ');
     auto first_word = input.substr(0, space);
     for (auto cmd : commands) {
@@ -38,9 +37,10 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
             "  vars     - list all variables\n"
             "  fns      - list all functions\n"
             "  history  - show expression history\n"
-            "  clear    - clear all variables\n"
+            "  clear    - clear all variables and functions\n"
             "  save [path] - save state to file (default: calculator.state)\n"
-            "  load [path] - load state from file (default: calculator.state)"
+            "  load [path] - load state from file (default: calculator.state)\n"
+            "  undef f [g ...] - remove user-defined function(s)"
         );
     }
     else if (cmd == "vars")
@@ -52,10 +52,11 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
     }
     else if (cmd == "fns")
     {
-        auto names = getFunctions().list();
-        if (names.empty())
+        auto builtinNames = getFunctions().listBuiltins();
+        auto userFuncs = getFunctions().listUserFunctions();
+        if (builtinNames.empty() && userFuncs.empty())
             return std::string("No functions defined.");
-        return getFormatter().formatFunctions(names);
+        return getFormatter().formatFunctions(builtinNames, userFuncs);
     }
     else if (cmd == "history")
     {
@@ -74,7 +75,8 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
     else if (cmd == "clear")
     {
         getVariables().clear();
-        return std::string("Variables cleared.");
+        getFunctions().clearUserFunctions();
+        return std::string("Variables and user functions cleared.");
     }
     else if (cmd == "save")
     {
@@ -82,7 +84,7 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
         auto result = getPersistence().save(path);
         if (!result)
             return std::unexpected(result.error());
-        return std::string("Saved to ") + std::string(path);
+        return std::format("Saved to {}", path);
     }
     else if (cmd == "load")
     {
@@ -90,10 +92,30 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
         auto result = getPersistence().load(path);
         if (!result)
             return std::unexpected(result.error());
-        return std::string("Loaded from ") + std::string(path);
+        return std::format("Loaded from {}", path);
+    }
+    else if (cmd == "undef")
+    {
+        std::vector<std::string> names;
+        if (!arg.empty())
+        {
+            std::string args_str(arg);
+            std::istringstream iss(args_str);
+            std::string name;
+            while (iss >> name)
+            {
+                names.push_back(name);
+            }
+        }
+
+        auto result = getFunctions().removeFunctions(std::span(names));
+        if (!result.has_value())
+            return std::unexpected(getFormatter().formatError(result.error().message));
+
+        return std::string("Function(s) removed.");
     }
 
-    return std::unexpected(std::string("Unknown command: ") + std::string(cmd));
+    return std::unexpected(std::format("Unknown command: {}", cmd));
 }
 
 } // namespace examples::calculator::node

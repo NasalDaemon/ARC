@@ -150,11 +150,81 @@ auto ParserState::parsePrimary() -> std::expected<ExprPtr, ParseError> {
 
 } // anonymous namespace
 
-auto Parser::parse(std::span<Token const> tokens) const
+auto Parser::parse(std::span<Token const> tokens, std::string_view originalLine) const
     -> std::expected<ExprPtr, ParseError>
 {
     if (tokens.empty()) {
         return std::unexpected(ParseError{"empty token stream", 0});
+    }
+
+    // Check for function definition: identifier ( identifier, ... ) = expr
+    if (tokens.size() >= 5 &&
+        tokens[0].type == TokenType::Identifier &&
+        tokens[1].type == TokenType::LParen)
+    {
+        std::size_t pos = 2;
+        std::vector<std::string> params;
+        bool isFuncDef = false;
+        bool hasTrailingComma = false;
+
+        if (tokens[pos].type == TokenType::Identifier)
+        {
+            params.emplace_back(tokens[pos].text);
+            ++pos;
+            while (pos < tokens.size() && tokens[pos].type == TokenType::Comma)
+            {
+                ++pos;
+                hasTrailingComma = true;
+                if (pos >= tokens.size() || tokens[pos].type != TokenType::Identifier)
+                    break;
+                params.emplace_back(tokens[pos].text);
+                hasTrailingComma = false;
+                ++pos;
+            }
+            if (!hasTrailingComma && pos < tokens.size() && tokens[pos].type == TokenType::RParen)
+            {
+                ++pos;
+                if (pos < tokens.size() && tokens[pos].type == TokenType::Equals)
+                {
+                    ++pos;
+                    isFuncDef = true;
+                }
+            }
+        }
+
+        if (isFuncDef)
+        {
+            std::string name{tokens[0].text};
+            auto bodyTokens = tokens.subspan(pos);
+            ParserState state{bodyTokens, 0};
+            auto body = state.parseExpr();
+            if (!body) return body;
+            if (state.peek().type != TokenType::End)
+                return std::unexpected(ParseError{"unexpected token after function body", state.pos});
+
+            // Build source for the function body
+            std::string source;
+            if (!originalLine.empty() && !bodyTokens.empty())
+            {
+                char const* beginChar = bodyTokens.front().text.begin();
+                char const* endChar = bodyTokens.back().text.end();
+                if (beginChar >= originalLine.begin() && beginChar <= originalLine.end() &&
+                    endChar >= originalLine.begin() && endChar <= originalLine.end())
+                {
+                    source.assign(beginChar, endChar);
+                }
+            }
+            if (source.empty())
+            {
+                for (auto const& token : bodyTokens) {
+                    if (token.type == TokenType::End) break;
+                    if (!source.empty()) source += " ";
+                    source += token.text;
+                }
+            }
+
+            return makeExpr(FuncDefExpr{std::move(name), std::move(params), std::move(*body), std::move(source)});
+        }
     }
 
     // Check for assignment: top-level identifier followed by '='

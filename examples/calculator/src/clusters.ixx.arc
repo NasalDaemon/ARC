@@ -32,15 +32,15 @@ cluster Calculator [Root]
     // Repl orchestrates the pipeline
     [LineReader]   repl --> lineReader
     [Commands]     repl --> commands
-    [Tokeniser]    repl --> tokeniser
-    [Parser]       repl --> parser
+    [Tokeniser]    repl --> tokeniser   <-- persistence
+    [Parser]       repl --> parser      <-- persistence
     [Evaluator]    repl --> evaluator
     [Output]       repl --> output
-    [History]      repl --> history     <-- lineReader, commands
-    [Variables]    repl --> variables   <-- evaluator, commands, persistence
+    [History]      repl --> history     <-- commands, lineReader
+    [Variables]    repl --> variables   <-- commands, evaluator, persistence, functions
     [Formatter]    repl --> formatter   <-- commands
 
-    [Functions]             functions   <-- evaluator, commands
+    [Functions]             functions   <-- commands, evaluator, persistence
     [Persistence]           persistence <-- commands
 }
 

@@ -303,7 +303,8 @@ int main()
 - [Spy trait for global method interception](docs/spy-trait.md)
 
 ### Compilable [examples](examples/)
-- [Filesystem](examples/filesystem): In-memory filesystem with REPL interface
+- [Filesystem](examples/filesystem): In-memory filesystem with CLI interface
+- [Calculator](examples/calculator): CLI calculator with variables, functions, and state persistence
 - [Greet](examples/greet): A compilable copy of the [above code](#short-example-examplesgreet)
 - [Animal (union)](examples/animals): Demonstrates explicit runtime polymorphism with ARC's `arc::Union` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))
 - [Animals (virtual)](examples/animals_virtual): Traditional virtual interface version of the Animal example for comparison using `arc::Virtual` higher-order node (see [runtime polymorphism docs](docs/runtime-polymorphism.md))

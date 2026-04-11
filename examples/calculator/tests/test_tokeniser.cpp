@@ -30,7 +30,7 @@ SCENARIO("Tokenising numeric literals")
                 CHECK((*result)[1].type == TokenType::End);
             }
         }
-        AND_WHEN("tokenising \"3.14\"")
+        WHEN("tokenising \"3.14\"")
         {
             auto result = tokeniser.tokenise("3.14"sv);
 
@@ -44,7 +44,7 @@ SCENARIO("Tokenising numeric literals")
                 CHECK((*result)[1].type == TokenType::End);
             }
         }
-        AND_WHEN("tokenising \".5\"")
+        WHEN("tokenising \".5\"")
         {
             auto result = tokeniser.tokenise(".5"sv);
 
@@ -135,7 +135,7 @@ SCENARIO("Tokenising identifiers")
                 CHECK((*result)[1].type == TokenType::End);
             }
         }
-        AND_WHEN("tokenising \"sqrt\"")
+        WHEN("tokenising \"sqrt\"")
         {
             auto result = tokeniser.tokenise("sqrt"sv);
 

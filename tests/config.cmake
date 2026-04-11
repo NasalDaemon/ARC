@@ -6,6 +6,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         string(APPEND CMAKE_CXX_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined ")
     endif()
     string(APPEND CMAKE_CXX_FLAGS " -Werror -Wall -Wextra -Wpedantic -ferror-limit=1 ")
+    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "4.3.0")
+        # Bug in CMake when compiling std
+        string(APPEND CMAKE_CXX_FLAGS "-Wno-reserved-module-identifier ")
+    endif()
     string(APPEND CMAKE_EXE_LINKER_FLAGS " -lc++abi ")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

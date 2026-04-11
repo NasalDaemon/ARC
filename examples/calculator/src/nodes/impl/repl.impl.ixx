@@ -26,6 +26,8 @@ REPL::run() -> int
         if (*line == "quit" || *line == "exit")
             break;
 
+        getHistory().addEntry(*line);
+
         // Try command dispatch
         if (getCommands().isCommand(*line))
         {
@@ -34,7 +36,6 @@ REPL::run() -> int
                 getOutput().writeLine(*result);
             else
                 getOutput().writeLine(getFormatter().formatError(result.error()));
-            getHistory().addEntry(*line);
             continue;
         }
 
@@ -43,15 +44,13 @@ REPL::run() -> int
         if (!tokens)
         {
             getOutput().writeLine(getFormatter().formatError(tokens.error().message));
-            getHistory().addEntry(*line);
             continue;
         }
 
-        auto expr = getParser().parse(*tokens);
+        auto expr = getParser().parse(*tokens, *line);
         if (!expr)
         {
             getOutput().writeLine(getFormatter().formatError(expr.error().message));
-            getHistory().addEntry(*line);
             continue;
         }
 
@@ -59,24 +58,26 @@ REPL::run() -> int
         if (!result)
         {
             getOutput().writeLine(getFormatter().formatError(result.error().message));
-            getHistory().addEntry(*line);
             continue;
         }
 
-        // Set ans and format output
-        getVariables().set(std::string{"ans"}, *result);
-
-        if (std::holds_alternative<AssignExpr>(**expr))
+        // Check for function definition first
+        if (std::holds_alternative<FuncDefExpr>(**expr))
+        {
+            auto const& funcDef = std::get<FuncDefExpr>(**expr);
+            getOutput().writeLine(getFormatter().formatFunctionDef(funcDef.name, funcDef.params));
+        }
+        else if (std::holds_alternative<AssignExpr>(**expr))
         {
             auto const& assign = std::get<AssignExpr>(**expr);
+            getVariables().set(std::string{"ans"}, *result);
             getOutput().writeLine(getFormatter().formatAssignment(assign.name, *result));
         }
         else
         {
+            getVariables().set(std::string{"ans"}, *result);
             getOutput().writeLine(getFormatter().formatResult(*result));
         }
-
-        getHistory().addEntry(*line);
     }
     return 0;
 }

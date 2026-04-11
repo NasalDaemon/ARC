@@ -1,8 +1,8 @@
 add_library(arc_example_calculator_modules OBJECT
+    src/types.cpp
     src/nodes/impl/tokeniser.cpp
     src/nodes/impl/parser.cpp
     src/nodes/impl/variables.cpp
-    src/nodes/impl/functions.cpp
     src/nodes/impl/formatter.cpp
     src/nodes/impl/history_store.cpp
     src/nodes/impl/batch_line_reader.cpp
@@ -18,6 +18,7 @@ target_sources(arc_example_calculator_modules
         src/nodes/parser.ixx
         src/nodes/variables.ixx
         src/nodes/functions.ixx
+        src/nodes/impl/functions.impl.ixx
         src/nodes/formatter.ixx
         src/nodes/evaluator.ixx
         src/nodes/impl/evaluator.impl.ixx
@@ -56,6 +57,7 @@ target_generate_arc_src(arc_example_calculator_modules
     NODES
         evaluator   examples.calculator.evaluator
         repl        examples.calculator.repl
+        functions   examples.calculator.functions
         commands    examples.calculator.command_handler
         persistence examples.calculator.file_persistence
 )
@@ -68,6 +70,7 @@ target_generate_arc_src(arc_example_calculator_modules
     NODES
         evaluator   examples.calculator.evaluator
         repl        examples.calculator.repl
+        functions   examples.calculator.functions
         lineReader  examples.calculator.terminal_line_reader
         commands    examples.calculator.command_handler
         persistence examples.calculator.file_persistence
@@ -96,6 +99,15 @@ if(ARC_BUILD_TESTS)
     target_link_libraries(arc_example_calculator_tests PUBLIC
         arc_example_calculator_modules
         arc::tests
+    )
+
+    target_generate_arc_src(arc_example_calculator_tests
+        GRAPH_MODULE
+            examples.calculator.functions
+        GRAPH_TYPE
+            "arc::test::Graph<examples::calculator::node::Functions>"
+        NODES
+            node examples.calculator.functions
     )
 
     target_generate_arc_src(arc_example_calculator_tests
@@ -133,6 +145,7 @@ if(ARC_BUILD_TESTS)
         NODES
             repl        examples.calculator.repl
             evaluator   examples.calculator.evaluator
+            functions   examples.calculator.functions
             commands    examples.calculator.command_handler
             persistence examples.calculator.file_persistence
     )

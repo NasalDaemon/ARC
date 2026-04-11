@@ -4,6 +4,7 @@
 #include "arc/detail/cast.hpp"
 #include "arc/macros.hpp"
 #include "arc/trait_view_fwd.hpp"
+#include "arc/test/mock_fwd.hpp"
 
 #if !ARC_IMPORT_STD
 #include <type_traits>
@@ -14,8 +15,8 @@ namespace arc {
 ARC_MODULE_EXPORT
 struct NoConstraints
 {
-    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void pre(auto const&, auto&, auto&&...) {}
-    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void post(auto const&, auto&, auto&&) {}
+    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void pre(auto const&, auto, auto&&...) {}
+    ARC_INLINE static ARC_IF_MSVC_ELSE(constexpr)(consteval) void post(auto const&, auto, auto&&) {}
 };
 
 ARC_MODULE_EXPORT
@@ -82,19 +83,17 @@ struct InvokeMethodR
         else
         {
             using T = decltype(arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...));
-            if constexpr (not std::is_convertible_v<T, R> and requires { ARC_DECLVAL(T).operator R(); })
-                return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...).operator R();
-            else
+            if constexpr (std::is_convertible_v<T, R>)
                 return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...);
+            else if constexpr (std::is_same_v<T, test::detail::MockReturn>)
+                return arc::invokeMethod<Constraints>(detail::asConst<Const>(node), method, ARC_FWD(args)...).operator R&&();
         }
     }
 };
 
 ARC_MODULE_EXPORT
 template<typename From, typename To>
-concept InvokeConvertibleTo = std::convertible_to<From, To> or requires {
-    ARC_DECLVAL(From).operator To();
-};
+concept InvokeConvertibleTo = std::convertible_to<From, To> or std::same_as<From, test::detail::MockReturn>;
 
 ARC_MODULE_EXPORT
 template<class T, class ReturnConstraint, class Types>

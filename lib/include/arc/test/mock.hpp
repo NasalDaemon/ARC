@@ -225,6 +225,7 @@ namespace detail {
         }
 
         template<class T>
+        requires (not std::is_same_v<MockReturn, T>) and std::is_copy_constructible_v<T>
         constexpr operator T() const &
         {
             if (std::any const* any = std::get_if<std::any>(&value))

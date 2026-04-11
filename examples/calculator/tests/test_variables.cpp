@@ -117,11 +117,11 @@ SCENARIO("Clearing all variables")
             {
                 CHECK_FALSE(vars.get("x"sv).has_value());
             }
-            AND_THEN("get(\"y\") returns nullopt")
+            THEN("get(\"y\") returns nullopt")
             {
                 CHECK_FALSE(vars.get("y"sv).has_value());
             }
-            AND_THEN("list() returns empty")
+            THEN("list() returns empty")
             {
                 CHECK(vars.list().empty());
             }
@@ -143,11 +143,72 @@ SCENARIO("Variables contract: get/set reject empty name")
                 CHECK_THROWS_AS(vars.get(""sv), arc::ContractViolation);
             }
         }
-        AND_WHEN("calling set with an empty name")
+        WHEN("calling set with an empty name")
         {
             THEN("triggers a contract violation")
             {
                 CHECK_THROWS_AS(vars.set(std::string{""}, 42.0), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+SCENARIO("Removing an existing variable")
+{
+    arc::test::Graph<node::Variables> graph;
+    auto vars = graph.node.asTrait(trait::variables);
+
+    GIVEN("a Variables node with x=5")
+    {
+        vars.set("x"s, 5);
+
+        WHEN("calling remove(\"x\")")
+        {
+            auto result = vars.remove("x"sv);
+
+            THEN("returns true")
+            {
+                CHECK(result == true);
+            }
+            THEN("get(\"x\") returns nullopt")
+            {
+                CHECK_FALSE(vars.get("x"sv).has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Removing a non-existent variable")
+{
+    arc::test::Graph<node::Variables> graph;
+    auto vars = graph.node.asTrait(trait::variables);
+
+    GIVEN("a Variables node with no variables set")
+    {
+        WHEN("calling remove(\"x\")")
+        {
+            auto result = vars.remove("x"sv);
+
+            THEN("returns false")
+            {
+                CHECK(result == false);
+            }
+        }
+    }
+}
+
+SCENARIO("Variables contract: remove rejects empty name")
+{
+    arc::test::Graph<node::Variables> graph;
+    auto vars = graph.node.asTrait(trait::variables);
+
+    GIVEN("a Variables node")
+    {
+        WHEN("calling remove with empty name")
+        {
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(vars.remove(""sv), arc::ContractViolation);
             }
         }
     }

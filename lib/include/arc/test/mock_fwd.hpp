@@ -5,6 +5,10 @@
 
 namespace arc::test {
 
+namespace detail {
+    struct MockReturn;
+}
+
 ARC_MODULE_EXPORT
 template<class DefaultTypes = EmptyTypes, class... MockedTraits>
 struct Mock;

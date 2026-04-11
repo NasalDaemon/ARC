@@ -17,4 +17,4 @@ auto BatchLineReader::setInputs(std::vector<std::string> inputs) -> void
     index_ = 0;
 }
 
-}
+} // namespace examples::calculator::node

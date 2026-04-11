@@ -28,12 +28,12 @@ SCENARIO("BatchLineReader returns configured inputs then EOF")
                 REQUIRE(result1.has_value());
                 CHECK(*result1 == "2 + 3");
             }
-            AND_THEN("second call returns \"x = 5\"")
+            THEN("second call returns \"x = 5\"")
             {
                 REQUIRE(result2.has_value());
                 CHECK(*result2 == "x = 5");
             }
-            AND_THEN("third call returns nullopt (EOF)")
+            THEN("third call returns nullopt (EOF)")
             {
                 CHECK_FALSE(result3.has_value());
             }

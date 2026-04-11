@@ -14,9 +14,7 @@ namespace examples::calculator::node {
 
 EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
 {
-    return std::visit([this](auto const& e) -> std::expected<double, EvalError> {
-        using T = std::decay_t<decltype(e)>;
-
+    return std::visit([this]<class T>(T const& e) -> std::expected<double, EvalError> {
         if constexpr (std::is_same_v<T, NumberExpr>)
         {
             return e.value;
@@ -75,7 +73,42 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
                 if (!argVal) return argVal;
                 args.push_back(*argVal);
             }
-            return getFunctions().call(e.name, args);
+
+            auto result = getFunctions().call(e.name, args);
+            if (result.has_value())
+                return result;
+
+            auto const* userFunc = getFunctions().getUserFunction(e.name, args.size());
+            if (!userFunc)
+                return result;
+
+            std::vector<std::optional<double>> savedVars;
+            savedVars.reserve(userFunc->params.size());
+            for (std::size_t i = 0; i < userFunc->params.size(); ++i)
+            {
+                savedVars.push_back(getVariables().get(userFunc->params[i]));
+                getVariables().set(userFunc->params[i], args[i]);
+            }
+
+            auto guard = arc::Defer(
+                [&] {
+                    for (std::size_t i = 0; i < userFunc->params.size(); ++i)
+                    {
+                        if (savedVars[i].has_value())
+                            getVariables().set(userFunc->params[i], *savedVars[i]);
+                        else
+                            getVariables().remove(userFunc->params[i]);
+                    }
+                });
+
+            return evaluate(*userFunc->body);
+        }
+        else if constexpr (std::is_same_v<T, FuncDefExpr>)
+        {
+            auto result = getFunctions().define(e.name, e.params, e.body->clone(), e.source);
+            if (!result.has_value())
+                return std::unexpected(result.error());
+            return 0.0;
         }
     }, static_cast<Expression::variant const&>(expr));
 }

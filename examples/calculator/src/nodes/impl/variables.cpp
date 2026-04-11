@@ -17,6 +17,11 @@ void Variables::set(std::string name, double value)
     vars_[std::move(name)] = value;
 }
 
+auto Variables::remove(std::string_view name) -> bool
+{
+    return vars_.erase(std::string(name)) > 0;
+}
+
 auto Variables::list() const -> std::vector<std::pair<std::string, double>>
 {
     return {vars_.begin(), vars_.end()};

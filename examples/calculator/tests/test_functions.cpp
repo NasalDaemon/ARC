@@ -9,6 +9,105 @@ import std;
 using namespace examples::calculator;
 using namespace std::string_view_literals;
 
+namespace {
+
+auto makeVar(std::string name) -> ExprPtr
+{
+    return std::make_unique<Expression>(VariableExpr{std::move(name)});
+}
+
+auto makeNum(double v) -> ExprPtr
+{
+    return std::make_unique<Expression>(NumberExpr{v});
+}
+
+template<typename... Args>
+auto makeCall(std::string name, Args&&... args) -> ExprPtr
+{
+    std::vector<ExprPtr> v;
+    (v.push_back(std::forward<Args>(args)), ...);
+    return std::make_unique<Expression>(CallExpr{std::move(name), std::move(v)});
+}
+
+auto makeBinary(BinaryOp op, ExprPtr left, ExprPtr right) -> ExprPtr
+{
+    return std::make_unique<Expression>(BinaryExpr{op, std::move(left), std::move(right)});
+}
+
+auto def(arc::IsTraitViewOf<Functions> auto functions,
+         std::string name, std::vector<std::string> params,
+         ExprPtr body, std::string source)
+{
+    return functions.define(std::move(name), std::move(params), std::move(body), std::move(source));
+}
+
+auto xPlus1() -> ExprPtr
+{
+    return makeBinary(BinaryOp::Add, makeVar("x"), makeNum(1.0));
+}
+
+auto xPlusY() -> ExprPtr
+{
+    return makeBinary(BinaryOp::Add, makeVar("x"), makeVar("y"));
+}
+
+auto xTimes10() -> ExprPtr
+{
+    return makeBinary(BinaryOp::Mul, makeVar("x"), makeNum(10.0));
+}
+
+auto xTimes3() -> ExprPtr
+{
+    return makeBinary(BinaryOp::Mul, makeVar("x"), makeNum(3.0));
+}
+
+auto fCall(ExprPtr arg) -> ExprPtr
+{
+    return makeCall("f", std::move(arg));
+}
+
+auto fCall2(ExprPtr arg1, ExprPtr arg2) -> ExprPtr
+{
+    return makeCall("f", std::move(arg1), std::move(arg2));
+}
+
+auto gCall(ExprPtr arg) -> ExprPtr
+{
+    return makeCall("g", std::move(arg));
+}
+
+auto fPlus2() -> ExprPtr
+{
+    return makeBinary(BinaryOp::Add, fCall(makeVar("x")), makeNum(2.0));
+}
+
+auto fMinus1() -> ExprPtr
+{
+    return makeBinary(BinaryOp::Sub, makeVar("x"), makeNum(1.0));
+}
+
+auto justX() -> ExprPtr
+{
+    return makeVar("x");
+}
+
+auto defineF(auto functions)
+{
+    return functions.define(std::string("f"), std::vector<std::string>{"x"}, xPlus1(), std::string("x + 1"));
+}
+
+auto defineF2(auto functions)
+{
+    return functions.define(std::string("f"), std::vector<std::string>{"x", "y"}, xPlusY(), std::string("x + y"));
+}
+
+auto defineGDependsOnF(auto functions)
+{
+    return functions.define(std::string("g"), std::vector<std::string>{"x"}, fPlus2(), std::string("f(x) + 2"));
+}
+
+} // namespace
+
 SCENARIO("Calling built-in unary functions")
 {
     arc::test::Graph<node::Functions> graph;
@@ -27,7 +126,7 @@ SCENARIO("Calling built-in unary functions")
                 CHECK(*result == 5.0);
             }
         }
-        AND_WHEN("calling \"sqrt\" with [16]")
+        WHEN("calling \"sqrt\" with [16]")
         {
             std::array args{16.0};
             auto result = functions.call("sqrt"sv, args);
@@ -38,7 +137,7 @@ SCENARIO("Calling built-in unary functions")
                 CHECK(*result == 4.0);
             }
         }
-        AND_WHEN("calling \"neg\" with [3]")
+        WHEN("calling \"neg\" with [3]")
         {
             std::array args{3.0};
             auto result = functions.call("neg"sv, args);
@@ -70,7 +169,7 @@ SCENARIO("Calling built-in binary functions")
                 CHECK(*result == 5.0);
             }
         }
-        AND_WHEN("calling \"max\" with [2, 3]")
+        WHEN("calling \"max\" with [2, 3]")
         {
             std::array args{2.0, 3.0};
             auto result = functions.call("max"sv, args);
@@ -81,7 +180,7 @@ SCENARIO("Calling built-in binary functions")
                 CHECK(*result == 3.0);
             }
         }
-        AND_WHEN("calling \"min\" with [2, 3]")
+        WHEN("calling \"min\" with [2, 3]")
         {
             std::array args{2.0, 3.0};
             auto result = functions.call("min"sv, args);
@@ -92,7 +191,7 @@ SCENARIO("Calling built-in binary functions")
                 CHECK(*result == 2.0);
             }
         }
-        AND_WHEN("calling \"pow\" with [2, 10]")
+        WHEN("calling \"pow\" with [2, 10]")
         {
             std::array args{2.0, 10.0};
             auto result = functions.call("pow"sv, args);
@@ -124,7 +223,7 @@ SCENARIO("Calling trig functions")
                 CHECK(*result == 0.0);
             }
         }
-        AND_WHEN("calling \"cos\" with [0]")
+        WHEN("calling \"cos\" with [0]")
         {
             std::array args{0.0};
             auto result = functions.call("cos"sv, args);
@@ -155,7 +254,7 @@ SCENARIO("Wrong argument count")
                 REQUIRE_FALSE(result.has_value());
             }
         }
-        AND_WHEN("calling \"add\" with [1]")
+        WHEN("calling \"add\" with [1]")
         {
             std::array args{1.0};
             auto result = functions.call("add"sv, args);
@@ -197,7 +296,7 @@ SCENARIO("Listing functions")
     {
         WHEN("listing functions")
         {
-            auto result = functions.list();
+            auto result = functions.listBuiltins();
 
             THEN("returns all built-in function names")
             {
@@ -236,6 +335,622 @@ SCENARIO("Functions contract: call rejects empty function name")
             THEN("triggers a contract violation")
             {
                 CHECK_THROWS_AS(functions.call(""sv, args), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+SCENARIO("Defining and retrieving user functions")
+{
+    GIVEN("a Functions node")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+
+        WHEN("defining function \"f\" with params [\"x\"] and a body expression")
+        {
+            auto body = xPlus1();
+            auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("x + 1"));
+
+            THEN("getUserFunction(\"f\", 1) returns non-null")
+            {
+                REQUIRE(result.has_value());
+                auto fn = functions.getUserFunction("f"sv, 1);
+                CHECK(fn != nullptr);
+            }
+            THEN("the returned UserFunction has params [\"x\"]")
+            {
+                auto fn = functions.getUserFunction("f"sv, 1);
+                REQUIRE(fn != nullptr);
+                CHECK(fn->params.size() == 1);
+                CHECK(fn->params[0] == "x");
+            }
+        }
+        WHEN("defining function \"g\" with params [\"x\", \"y\"]")
+        {
+            auto body = xPlusY();
+            auto result = functions.define(std::string("g"), std::vector<std::string>{"x", "y"}, std::move(body), std::string("x + y"));
+
+            THEN("getUserFunction(\"g\", 2) returns non-null with params [\"x\", \"y\"]")
+            {
+                REQUIRE(result.has_value());
+                auto fn = functions.getUserFunction("g"sv, 2);
+                REQUIRE(fn != nullptr);
+                CHECK(fn->params.size() == 2);
+                CHECK(fn->params[0] == "x");
+                CHECK(fn->params[1] == "y");
+            }
+        }
+    }
+}
+
+SCENARIO("getUserFunction returns nullptr for unknown functions")
+{
+    arc::test::Graph<node::Functions> graph;
+    auto functions = graph.node.asTrait(trait::functions);
+
+    GIVEN("a Functions node")
+    {
+        WHEN("querying getUserFunction(\"unknown\", 1)")
+        {
+            THEN("returns nullptr")
+            {
+                auto fn = functions.getUserFunction("unknown"sv, 1);
+                CHECK(fn == nullptr);
+            }
+        }
+    }
+}
+
+SCENARIO("getUserFunction returns nullptr for wrong arity")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" defined (arity 1)")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+
+        WHEN("querying getUserFunction(\"f\", 2)")
+        {
+            THEN("returns nullptr")
+            {
+                auto fn = functions.getUserFunction("f"sv, 2);
+                CHECK(fn == nullptr);
+            }
+        }
+    }
+}
+
+SCENARIO("Overloaded functions with same name but different arity coexist")
+{
+    GIVEN("a Functions node")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+
+        WHEN("defining \"f(x) = x + 1\" (arity 1) and \"f(x, y) = x + y\" (arity 2)")
+        {
+            auto result1 = defineF(functions);
+            auto result2 = defineF2(functions);
+
+            THEN("both define calls return success")
+            {
+                REQUIRE(result1.has_value());
+                REQUIRE(result2.has_value());
+            }
+            THEN("getUserFunction(\"f\", 1) returns params=[\"x\"]")
+            {
+                auto fn = functions.getUserFunction("f"sv, 1);
+                REQUIRE(fn != nullptr);
+                CHECK(fn->params.size() == 1);
+                CHECK(fn->params[0] == "x");
+            }
+            THEN("getUserFunction(\"f\", 2) returns params=[\"x\", \"y\"]")
+            {
+                auto fn = functions.getUserFunction("f"sv, 2);
+                REQUIRE(fn != nullptr);
+                CHECK(fn->params.size() == 2);
+                CHECK(fn->params[0] == "x");
+                CHECK(fn->params[1] == "y");
+            }
+        }
+    }
+}
+
+SCENARIO("Redefining a user function replaces only that arity")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" and \"f(x, y) = x + y\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineF2(functions);
+
+        WHEN("redefining \"f(x) = x * 10\" (arity 1 only)")
+        {
+            auto body = xTimes10();
+            auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("x * 10"));
+
+            THEN("define returns success")
+            {
+                REQUIRE(result.has_value());
+            }
+            THEN("getUserFunction(\"f\", 1) has updated body")
+            {
+                auto fn = functions.getUserFunction("f"sv, 1);
+                REQUIRE(fn != nullptr);
+                CHECK(fn->source == "x * 10");
+            }
+            THEN("getUserFunction(\"f\", 2) is unchanged")
+            {
+                auto fn = functions.getUserFunction("f"sv, 2);
+                REQUIRE(fn != nullptr);
+                CHECK(fn->source == "x + y");
+            }
+        }
+    }
+}
+
+SCENARIO("Defining a function with a builtin name and same arity is rejected")
+{
+    GIVEN("a Functions node")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+
+        WHEN("calling define with name=\"sqrt\", params=[\"x\"] (arity 1, same as builtin sqrt)")
+        {
+            auto body = justX();
+            auto result = functions.define(std::string("sqrt"), std::vector<std::string>{"x"}, std::move(body), std::string("x"));
+
+            THEN("returns EvalError (cannot shadow builtin)")
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message.find("cannot shadow builtin") != std::string::npos);
+            }
+        }
+        WHEN("calling define with name=\"sqrt\", params=[\"x\", \"y\"] (arity 2, different from builtin)")
+        {
+            auto body = xPlusY();
+            auto result = functions.define(std::string("sqrt"), std::vector<std::string>{"x", "y"}, std::move(body), std::string("x + y"));
+
+            THEN("returns success (no shadowing, different arity)")
+            {
+                REQUIRE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Defining a function referencing an undefined function is rejected")
+{
+    GIVEN("a Functions node")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+
+        WHEN("defining \"f(x) = g(x)\" where \"g\" with arity 1 is not a builtin or defined user function")
+        {
+            auto body = gCall(makeVar("x"));
+            auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("g(x)"));
+
+            THEN("returns EvalError (undefined function reference)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Referencing a function at wrong arity is rejected")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" defined (arity 1)")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+
+        WHEN("defining \"g(x, y) = f(x, y)\" (calling f with arity 2, which doesn't exist)")
+        {
+            auto body = fCall2(makeVar("x"), makeVar("y"));
+            auto result = functions.define(std::string("g"), std::vector<std::string>{"x", "y"}, std::move(body), std::string("f(x, y)"));
+
+            THEN("returns EvalError (undefined function reference for f/2)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Direct recursion is rejected")
+{
+    GIVEN("a Functions node")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+
+        WHEN("defining \"f(x) = f(x - 1)\" (f/1 calls f/1)")
+        {
+            auto body = fCall(fMinus1());
+            auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("f(x - 1)"));
+
+            THEN("returns EvalError (recursion not allowed)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Direct recursion does not apply across arities")
+{
+    GIVEN("a Functions node with \"f(x, y) = x + y\" defined (arity 2)")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF2(functions);
+
+        WHEN("defining \"f(x) = f(x, 1)\" (f/1 calls f/2 — different overload, not recursion)")
+        {
+            auto body = fCall2(makeVar("x"), makeNum(1.0));
+            auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("f(x, 1)"));
+
+            THEN("returns success")
+            {
+                REQUIRE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Indirect recursion via redefinition is rejected")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" and \"g(x) = f(x) + 2\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineGDependsOnF(functions);
+
+        WHEN("redefining \"f(x) = g(x)\" (creates cycle f/1 -> g/1 -> f/1)")
+        {
+            auto body = gCall(makeVar("x"));
+            auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("g(x)"));
+
+            THEN("returns EvalError (recursion not allowed)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Non-recursive references are allowed")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+
+        WHEN("defining \"g(x) = f(x) + 2\" (g depends on f, no cycle)")
+        {
+            auto body = fPlus2();
+            auto result = functions.define(std::string("g"), std::vector<std::string>{"x"}, std::move(body), std::string("f(x) + 2"));
+
+            THEN("returns success")
+            {
+                REQUIRE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Redefining a function updates dependency graph")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" and \"g(x) = f(x) + 2\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineGDependsOnF(functions);
+
+        WHEN("redefining \"g(x) = x * 3\" (g no longer depends on f)")
+        {
+            auto body = xTimes3();
+            auto result = functions.define(std::string("g"), std::vector<std::string>{"x"}, std::move(body), std::string("x * 3"));
+
+            THEN("define returns success")
+            {
+                REQUIRE(result.has_value());
+            }
+            THEN("f can now be removed since g no longer depends on it")
+            {
+                auto removeResult = functions.removeFunctions(std::vector<std::string>{"f"});
+                REQUIRE(removeResult.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Redefining an overloaded function with dependencies updates correctly")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x) + 2\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineF2(functions);
+        defineGDependsOnF(functions);
+
+        WHEN("calling removeFunctions([\"f\"])")
+        {
+            auto result = functions.removeFunctions(std::vector<std::string>{"f"});
+
+            THEN("returns EvalError (g/1 depends on f/1)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+        WHEN("redefining \"g(x) = x * 3\" then removing f")
+        {
+            auto body = xTimes3();
+            auto redefineResult = functions.define(std::string("g"), std::vector<std::string>{"x"}, std::move(body), std::string("x * 3"));
+            REQUIRE(redefineResult.has_value());
+
+            auto removeResult = functions.removeFunctions(std::vector<std::string>{"f"});
+
+            THEN("remove returns success (g no longer depends on f)")
+            {
+                REQUIRE(removeResult.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Removing user functions respects dependencies")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" and \"g(x) = f(x) + 2\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineGDependsOnF(functions);
+
+        WHEN("calling removeFunctions([\"f\"]) (g depends on f)")
+        {
+            auto result = functions.removeFunctions(std::vector<std::string>{"f"});
+
+            THEN("returns EvalError (g depends on f)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+        WHEN("calling removeFunctions([\"g\"]) (nothing depends on g)")
+        {
+            auto result = functions.removeFunctions(std::vector<std::string>{"g"});
+
+            THEN("returns success")
+            {
+                REQUIRE(result.has_value());
+            }
+            THEN("getUserFunction(\"g\", 1) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("g"sv, 1) == nullptr);
+            }
+        }
+        WHEN("calling removeFunctions([\"f\", \"g\"]) (remove both)")
+        {
+            auto result = functions.removeFunctions(std::vector<std::string>{"f", "g"});
+
+            THEN("returns success (all dependencies removed together)")
+            {
+                REQUIRE(result.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Undef removes all overloads and checks dependencies")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x) + 2\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineF2(functions);
+        defineGDependsOnF(functions);
+
+        WHEN("calling removeFunctions([\"f\"])")
+        {
+            auto result = functions.removeFunctions(std::vector<std::string>{"f"});
+
+            THEN("returns EvalError (g/1 depends on f/1)")
+            {
+                REQUIRE_FALSE(result.has_value());
+            }
+        }
+        WHEN("calling removeFunctions([\"f\", \"g\"])")
+        {
+            auto result = functions.removeFunctions(std::vector<std::string>{"f", "g"});
+
+            THEN("returns success (both f overloads and g removed)")
+            {
+                REQUIRE(result.has_value());
+            }
+            THEN("getUserFunction(\"f\", 1) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("f"sv, 1) == nullptr);
+            }
+            THEN("getUserFunction(\"f\", 2) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("f"sv, 2) == nullptr);
+            }
+            THEN("getUserFunction(\"g\", 1) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("g"sv, 1) == nullptr);
+            }
+        }
+    }
+}
+
+SCENARIO("Removing functions sequentially in dependency order")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\" and \"g(x) = f(x) + 2\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineGDependsOnF(functions);
+
+        WHEN("calling removeFunctions([\"g\"]) then removeFunctions([\"f\"])")
+        {
+            auto result1 = functions.removeFunctions(std::vector<std::string>{"g"});
+            REQUIRE(result1.has_value());
+
+            auto result2 = functions.removeFunctions(std::vector<std::string>{"f"});
+
+            THEN("both removals succeed")
+            {
+                REQUIRE(result2.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("clearUserFunctions removes all user functions including overloads")
+{
+    GIVEN("a Functions node with \"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x)\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineF2(functions);
+        functions.define(std::string("g"), std::vector<std::string>{"x"}, fCall(makeVar("x")), std::string("f(x)"));
+
+        WHEN("calling clearUserFunctions")
+        {
+            functions.clearUserFunctions();
+
+            THEN("getUserFunction(\"f\", 1) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("f"sv, 1) == nullptr);
+            }
+            THEN("getUserFunction(\"f\", 2) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("f"sv, 2) == nullptr);
+            }
+            THEN("getUserFunction(\"g\", 1) returns nullptr")
+            {
+                CHECK(functions.getUserFunction("g"sv, 1) == nullptr);
+            }
+            THEN("builtins still work (call(\"sqrt\", [4]) returns 2)")
+            {
+                std::array args{4.0};
+                auto result = functions.call("sqrt"sv, args);
+                REQUIRE(result.has_value());
+                CHECK(*result == 2.0);
+            }
+        }
+    }
+}
+
+SCENARIO("list includes user function names")
+{
+    GIVEN("a Functions node with user function \"f(x)\" and \"f(x,y)\" defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
+        defineF(functions);
+        defineF2(functions);
+
+        WHEN("calling listBuiltins()")
+        {
+            auto result = functions.listBuiltins();
+
+            THEN("result still contains builtin names like \"sqrt\" and \"abs\"")
+            {
+                CHECK(std::ranges::find(result, "sqrt") != result.end());
+                CHECK(std::ranges::find(result, "abs") != result.end());
+            }
+        }
+    }
+}
+
+SCENARIO("Functions contract: define rejects empty name")
+{
+    arc::test::Graph<node::Functions> graph;
+    auto functions = graph.node.asTrait(trait::functions);
+
+    GIVEN("a Functions node")
+    {
+        WHEN("calling define with empty name")
+        {
+            THEN("triggers a contract violation")
+            {
+                auto body = makeNum(1.0);
+                CHECK_THROWS_AS(functions.define(std::string(""), std::vector<std::string>{}, std::move(body), std::string("")), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+SCENARIO("Functions contract: getUserFunction rejects empty name")
+{
+    arc::test::Graph<node::Functions> graph;
+    auto functions = graph.node.asTrait(trait::functions);
+
+    GIVEN("a Functions node")
+    {
+        WHEN("calling getUserFunction with empty name")
+        {
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(functions.getUserFunction(""sv, 1), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+SCENARIO("Function definition with unknown variable reference is rejected")
+{
+    GIVEN("a Functions node")
+    {
+        arc::test::Graph<node::Functions> graph;
+        graph.mocks->setReturnDefault();
+        auto functions = graph.node.asTrait(trait::functions);
+
+        WHEN("defining \"f(x) = y + 1\" where y is not a parameter and not in Variables")
+        {
+            auto body = makeBinary(BinaryOp::Add, makeVar("y"), makeNum(1.0));
+            auto result = def(functions, "f", {"x"}, std::move(body), "y + 1");
+
+            THEN("returns EvalError (undefined variable in function body)")
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message.find("undefined variable") != std::string::npos);
+            }
+        }
+        WHEN("defining \"f(x) = x + 1\" where x is a parameter")
+        {
+            auto body = makeBinary(BinaryOp::Add, makeVar("x"), makeNum(1.0));
+            auto result = def(functions, "f", {"x"}, std::move(body), "x + 1");
+
+            THEN("succeeds (parameter is not an unknown variable)")
+            {
+                REQUIRE(result.has_value());
+            }
+        }
+        WHEN("defining \"f() = y\" where y exists in Variables")
+        {
+            graph.mocks->methodReturns<trait::Variables::get>(std::optional<double>{42.0});
+            auto body = makeVar("y");
+            auto result = def(functions, "f", {}, std::move(body), "y");
+
+            THEN("succeeds (variable exists in Variables)")
+            {
+                REQUIRE(result.has_value());
             }
         }
     }

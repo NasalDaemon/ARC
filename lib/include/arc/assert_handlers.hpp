@@ -15,15 +15,25 @@
 namespace arc {
 
 ARC_MODULE_EXPORT
-struct ContractAssertHandler
+struct AssertHandlerBase
+{
+    static constexpr bool enabled = true;
+};
+
+ARC_MODULE_EXPORT
+template<class T>
+concept IsAssertHandler = std::derived_from<T, AssertHandlerBase> and std::invocable<T const, bool, const char*>;
+
+ARC_MODULE_EXPORT
+struct ContractAssertHandler : AssertHandlerBase
 {
     #if __cpp_contracts >= 202502L
-    ARC_INLINE constexpr void operator()(auto const&, bool value, const char* message) const
+    ARC_INLINE constexpr void operator()(auto, bool value, const char* message) const
     {
         contract_assert(value);
     }
     #else
-    ARC_INLINE constexpr void operator()(auto const&, bool, const char*) const
+    ARC_INLINE constexpr void operator()(auto, bool, const char*) const
     {
         static_assert(false, "ContractAssertHandler: requires compiler support for C++20 contracts or later");
     }
@@ -31,16 +41,17 @@ struct ContractAssertHandler
 };
 
 ARC_MODULE_EXPORT
-struct IgnoreAssertHandler
+struct IgnoreAssertHandler : AssertHandlerBase
 {
-    ARC_INLINE constexpr void operator()(auto const&, bool, const char*) const
+    static constexpr bool enabled = false;
+    ARC_INLINE constexpr void operator()(auto, bool, const char*) const
     {}
 };
 
 ARC_MODULE_EXPORT
-struct AssumeAssertHandler
+struct AssumeAssertHandler : AssertHandlerBase
 {
-    ARC_INLINE constexpr void operator()(auto const&, bool value, const char*) const
+    ARC_INLINE constexpr void operator()(auto, bool value, const char*) const
     {
         if (not value)
             std::unreachable();
@@ -61,9 +72,9 @@ namespace detail {
     }
 
     template<bool Abort>
-    struct ThrowAssertHandler
+    struct ThrowAssertHandler : AssertHandlerBase
     {
-        ARC_INLINE constexpr void operator()(auto const&, bool value, const char* message) const
+        ARC_INLINE constexpr void operator()(auto, bool value, const char* message) const
         {
             if (not value) [[unlikely]]
                 handleViolation(message);

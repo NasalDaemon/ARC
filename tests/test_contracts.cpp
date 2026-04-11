@@ -155,7 +155,7 @@ namespace custom {
 // A stateful handler that records violations instead of throwing, allowing the
 // call to proceed normally after a contract failure. State is static so it can
 // live in a constexpr-constructed handler instance.
-struct RecordingHandler
+struct RecordingHandler : arc::AssertHandlerBase
 {
     static inline int         violationCount = 0;
     static inline const char* lastMessage    = nullptr;

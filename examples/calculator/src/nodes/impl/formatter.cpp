@@ -1,8 +1,25 @@
 module examples.calculator.formatter;
 
+import examples.calculator.types;
 import std;
 
 namespace examples::calculator::node {
+
+namespace {
+
+auto joinParams(std::span<std::string const> params) -> std::string
+{
+    std::string result;
+    for (std::size_t i = 0; i < params.size(); ++i)
+    {
+        if (i > 0)
+            result += ", ";
+        result += params[i];
+    }
+    return result;
+}
+
+}
 
 auto Formatter::formatResult(double value) const -> std::string
 {
@@ -42,21 +59,33 @@ auto Formatter::formatVariables(std::span<std::pair<std::string, double> const> 
     return result;
 }
 
-auto Formatter::formatFunctions(std::span<std::string const> names) const -> std::string
+auto Formatter::formatFunctions(std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const> userFuncs) const -> std::string
 {
-    if (names.empty())
-        return {};
-
     std::string result;
-    bool first = true;
-    for (auto const& name : names)
+    if (!builtins.empty())
     {
-        if (!first)
-            result += ", ";
-        result += name;
-        first = false;
+        result += "Built-in: ";
+        bool first = true;
+        for (auto const& name : builtins)
+        {
+            if (!first)
+                result += ", ";
+            first = false;
+            result += name;
+        }
+    }
+    for (auto const& [key, ufn] : userFuncs)
+    {
+        if (!result.empty())
+            result += '\n';
+        result += std::format("{}({}) = {}", key, joinParams(ufn->params), ufn->source);
     }
     return result;
+}
+
+auto Formatter::formatFunctionDef(std::string_view name, std::span<std::string const> params) const -> std::string
+{
+    return std::format("{}({}) defined", name, joinParams(params));
 }
 
 } // namespace examples::calculator::node

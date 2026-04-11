@@ -25,7 +25,7 @@ SCENARIO("Formatting results")
                 CHECK(result == "42");
             }
         }
-        AND_WHEN("formatting result 3.14")
+        WHEN("formatting result 3.14")
         {
             auto result = formatter.formatResult(3.14);
 
@@ -106,12 +106,15 @@ SCENARIO("Formatting function listing")
     {
         WHEN("formatting functions")
         {
-            std::vector<std::string> names{"abs", "add", "sqrt"};
-            auto result = formatter.formatFunctions(names);
+            std::vector<std::string> builtins{"abs", "add", "sqrt"};
+            std::vector<std::pair<std::string, UserFunction const*>> noUserFuncs;
+            auto result = formatter.formatFunctions(builtins, noUserFuncs);
 
             THEN("returns readable list")
             {
-                CHECK(result == "abs, add, sqrt");
+                CHECK(result.find("abs") != std::string::npos);
+                CHECK(result.find("add") != std::string::npos);
+                CHECK(result.find("sqrt") != std::string::npos);
             }
         }
     }
@@ -131,14 +134,14 @@ SCENARIO("Formatter contract: pre-contract violations")
                 CHECK_THROWS_AS(formatter.formatError(""sv), arc::ContractViolation);
             }
         }
-        AND_WHEN("calling formatAssignment with empty name")
+        WHEN("calling formatAssignment with empty name")
         {
             THEN("triggers a contract violation")
             {
                 CHECK_THROWS_AS(formatter.formatAssignment(""sv, 42.0), arc::ContractViolation);
             }
         }
-        AND_WHEN("calling formatVariables with empty span")
+        WHEN("calling formatVariables with empty span")
         {
             std::vector<std::pair<std::string, double>> empty;
 
@@ -147,13 +150,14 @@ SCENARIO("Formatter contract: pre-contract violations")
                 CHECK_THROWS_AS(formatter.formatVariables(empty), arc::ContractViolation);
             }
         }
-        AND_WHEN("calling formatFunctions with empty span")
+        WHEN("calling formatFunctions with empty builtins and empty userFuncs")
         {
-            std::vector<std::string> empty;
+            std::vector<std::string> emptyBuiltins;
+            std::vector<std::pair<std::string, UserFunction const*>> emptyUserFuncs;
 
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(formatter.formatFunctions(empty), arc::ContractViolation);
+                CHECK_THROWS_AS(formatter.formatFunctions(emptyBuiltins, emptyUserFuncs), arc::ContractViolation);
             }
         }
     }
@@ -167,7 +171,8 @@ struct BuggyFormatter : arc::NodeImpl<trait::Formatter>
     std::string formatError(std::string_view) const { return "err"; }
     std::string formatAssignment(std::string_view name, double) const { return std::string(name); }
     std::string formatVariables(std::span<std::pair<std::string, double> const>) const { return "vars"; }
-    std::string formatFunctions(std::span<std::string const>) const { return "fns"; }
+    std::string formatFunctions(std::span<std::string const>, std::span<std::pair<std::string, UserFunction const*> const>) const { return "fns"; }
+    std::string formatFunctionDef(std::string_view name, std::span<std::string const>) const { return std::string(name); }
 };
 
 } // namespace
@@ -184,6 +189,55 @@ SCENARIO("Formatter contract: formatResult post-contract fires when result is em
             THEN("triggers a post-contract violation")
             {
                 CHECK_THROWS_AS(formatter.formatResult(42.0), arc::ContractViolation);
+            }
+        }
+    }
+}
+
+SCENARIO("Formatting a function definition confirmation")
+{
+    arc::test::Graph<node::Formatter> graph;
+    auto formatter = graph.node.asTrait(trait::formatter);
+
+    GIVEN("a Formatter node")
+    {
+        WHEN("formatting function def with name=\"f\", params=[\"x\"]")
+        {
+            std::vector<std::string> params{"x"};
+            auto result = formatter.formatFunctionDef("f"sv, params);
+
+            THEN("returns formatted definition string")
+            {
+                CHECK(result == "f(x) defined");
+            }
+        }
+        WHEN("formatting with name=\"g\", params=[\"x\", \"y\"]")
+        {
+            std::vector<std::string> params{"x", "y"};
+            auto result = formatter.formatFunctionDef("g"sv, params);
+
+            THEN("returns formatted definition string")
+            {
+                CHECK(result == "g(x, y) defined");
+            }
+        }
+    }
+}
+
+SCENARIO("Formatter contract: formatFunctionDef rejects empty name")
+{
+    arc::test::Graph<node::Formatter> graph;
+    auto formatter = graph.node.asTrait(trait::formatter);
+
+    GIVEN("a Formatter node")
+    {
+        WHEN("calling formatFunctionDef with empty name")
+        {
+            std::vector<std::string> params{"x"};
+
+            THEN("triggers a contract violation")
+            {
+                CHECK_THROWS_AS(formatter.formatFunctionDef(""sv, params), arc::ContractViolation);
             }
         }
     }

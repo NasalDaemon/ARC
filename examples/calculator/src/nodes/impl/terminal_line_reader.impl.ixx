@@ -35,7 +35,7 @@ TERMINAL_LINE_READER::readLine(std::string_view prompt) -> std::optional<std::st
     };
 
     // Get history entries for up/down navigation
-    auto history = this->getHistory().entries();
+    auto history = getHistory().entries();
 
     std::string line;
     std::size_t historyIndex = history.size(); // past-the-end = current (unsaved) line

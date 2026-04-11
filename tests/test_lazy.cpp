@@ -43,7 +43,7 @@ TEST_CASE("std::variant element offset")
 TEST_CASE("arc::Lazy")
 {
     arc::test::Graph<arc::Lazy<Node>> g{.node{33}};
-    g.mocks->define([](Trait::get) { return 10; });
+    g.mocks->methodReturns<Trait::get>(10);
     auto g2 = std::move(g);
     auto g3 = g2;
 
