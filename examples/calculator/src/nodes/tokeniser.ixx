@@ -1,4 +1,4 @@
-export module examples.calculator.tokeniser;
+export module examples.calculator.node.tokeniser;
 
 import examples.calculator.types;
 import examples.calculator.traits;

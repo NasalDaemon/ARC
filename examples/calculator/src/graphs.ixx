@@ -1,9 +1,9 @@
 export module examples.calculator.graphs;
 
 import examples.calculator.clusters;
-import examples.calculator.terminal_line_reader;
-import examples.calculator.batch_line_reader;
-import examples.calculator.console_output;
+import examples.calculator.node.terminal_line_reader;
+import examples.calculator.node.batch_line_reader;
+import examples.calculator.node.console_output;
 import arc;
 
 namespace examples::calculator::graph {

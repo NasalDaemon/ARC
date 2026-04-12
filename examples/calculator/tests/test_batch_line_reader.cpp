@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.batch_line_reader;
+import examples.calculator.node.batch_line_reader;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -10,11 +10,10 @@ using namespace examples::calculator;
 
 SCENARIO("BatchLineReader returns configured inputs then EOF")
 {
-    arc::test::Graph<node::BatchLineReader> graph;
-    auto reader = graph.asTrait(trait::lineReader);
-
     GIVEN("a BatchLineReader with inputs [\"2 + 3\", \"x = 5\"]")
     {
+        arc::test::Graph<node::BatchLineReader> graph;
+        auto reader = graph.asTrait(trait::lineReader);
         graph.node->setInputs({"2 + 3", "x = 5"});
 
         WHEN("reading all inputs in sequence")
@@ -43,11 +42,10 @@ SCENARIO("BatchLineReader returns configured inputs then EOF")
 
 SCENARIO("BatchLineReader with no inputs")
 {
-    arc::test::Graph<node::BatchLineReader> graph;
-    auto reader = graph.asTrait(trait::lineReader);
-
     GIVEN("a BatchLineReader with empty inputs")
     {
+        arc::test::Graph<node::BatchLineReader> graph;
+        auto reader = graph.asTrait(trait::lineReader);
         graph.node->setInputs({});
 
         WHEN("calling readLine(\">\")")

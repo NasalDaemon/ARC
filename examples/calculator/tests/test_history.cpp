@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.history_store;
+import examples.calculator.node.history_store;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -10,11 +10,10 @@ using namespace examples::calculator;
 
 SCENARIO("Adding and retrieving history entries")
 {
-    arc::test::Graph<node::HistoryStore> graph;
-    auto history = graph.asTrait(trait::history);
-
     GIVEN("an empty HistoryStore node")
     {
+        arc::test::Graph<node::HistoryStore> graph;
+        auto history = graph.asTrait(trait::history);
         WHEN("addEntry(\"2 + 3\")")
         {
             history.addEntry("2 + 3");
@@ -43,11 +42,10 @@ SCENARIO("Adding and retrieving history entries")
 
 SCENARIO("Empty history")
 {
-    arc::test::Graph<node::HistoryStore> graph;
-    auto history = graph.asTrait(trait::history);
-
     GIVEN("an empty HistoryStore node")
     {
+        arc::test::Graph<node::HistoryStore> graph;
+        auto history = graph.asTrait(trait::history);
         WHEN("calling entries()")
         {
             auto result = history.entries();

@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.command_handler;
+import examples.calculator.node.command_handler;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -10,12 +10,10 @@ using namespace examples::calculator;
 
 SCENARIO("help command")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
         WHEN("executing \"help\"")
         {
             auto result = commands.execute("help");
@@ -41,18 +39,17 @@ SCENARIO("help command")
 
 SCENARIO("vars command")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler with mock Variables returning [x=5, y=10]")
     {
-        graph.mocks->methodReturns<trait::Variables::list>(
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
+        graph.mocks->methodReturns<Variables::list>(
             std::vector<std::pair<std::string, double>>{
                 {"x", 5.0}, {"y", 10.0}
             });
         graph.mocks->define(
-            [](trait::Formatter::formatVariables, std::span<std::pair<std::string, double> const> vars) -> std::string
+            [](Formatter::formatVariables, std::span<std::pair<std::string, double> const> vars) -> std::string
             {
                 std::string out;
                 for (auto const& [name, value] : vars)
@@ -77,18 +74,17 @@ SCENARIO("vars command")
 
 SCENARIO("fns command")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler with mock Functions returning [\"abs\", \"sqrt\"] and no user functions")
     {
-        graph.mocks->methodReturns<trait::Functions::listBuiltins>(
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
+        graph.mocks->methodReturns<Functions::listBuiltins>(
             std::vector<std::string>{"abs", "sqrt"});
-        graph.mocks->methodReturns<trait::Functions::listUserFunctions>(
+        graph.mocks->methodReturns<Functions::listUserFunctions>(
             std::vector<std::pair<std::string, UserFunction const*>>{});
         graph.mocks->define(
-            [](trait::Formatter::formatFunctions, std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const>) -> std::string
+            [](Formatter::formatFunctions, std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const>) -> std::string
             {
                 std::string out;
                 for (auto const& name : builtins)
@@ -113,13 +109,12 @@ SCENARIO("fns command")
 
 SCENARIO("history command")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler with mock History returning [\"2 + 3\", \"x = 5\"]")
     {
-        graph.mocks->methodReturns<trait::History::entries>(
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
+        graph.mocks->methodReturns<History::entries>(
             std::vector<std::string>{"2 + 3", "x = 5"});
 
         WHEN("executing \"history\"")
@@ -140,20 +135,19 @@ SCENARIO("history command")
 
 SCENARIO("clear command")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    graph.mocks->enableCallCounting();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->enableCallCounting();
+        auto commands = graph.asTrait(trait::commands);
         WHEN("executing \"clear\"")
         {
             auto result = commands.execute("clear");
 
             THEN("mock Variables::clear() was called")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::clear>() == 1);
+                CHECK(graph.mocks->methodCallCount<Variables::clear>() == 1);
             }
             THEN("returns confirmation message")
             {
@@ -165,15 +159,14 @@ SCENARIO("clear command")
 
 SCENARIO("save command with path")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
         std::string capturedPath;
         graph.mocks->define(
-            [&capturedPath](trait::Persistence::save, std::string_view path) -> std::expected<void, std::string>
+            [&capturedPath](Persistence::save, std::string_view path) -> std::expected<void, std::string>
             {
                 capturedPath = std::string(path);
                 return {};
@@ -198,15 +191,14 @@ SCENARIO("save command with path")
 
 SCENARIO("save command without path")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
         std::string capturedPath;
         graph.mocks->define(
-            [&capturedPath](trait::Persistence::save, std::string_view path) -> std::expected<void, std::string>
+            [&capturedPath](Persistence::save, std::string_view path) -> std::expected<void, std::string>
             {
                 capturedPath = std::string(path);
                 return {};
@@ -231,13 +223,12 @@ SCENARIO("save command without path")
 
 SCENARIO("save command when persistence fails")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler with mock Persistence::save returning error")
     {
-        graph.mocks->methodReturns<trait::Persistence::save>(
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
+        graph.mocks->methodReturns<Persistence::save>(
             std::expected<void, std::string>{std::unexpect, "Disk full"});
 
         WHEN("executing \"save\"")
@@ -254,15 +245,14 @@ SCENARIO("save command when persistence fails")
 
 SCENARIO("load command")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler with mock Persistence::load succeeding")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
         std::string capturedPath;
         graph.mocks->define(
-            [&capturedPath](trait::Persistence::load, std::string_view path) -> std::expected<void, std::string>
+            [&capturedPath](Persistence::load, std::string_view path) -> std::expected<void, std::string>
             {
                 capturedPath = std::string(path);
                 return {};
@@ -287,13 +277,12 @@ SCENARIO("load command")
 
 SCENARIO("load command when persistence fails")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler with mock Persistence::load returning error")
     {
-        graph.mocks->methodReturns<trait::Persistence::load>(
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
+
+        graph.mocks->methodReturns<Persistence::load>(
             std::expected<void, std::string>{std::unexpect, "File not found"});
 
         WHEN("executing \"load\"")
@@ -310,13 +299,12 @@ SCENARIO("load command when persistence fails")
 
 SCENARIO("isCommand recognises known commands")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->methodReturns<trait::Functions::listBuiltins>(
-        std::vector<std::string>{"abs", "sqrt", "sin"});
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->methodReturns<Functions::listBuiltins>(
+            std::vector<std::string>{"abs", "sqrt", "sin"});
+        auto commands = graph.asTrait(trait::commands);
         WHEN("checking \"help\"")
         {
             auto result = commands.isCommand("help");
@@ -358,13 +346,12 @@ SCENARIO("isCommand recognises known commands")
 
 SCENARIO("isCommand rejects non-commands")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->methodReturns<trait::Functions::listBuiltins>(
-        std::vector<std::string>{"abs", "sqrt", "sin"});
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->methodReturns<Functions::listBuiltins>(
+            std::vector<std::string>{"abs", "sqrt", "sin"});
+        auto commands = graph.asTrait(trait::commands);
         WHEN("checking \"2 + 3\"")
         {
             auto result = commands.isCommand("2 + 3");
@@ -388,13 +375,12 @@ SCENARIO("isCommand rejects non-commands")
 
 SCENARIO("Commands contract: execute requires isCommand")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->methodReturns<trait::Functions::listBuiltins>(
-        std::vector<std::string>{});
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->methodReturns<Functions::listBuiltins>(
+            std::vector<std::string>{});
+        auto commands = graph.asTrait(trait::commands);
         WHEN("calling execute(\"2 + 3\") which is not a command")
         {
             THEN("triggers a contract violation")
@@ -407,24 +393,23 @@ SCENARIO("Commands contract: execute requires isCommand")
 
 SCENARIO("Clear command clears user functions")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    graph.mocks->enableCallCounting();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node with mocked Functions")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->enableCallCounting();
+        auto commands = graph.asTrait(trait::commands);
         WHEN("executing \"clear\"")
         {
             auto result = commands.execute("clear");
 
             THEN("Functions.clearUserFunctions is called")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Functions::clearUserFunctions>() > 0);
+                CHECK(graph.mocks->methodCallCount<Functions::clearUserFunctions>() > 0);
             }
             THEN("Variables.clear is called")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::clear>() > 0);
+                CHECK(graph.mocks->methodCallCount<Variables::clear>() > 0);
             }
         }
     }
@@ -432,16 +417,15 @@ SCENARIO("Clear command clears user functions")
 
 SCENARIO("Undef command removes user functions")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    graph.mocks->enableCallCounting();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node with mocked Functions")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->enableCallCounting();
+        auto commands = graph.asTrait(trait::commands);
+
         std::vector<std::string> capturedNames;
         graph.mocks->define(
-            [&capturedNames](trait::Functions::removeFunctions, std::span<std::string const> names) -> std::expected<void, EvalError>
+            [&capturedNames](Functions::removeFunctions, std::span<std::string const> names) -> std::expected<void, EvalError>
             {
                 capturedNames.assign(names.begin(), names.end());
                 return {};
@@ -464,16 +448,15 @@ SCENARIO("Undef command removes user functions")
 
 SCENARIO("Undef command removes multiple functions")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    graph.mocks->enableCallCounting();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node with mocked Functions")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        graph.mocks->enableCallCounting();
+        auto commands = graph.asTrait(trait::commands);
+
         std::vector<std::string> capturedNames;
         graph.mocks->define(
-            [&capturedNames](trait::Functions::removeFunctions, std::span<std::string const> names) -> std::expected<void, EvalError>
+            [&capturedNames](Functions::removeFunctions, std::span<std::string const> names) -> std::expected<void, EvalError>
             {
                 capturedNames.assign(names.begin(), names.end());
                 return {};
@@ -497,12 +480,10 @@ SCENARIO("Undef command removes multiple functions")
 
 SCENARIO("Help command mentions function definitions")
 {
-    arc::test::Graph<node::CommandHandler> graph;
-    graph.mocks->setReturnDefault();
-    auto commands = graph.asTrait(trait::commands);
-
     GIVEN("a CommandHandler node")
     {
+        arc::test::Graph<node::CommandHandler> graph;
+        auto commands = graph.asTrait(trait::commands);
         WHEN("executing \"help\"")
         {
             auto result = commands.execute("help");
@@ -511,12 +492,12 @@ SCENARIO("Help command mentions function definitions")
             {
                 CHECK(result.has_value());
                 auto output = *result;
-                CHECK(output.find("undef") != std::string::npos);
+                CHECK(output.contains("undef"));
             }
             THEN("output mentions user-defined functions")
             {
                 auto output = *result;
-                CHECK(output.find("user-defined function") != std::string::npos);
+                CHECK(output.contains("user-defined function"));
             }
         }
     }

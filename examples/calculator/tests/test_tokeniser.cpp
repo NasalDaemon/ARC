@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.tokeniser;
+import examples.calculator.node.tokeniser;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -11,11 +11,10 @@ using namespace std::string_view_literals;
 
 SCENARIO("Tokenising numeric literals")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"42\"")
         {
             auto result = tokeniser.tokenise("42"sv);
@@ -63,11 +62,10 @@ SCENARIO("Tokenising numeric literals")
 
 SCENARIO("Tokenising operators")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"+-*/^\"")
         {
             auto result = tokeniser.tokenise("+-*/^"sv);
@@ -89,11 +87,10 @@ SCENARIO("Tokenising operators")
 
 SCENARIO("Tokenising parentheses and comma")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"(a, b)\"")
         {
             auto result = tokeniser.tokenise("(a, b)"sv);
@@ -117,11 +114,10 @@ SCENARIO("Tokenising parentheses and comma")
 
 SCENARIO("Tokenising identifiers")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"x\"")
         {
             auto result = tokeniser.tokenise("x"sv);
@@ -153,11 +149,10 @@ SCENARIO("Tokenising identifiers")
 
 SCENARIO("Tokenising assignment")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"x = 5\"")
         {
             auto result = tokeniser.tokenise("x = 5"sv);
@@ -179,11 +174,10 @@ SCENARIO("Tokenising assignment")
 
 SCENARIO("Tokenising complex expressions")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"2 + 3 * (4 - 1)\"")
         {
             auto result = tokeniser.tokenise("2 + 3 * (4 - 1)"sv);
@@ -214,11 +208,10 @@ SCENARIO("Tokenising complex expressions")
 
 SCENARIO("Tokenising errors")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("tokenising \"&\"")
         {
             auto result = tokeniser.tokenise("&"sv);
@@ -234,11 +227,10 @@ SCENARIO("Tokenising errors")
 
 SCENARIO("Tokeniser contract: tokenise rejects empty input")
 {
-    arc::test::Graph<node::Tokeniser> graph;
-    auto tokeniser = graph.node.asTrait(trait::tokeniser);
-
     GIVEN("a Tokeniser node")
     {
+        arc::test::Graph<node::Tokeniser> graph;
+        auto tokeniser = graph.node.asTrait(trait::tokeniser);
         WHEN("calling tokenise with an empty string")
         {
             THEN("triggers a contract violation")

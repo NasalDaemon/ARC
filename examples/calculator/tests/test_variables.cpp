@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.variables;
+import examples.calculator.node.variables;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -12,11 +12,10 @@ using namespace std::string_view_literals;
 
 SCENARIO("Variable storage and retrieval")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         WHEN("setting \"x\" to 42")
         {
             vars.set("x"s, 42);
@@ -33,11 +32,10 @@ SCENARIO("Variable storage and retrieval")
 
 SCENARIO("Undefined variable")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         WHEN("getting \"undefined_var\"")
         {
             auto result = vars.get("undefined_var"sv);
@@ -52,11 +50,10 @@ SCENARIO("Undefined variable")
 
 SCENARIO("Variable overwrite")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node with \"x\" = 1")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         vars.set("x"s, 1);
 
         WHEN("setting \"x\" to 2")
@@ -75,11 +72,10 @@ SCENARIO("Variable overwrite")
 
 SCENARIO("Listing variables")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node with \"x\" = 1 and \"y\" = 2")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         vars.set("x"s, 1);
         vars.set("y"s, 2);
 
@@ -101,11 +97,10 @@ SCENARIO("Listing variables")
 
 SCENARIO("Clearing all variables")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node with x=1 and y=2")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         vars.set("x"s, 1);
         vars.set("y"s, 2);
 
@@ -131,11 +126,10 @@ SCENARIO("Clearing all variables")
 
 SCENARIO("Variables contract: get/set reject empty name")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         WHEN("calling get with an empty name")
         {
             THEN("triggers a contract violation")
@@ -155,11 +149,10 @@ SCENARIO("Variables contract: get/set reject empty name")
 
 SCENARIO("Removing an existing variable")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node with x=5")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         vars.set("x"s, 5);
 
         WHEN("calling remove(\"x\")")
@@ -180,11 +173,10 @@ SCENARIO("Removing an existing variable")
 
 SCENARIO("Removing a non-existent variable")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node with no variables set")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         WHEN("calling remove(\"x\")")
         {
             auto result = vars.remove("x"sv);
@@ -199,11 +191,10 @@ SCENARIO("Removing a non-existent variable")
 
 SCENARIO("Variables contract: remove rejects empty name")
 {
-    arc::test::Graph<node::Variables> graph;
-    auto vars = graph.node.asTrait(trait::variables);
-
     GIVEN("a Variables node")
     {
+        arc::test::Graph<node::Variables> graph;
+        auto vars = graph.node.asTrait(trait::variables);
         WHEN("calling remove with empty name")
         {
             THEN("triggers a contract violation")

@@ -1,4 +1,4 @@
-module examples.calculator.batch_line_reader;
+module examples.calculator.node.batch_line_reader;
 
 import std;
 

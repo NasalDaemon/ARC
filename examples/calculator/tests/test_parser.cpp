@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.parser;
+import examples.calculator.node.parser;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -10,11 +10,10 @@ using namespace examples::calculator;
 
 SCENARIO("Parsing numeric literals")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing tokens for \"42\"")
         {
             std::vector<Token> tokens{
@@ -36,11 +35,10 @@ SCENARIO("Parsing numeric literals")
 
 SCENARIO("Parsing variable references")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing tokens for \"x\"")
         {
             std::vector<Token> tokens{
@@ -62,11 +60,10 @@ SCENARIO("Parsing variable references")
 
 SCENARIO("Parsing binary operations with BIDMAS precedence")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing \"2 + 3 * 4\"")
         {
             std::vector<Token> tokens{
@@ -176,11 +173,10 @@ SCENARIO("Parsing binary operations with BIDMAS precedence")
 
 SCENARIO("Parsing parenthesised expressions")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing \"(2 + 3) * 4\"")
         {
             std::vector<Token> tokens{
@@ -223,11 +219,10 @@ SCENARIO("Parsing parenthesised expressions")
 
 SCENARIO("Parsing unary negation")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing \"-5\"")
         {
             std::vector<Token> tokens{
@@ -283,11 +278,10 @@ SCENARIO("Parsing unary negation")
 
 SCENARIO("Parsing assignment")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing \"x = 5\"")
         {
             std::vector<Token> tokens{
@@ -343,11 +337,10 @@ SCENARIO("Parsing assignment")
 
 SCENARIO("Parsing function calls")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing \"sqrt(4)\"")
         {
             std::vector<Token> tokens{
@@ -404,11 +397,10 @@ SCENARIO("Parsing function calls")
 
 SCENARIO("Parsing errors")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("parsing \"2 +\"")
         {
             std::vector<Token> tokens{
@@ -444,11 +436,10 @@ SCENARIO("Parsing errors")
 
 SCENARIO("Parser contract: parse rejects empty token span")
 {
-    arc::test::Graph<node::Parser> graph;
-    auto parser = graph.node.asTrait(trait::parser);
-
     GIVEN("a Parser node")
     {
+        arc::test::Graph<node::Parser> graph;
+        auto parser = graph.node.asTrait(trait::parser);
         WHEN("calling parse with an empty token list")
         {
             std::vector<Token> empty;

@@ -55,11 +55,11 @@ target_generate_arc_src(arc_example_calculator_modules
     GRAPH_TYPE
         "examples::calculator::graph::Batch"
     NODES
-        evaluator   examples.calculator.evaluator
-        repl        examples.calculator.repl
-        functions   examples.calculator.functions
-        commands    examples.calculator.command_handler
-        persistence examples.calculator.file_persistence
+        evaluator   examples.calculator.node.evaluator
+        repl        examples.calculator.node.repl
+        functions   examples.calculator.node.functions
+        commands    examples.calculator.node.command_handler
+        persistence examples.calculator.node.file_persistence
 )
 
 target_generate_arc_src(arc_example_calculator_modules
@@ -68,12 +68,12 @@ target_generate_arc_src(arc_example_calculator_modules
     GRAPH_TYPE
         "examples::calculator::graph::Interactive"
     NODES
-        evaluator   examples.calculator.evaluator
-        repl        examples.calculator.repl
-        functions   examples.calculator.functions
-        lineReader  examples.calculator.terminal_line_reader
-        commands    examples.calculator.command_handler
-        persistence examples.calculator.file_persistence
+        evaluator   examples.calculator.node.evaluator
+        repl        examples.calculator.node.repl
+        functions   examples.calculator.node.functions
+        lineReader  examples.calculator.node.terminal_line_reader
+        commands    examples.calculator.node.command_handler
+        persistence examples.calculator.node.file_persistence
 )
 
 if(ARC_BUILD_TESTS)
@@ -89,6 +89,7 @@ if(ARC_BUILD_TESTS)
         tests/test_persistence.cpp
         tests/test_commands.cpp
         tests/test_cluster.cpp
+        tests/test_repl.cpp
     )
 
     target_sources(arc_example_calculator_tests
@@ -103,38 +104,38 @@ if(ARC_BUILD_TESTS)
 
     target_generate_arc_src(arc_example_calculator_tests
         GRAPH_MODULE
-            examples.calculator.functions
+            examples.calculator.node.functions
         GRAPH_TYPE
             "arc::test::Graph<examples::calculator::node::Functions>"
         NODES
-            node examples.calculator.functions
+            node examples.calculator.node.functions
     )
 
     target_generate_arc_src(arc_example_calculator_tests
         GRAPH_MODULE
-            examples.calculator.evaluator
+            examples.calculator.node.evaluator
         GRAPH_TYPE
             "arc::test::Graph<examples::calculator::node::Evaluator>"
         NODES
-            node examples.calculator.evaluator
+            node examples.calculator.node.evaluator
     )
 
     target_generate_arc_src(arc_example_calculator_tests
         GRAPH_MODULE
-            examples.calculator.file_persistence
+            examples.calculator.node.file_persistence
         GRAPH_TYPE
             "arc::test::Graph<examples::calculator::node::FilePersistence>"
         NODES
-            node examples.calculator.file_persistence
+            node examples.calculator.node.file_persistence
     )
 
     target_generate_arc_src(arc_example_calculator_tests
         GRAPH_MODULE
-            examples.calculator.command_handler
+            examples.calculator.node.command_handler
         GRAPH_TYPE
             "arc::test::Graph<examples::calculator::node::CommandHandler>"
         NODES
-            node examples.calculator.command_handler
+            node examples.calculator.node.command_handler
     )
 
     target_generate_arc_src(arc_example_calculator_tests
@@ -143,11 +144,20 @@ if(ARC_BUILD_TESTS)
         GRAPH_TYPE
             "examples::calculator::tests::IntegrationGraph"
         NODES
-            repl        examples.calculator.repl
-            evaluator   examples.calculator.evaluator
-            functions   examples.calculator.functions
-            commands    examples.calculator.command_handler
-            persistence examples.calculator.file_persistence
+            repl        examples.calculator.node.repl
+            evaluator   examples.calculator.node.evaluator
+            functions   examples.calculator.node.functions
+            commands    examples.calculator.node.command_handler
+            persistence examples.calculator.node.file_persistence
+    )
+
+    target_generate_arc_src(arc_example_calculator_tests
+        GRAPH_MODULE
+            examples.calculator.node.repl
+        GRAPH_TYPE
+            "arc::test::Graph<examples::calculator::node::Repl>"
+        NODES
+            node examples.calculator.node.repl
     )
 
     add_test(arc_example_calculator_tests arc_example_calculator_tests)

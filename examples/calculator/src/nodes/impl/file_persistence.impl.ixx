@@ -1,6 +1,6 @@
-module examples.calculator.file_persistence:impl;
+module examples.calculator.node.file_persistence:impl;
 
-import examples.calculator.file_persistence;
+import examples.calculator.node.file_persistence;
 import examples.calculator.types;
 import examples.calculator.traits;
 import std;

@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.file_persistence;
+import examples.calculator.node.file_persistence;
 import examples.calculator.tests.graphs;
 import examples.calculator.types;
 import examples.calculator.traits;
@@ -40,19 +40,19 @@ struct TempDir
 
 SCENARIO("Saving variables to file")
 {
-    TempDir tmp{"calc_test_save"};
-    arc::test::Graph<node::FilePersistence> graph;
-    graph.mocks->setReturnDefault();
-    auto persistence = graph.asTrait(trait::persistence);
-
     GIVEN("a FilePersistence node with mock Variables returning [x=5, y=10]")
     {
-        graph.mocks->methodReturns<trait::Variables::list>(
+        TempDir tmp{"calc_test_save"};
+        arc::test::Graph<node::FilePersistence> graph;
+        graph.mocks->setReturnDefault();
+        auto persistence = graph.asTrait(trait::persistence);
+
+        graph.mocks->methodReturns<Variables::list>(
             std::vector<std::pair<std::string, double>>{
                 {"x", 5.0}, {"y", 10.0}
             });
 
-        graph.mocks->methodReturns<trait::Functions::listUserFunctions>(
+        graph.mocks->methodReturns<Functions::listUserFunctions>(
             std::vector<std::pair<std::string, UserFunction const*>>{});
 
         WHEN("saving to a temp file")
@@ -69,8 +69,8 @@ SCENARIO("Saving variables to file")
                 std::ifstream file(filePath);
                 CHECK(file.is_open());
                 std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-                CHECK(contents.find("x=") != std::string::npos);
-                CHECK(contents.find("y=") != std::string::npos);
+                CHECK(contents.contains("x="));
+                CHECK(contents.contains("y="));
             }
         }
     }
@@ -78,14 +78,14 @@ SCENARIO("Saving variables to file")
 
 SCENARIO("Loading variables from file")
 {
-    TempDir tmp{"calc_test_load"};
-    arc::test::Graph<node::FilePersistence> graph;
-    graph.mocks->setReturnDefault();
-    graph.mocks->enableCallCounting();
-    auto persistence = graph.asTrait(trait::persistence);
-
     GIVEN("a FilePersistence node and a temp file with \"x=5\" and \"y=10\"")
     {
+        TempDir tmp{"calc_test_load"};
+        arc::test::Graph<node::FilePersistence> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->enableCallCounting();
+        auto persistence = graph.asTrait(trait::persistence);
+
         auto filePath = tmp.file("load.state");
         {
             std::ofstream f(filePath);
@@ -94,7 +94,7 @@ SCENARIO("Loading variables from file")
 
         std::vector<std::pair<std::string, double>> setCalls;
         graph.mocks->define(
-            [&setCalls](trait::Variables::set, std::string name, double value)
+            [&setCalls](Variables::set, std::string name, double value)
             {
                 setCalls.emplace_back(std::move(name), value);
             }
@@ -110,7 +110,7 @@ SCENARIO("Loading variables from file")
             }
             THEN("mock Variables::clear() was called")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::clear>() == 1);
+                CHECK(graph.mocks->methodCallCount<Variables::clear>() == 1);
             }
             THEN("mock Variables::set() was called with (\"x\", 5) and (\"y\", 10)")
             {
@@ -130,11 +130,10 @@ SCENARIO("Loading variables from file")
 
 SCENARIO("Loading from nonexistent file")
 {
-    arc::test::Graph<node::FilePersistence> graph;
-    auto persistence = graph.asTrait(trait::persistence);
-
     GIVEN("a FilePersistence node")
     {
+        arc::test::Graph<node::FilePersistence> graph;
+        auto persistence = graph.asTrait(trait::persistence);
         WHEN("loading from a nonexistent path")
         {
             auto nonexistent = std::filesystem::temp_directory_path() / "nonexistent_calc_test";
@@ -150,11 +149,10 @@ SCENARIO("Loading from nonexistent file")
 
 SCENARIO("Saving to invalid path")
 {
-    arc::test::Graph<node::FilePersistence> graph;
-    auto persistence = graph.asTrait(trait::persistence);
-
     GIVEN("a FilePersistence node with mock Variables returning empty list")
     {
+        arc::test::Graph<node::FilePersistence> graph;
+        auto persistence = graph.asTrait(trait::persistence);
         WHEN("saving to \"/nonexistent_dir/file\"")
         {
             auto result = persistence.save("/nonexistent_dir/file");
@@ -176,12 +174,12 @@ SCENARIO("Saving user functions")
         graph.mocks->setReturnDefault();
         auto persistence = graph.asTrait(trait::persistence);
 
-        graph.mocks->methodReturns<trait::Variables::list>(
+        graph.mocks->methodReturns<Variables::list>(
             std::vector<std::pair<std::string, double>>{
                 {"x", 5.0}, {"y", 10.0}
             });
 
-        graph.mocks->methodReturns<trait::Functions::listUserFunctions>(
+        graph.mocks->methodReturns<Functions::listUserFunctions>(
             std::vector<std::pair<std::string, UserFunction const*>>{});
 
         WHEN("saving to a file path")
@@ -218,7 +216,7 @@ SCENARIO("Loading interdependent functions in any file order")
             THEN("g(3) returns 6, showing both functions loaded correctly despite reverse order")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::find(outputs, "6") != outputs.end());
+                REQUIRE(std::ranges::contains(outputs, "6"));
             }
         }
     }
@@ -244,7 +242,7 @@ SCENARIO("Loading interdependent functions in any file order")
             THEN("h(1) returns 7 (= (1+1) + 2 + 3), showing all three functions loaded correctly")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::find(outputs, "7") != outputs.end());
+                REQUIRE(std::ranges::contains(outputs, "7"));
             }
         }
     }

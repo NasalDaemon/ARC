@@ -25,10 +25,10 @@ auto runWithInputs(std::vector<std::string> inputs) -> std::vector<std::string>
 
 SCENARIO("Basic arithmetic through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("input is \"2 + 3\"")
         {
             auto outputs = runWithInputs({"2 + 3"});
@@ -64,10 +64,10 @@ SCENARIO("Basic arithmetic through Repl")
 
 SCENARIO("BIDMAS precedence end-to-end")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("input is \"2 + 3 * 4\"")
         {
             auto outputs = runWithInputs({"2 + 3 * 4"});
@@ -103,10 +103,10 @@ SCENARIO("BIDMAS precedence end-to-end")
 
 SCENARIO("Variable assignment and recall through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O and real Variables/Evaluator")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"x = 5\", \"x * 2 + 1\"]")
         {
             auto outputs = runWithInputs({"x = 5", "x * 2 + 1"});
@@ -127,10 +127,10 @@ SCENARIO("Variable assignment and recall through Repl")
 
 SCENARIO("ans variable through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"2 + 3\", \"ans * 10\"]")
         {
             auto outputs = runWithInputs({"2 + 3", "ans * 10"});
@@ -151,10 +151,10 @@ SCENARIO("ans variable through Repl")
 
 SCENARIO("Function calls through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"sqrt(16)\", \"max(3, 7)\", \"abs(-42)\"]")
         {
             auto outputs = runWithInputs({"sqrt(16)", "max(3, 7)", "abs(-42)"});
@@ -172,10 +172,10 @@ SCENARIO("Function calls through Repl")
 
 SCENARIO("Repl handles evaluation errors")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("input is \"1 / 0\"")
         {
             auto outputs = runWithInputs({"1 / 0"});
@@ -183,8 +183,8 @@ SCENARIO("Repl handles evaluation errors")
             THEN("output starts with \"Error:\" and contains \"division by zero\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
-                CHECK(outputs[0].find("division by zero") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
+                CHECK(outputs[0].contains("division by zero"));
             }
         }
         WHEN("input is \"2 +\"")
@@ -194,7 +194,7 @@ SCENARIO("Repl handles evaluation errors")
             THEN("output starts with \"Error:\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
             }
         }
         WHEN("input is \"undefined_var\"")
@@ -204,8 +204,8 @@ SCENARIO("Repl handles evaluation errors")
             THEN("output starts with \"Error:\" and contains \"undefined variable\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
-                CHECK(outputs[0].find("undefined variable") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
+                CHECK(outputs[0].contains("undefined variable"));
             }
         }
         WHEN("input is \"unknown_fn(1)\"")
@@ -215,8 +215,8 @@ SCENARIO("Repl handles evaluation errors")
             THEN("output starts with \"Error:\" and contains \"unknown function\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
-                CHECK(outputs[0].find("unknown function") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
+                CHECK(outputs[0].contains("unknown function"));
             }
         }
     }
@@ -224,10 +224,10 @@ SCENARIO("Repl handles evaluation errors")
 
 SCENARIO("vars command through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"x = 5\", \"y = 10\", \"vars\"]")
         {
             // Note: "x = 5" also sets ans=5, "y = 10" sets ans=10
@@ -237,8 +237,8 @@ SCENARIO("vars command through Repl")
             THEN("third output contains \"x = 5\" and \"y = 10\"")
             {
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("x = 5") != std::string::npos);
-                CHECK(outputs[2].find("y = 10") != std::string::npos);
+                CHECK(outputs[2].contains("x = 5"));
+                CHECK(outputs[2].contains("y = 10"));
             }
         }
     }
@@ -246,10 +246,10 @@ SCENARIO("vars command through Repl")
 
 SCENARIO("fns command through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("input is \"fns\"")
         {
             auto outputs = runWithInputs({"fns"});
@@ -257,10 +257,10 @@ SCENARIO("fns command through Repl")
             THEN("output lists builtin functions (abs, sqrt, sin, cos, ...)")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("abs") != std::string::npos);
-                CHECK(outputs[0].find("sqrt") != std::string::npos);
-                CHECK(outputs[0].find("sin") != std::string::npos);
-                CHECK(outputs[0].find("cos") != std::string::npos);
+                CHECK(outputs[0].contains("abs"));
+                CHECK(outputs[0].contains("sqrt"));
+                CHECK(outputs[0].contains("sin"));
+                CHECK(outputs[0].contains("cos"));
             }
         }
     }
@@ -268,10 +268,10 @@ SCENARIO("fns command through Repl")
 
 SCENARIO("history command through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"2 + 3\", \"x = 5\", \"history\"]")
         {
             auto outputs = runWithInputs({"2 + 3", "x = 5", "history"});
@@ -281,11 +281,11 @@ SCENARIO("history command through Repl")
                 // First two outputs are the results of the expressions,
                 // third output is the history listing
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("2 + 3") != std::string::npos);
-                CHECK(outputs[2].find("x = 5") != std::string::npos);
+                CHECK(outputs[2].contains("2 + 3"));
+                CHECK(outputs[2].contains("x = 5"));
                 // History entries are numbered starting at 1
-                CHECK(outputs[2].find("1") != std::string::npos);
-                CHECK(outputs[2].find("2") != std::string::npos);
+                CHECK(outputs[2].contains("1"));
+                CHECK(outputs[2].contains("2"));
             }
         }
     }
@@ -293,10 +293,10 @@ SCENARIO("history command through Repl")
 
 SCENARIO("help command through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("input is \"help\"")
         {
             auto outputs = runWithInputs({"help"});
@@ -304,11 +304,11 @@ SCENARIO("help command through Repl")
             THEN("output lists available commands")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("help") != std::string::npos);
-                CHECK(outputs[0].find("vars") != std::string::npos);
-                CHECK(outputs[0].find("fns") != std::string::npos);
-                CHECK(outputs[0].find("history") != std::string::npos);
-                CHECK(outputs[0].find("clear") != std::string::npos);
+                CHECK(outputs[0].contains("help"));
+                CHECK(outputs[0].contains("vars"));
+                CHECK(outputs[0].contains("fns"));
+                CHECK(outputs[0].contains("history"));
+                CHECK(outputs[0].contains("clear"));
             }
         }
     }
@@ -316,10 +316,10 @@ SCENARIO("help command through Repl")
 
 SCENARIO("clear command through Repl")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"x = 5\", \"clear\", \"x\"]")
         {
             auto outputs = runWithInputs({"x = 5", "clear", "x"});
@@ -332,12 +332,12 @@ SCENARIO("clear command through Repl")
             THEN("second output is clear confirmation")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("clear") != std::string::npos);
+                CHECK(outputs[1].contains("clear"));
             }
             THEN("third output is error (undefined variable)")
             {
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("Error:") != std::string::npos);
+                CHECK(outputs[2].contains("Error:"));
             }
         }
     }
@@ -345,10 +345,10 @@ SCENARIO("clear command through Repl")
 
 SCENARIO("Repl handles empty input and quit")
 {
-    IntegrationGraph graph;
-
     GIVEN("a Repl with mocked I/O")
     {
+        IntegrationGraph graph;
+
         WHEN("inputs are [\"\", \"2 + 3\", \"quit\"]")
         {
             auto outputs = runWithInputs({"", "2 + 3", "quit"});
@@ -374,11 +374,11 @@ SCENARIO("Repl handles empty input and quit")
 
 SCENARIO("Batch mode evaluates all inputs and exits")
 {
-    graph::Batch graph;
-    graph.lineReader->setInputs({"2 + 3", "x = 5", "x * 2"});
-
     GIVEN("a Batch graph with inputs [\"2 + 3\", \"x = 5\", \"x * 2\"]")
     {
+        graph::Batch graph;
+        graph.lineReader->setInputs({"2 + 3", "x = 5", "x * 2"});
+
         WHEN("running the Repl")
         {
             // Batch uses real ConsoleOutput (writes to stdout) — we can only verify it runs without error
@@ -395,17 +395,17 @@ SCENARIO("Batch mode evaluates all inputs and exits")
 
 SCENARIO("Defining and calling a single-parameter function")
 {
-    auto outputs = runWithInputs({"f(x) = x ^ 2 + 1", "f(3)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x ^ 2 + 1", "f(3)"});
+
         WHEN("inputs are [\"f(x) = x ^ 2 + 1\", \"f(3)\"]")
         {
             THEN("first output is \"f(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("defined") != std::string::npos);
-                CHECK(outputs[0].find("f") != std::string::npos);
+                CHECK(outputs[0].contains("defined"));
+                CHECK(outputs[0].contains("f"));
             }
             THEN("second output is \"10\"")
             {
@@ -418,17 +418,17 @@ SCENARIO("Defining and calling a single-parameter function")
 
 SCENARIO("Defining and calling a multi-parameter function")
 {
-    auto outputs = runWithInputs({"g(x, y) = x + y * 2", "g(1, 5)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"g(x, y) = x + y * 2", "g(1, 5)"});
+
         WHEN("inputs are [\"g(x, y) = x + y * 2\", \"g(1, 5)\"]")
         {
             THEN("first output is \"g(x, y) defined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("defined") != std::string::npos);
-                CHECK(outputs[0].find("g") != std::string::npos);
+                CHECK(outputs[0].contains("defined"));
+                CHECK(outputs[0].contains("g"));
             }
             THEN("second output is \"11\"")
             {
@@ -441,23 +441,23 @@ SCENARIO("Defining and calling a multi-parameter function")
 
 SCENARIO("User function calling another user function")
 {
-    auto outputs = runWithInputs({"f(x) = x * 2", "g(x) = f(x) + 1", "g(3)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x * 2", "g(x) = f(x) + 1", "g(3)"});
+
         WHEN("inputs are [\"f(x) = x * 2\", \"g(x) = f(x) + 1\", \"g(3)\"]")
         {
             THEN("first output is \"f(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("defined") != std::string::npos);
-                CHECK(outputs[0].find("f") != std::string::npos);
+                CHECK(outputs[0].contains("defined"));
+                CHECK(outputs[0].contains("f"));
             }
             THEN("second output is \"g(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("defined") != std::string::npos);
-                CHECK(outputs[1].find("g") != std::string::npos);
+                CHECK(outputs[1].contains("defined"));
+                CHECK(outputs[1].contains("g"));
             }
             THEN("third output is \"7\"")
             {
@@ -470,10 +470,10 @@ SCENARIO("User function calling another user function")
 
 SCENARIO("User function variable scoping preserves outer variables")
 {
-    auto outputs = runWithInputs({"x = 10", "f(x) = x + 1", "f(5)", "x"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"x = 10", "f(x) = x + 1", "f(5)", "x"});
+
         WHEN("inputs are [\"x = 10\", \"f(x) = x + 1\", \"f(5)\", \"x\"]")
         {
             THEN("first output is \"x = 10\"")
@@ -484,8 +484,8 @@ SCENARIO("User function variable scoping preserves outer variables")
             THEN("second output is \"f(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("defined") != std::string::npos);
-                CHECK(outputs[1].find("f") != std::string::npos);
+                CHECK(outputs[1].contains("defined"));
+                CHECK(outputs[1].contains("f"));
             }
             THEN("third output is \"6\" (function body evaluates to 5 + 1)")
             {
@@ -503,23 +503,23 @@ SCENARIO("User function variable scoping preserves outer variables")
 
 SCENARIO("Overloaded user functions with different arity")
 {
-    auto outputs = runWithInputs({"f(x) = x * 10", "f(x, y) = x + y", "f(3)", "f(3, 4)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x * 10", "f(x, y) = x + y", "f(3)", "f(3, 4)"});
+
         WHEN("inputs are [\"f(x) = x * 10\", \"f(x, y) = x + y\", \"f(3)\", \"f(3, 4)\"]")
         {
             THEN("first output is \"f(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("defined") != std::string::npos);
-                CHECK(outputs[0].find("f") != std::string::npos);
+                CHECK(outputs[0].contains("defined"));
+                CHECK(outputs[0].contains("f"));
             }
             THEN("second output is \"f(x, y) defined\"")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("defined") != std::string::npos);
-                CHECK(outputs[1].find("f") != std::string::npos);
+                CHECK(outputs[1].contains("defined"));
+                CHECK(outputs[1].contains("f"));
             }
             THEN("third output is \"30\" (f/1 with arg 3)")
             {
@@ -545,7 +545,7 @@ SCENARIO("Cannot shadow builtin at same arity but can at different arity")
             THEN("output contains \"Error:\" (shadows builtin sqrt/1)")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
             }
         }
         WHEN("inputs are [\"sqrt(x, y) = x + y\", \"sqrt(3, 4)\"]")
@@ -554,8 +554,8 @@ SCENARIO("Cannot shadow builtin at same arity but can at different arity")
             THEN("first output is \"sqrt(x, y) defined\" (different arity, OK)")
             {
                 REQUIRE(outputs2.size() >= 1);
-                CHECK(outputs2[0].find("defined") != std::string::npos);
-                CHECK(outputs2[0].find("sqrt") != std::string::npos);
+                CHECK(outputs2[0].contains("defined"));
+                CHECK(outputs2[0].contains("sqrt"));
             }
             THEN("second output is \"7\"")
             {
@@ -568,23 +568,23 @@ SCENARIO("Cannot shadow builtin at same arity but can at different arity")
 
 SCENARIO("User function with no matching overload")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(1, 2)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(1, 2)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(1, 2)\"]")
         {
             THEN("first output is \"f(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("defined") != std::string::npos);
-                CHECK(outputs[0].find("f") != std::string::npos);
+                CHECK(outputs[0].contains("defined"));
+                CHECK(outputs[0].contains("f"));
             }
             THEN("second output contains \"Error:\" and \"unknown function\"")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("Error:") != std::string::npos);
-                CHECK(outputs[1].find("unknown function") != std::string::npos);
+                CHECK(outputs[1].contains("Error:"));
+                CHECK(outputs[1].contains("unknown function"));
             }
         }
     }
@@ -592,10 +592,10 @@ SCENARIO("User function with no matching overload")
 
 SCENARIO("Redefining a user function")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(3)", "f(x) = x * 10", "f(3)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(3)", "f(x) = x * 10", "f(3)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(3)\", \"f(x) = x * 10\", \"f(3)\"]")
         {
             THEN("second output is \"4\"")
@@ -614,22 +614,22 @@ SCENARIO("Redefining a user function")
 
 SCENARIO("fns command lists user functions")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "fns"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "fns"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"fns\"]")
         {
             THEN("second output contains \"f(x)\" with body")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("f(x)") != std::string::npos);
-                CHECK(outputs[1].find("x + 1") != std::string::npos);
+                CHECK(outputs[1].contains("f(x)"));
+                CHECK(outputs[1].contains("x + 1"));
             }
             THEN("second output still contains builtin names like \"sqrt\"")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("sqrt") != std::string::npos);
+                CHECK(outputs[1].contains("sqrt"));
             }
         }
     }
@@ -637,17 +637,17 @@ SCENARIO("fns command lists user functions")
 
 SCENARIO("clear command clears user functions")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "clear", "f(1)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "clear", "f(1)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"clear\", \"f(1)\"]")
         {
             THEN("third output contains \"Error:\" and \"unknown function\"")
             {
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("Error:") != std::string::npos);
-                CHECK(outputs[2].find("unknown function") != std::string::npos);
+                CHECK(outputs[2].contains("Error:"));
+                CHECK(outputs[2].contains("unknown function"));
             }
         }
     }
@@ -655,10 +655,10 @@ SCENARIO("clear command clears user functions")
 
 SCENARIO("User function using variables and built-in functions")
 {
-    auto outputs = runWithInputs({"pi = 3.14159", "area(r) = pi * r ^ 2", "area(5)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"pi = 3.14159", "area(r) = pi * r ^ 2", "area(5)"});
+
         WHEN("inputs are [\"pi = 3.14159\", \"area(r) = pi * r ^ 2\", \"area(5)\"]")
         {
             THEN("third output is approximately \"78.5398\" (pi * 25)")
@@ -675,17 +675,17 @@ SCENARIO("User function using variables and built-in functions")
 
 SCENARIO("Direct recursion is rejected")
 {
-    auto outputs = runWithInputs({"f(x) = f(x - 1)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = f(x - 1)"});
+
         WHEN("inputs are [\"f(x) = f(x - 1)\"]")
         {
             THEN("output contains \"Error:\" and \"recursion\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
-                CHECK(outputs[0].find("recursion") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
+                CHECK(outputs[0].contains("recursion"));
             }
         }
     }
@@ -693,17 +693,17 @@ SCENARIO("Direct recursion is rejected")
 
 SCENARIO("Defining a function referencing undefined function is rejected")
 {
-    auto outputs = runWithInputs({"f(x) = g(x)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = g(x)"});
+
         WHEN("inputs are [\"f(x) = g(x)\"]")
         {
             THEN("output contains \"Error:\" and \"undefined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("Error:") != std::string::npos);
-                CHECK(outputs[0].find("undefined") != std::string::npos);
+                CHECK(outputs[0].contains("Error:"));
+                CHECK(outputs[0].contains("undefined"));
             }
         }
     }
@@ -711,29 +711,29 @@ SCENARIO("Defining a function referencing undefined function is rejected")
 
 SCENARIO("Indirect recursion via redefinition is rejected")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "f(x) = g(x)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "f(x) = g(x)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"g(x) = f(x) + 2\", \"f(x) = g(x)\"]")
         {
             THEN("first output is \"f(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 1);
-                CHECK(outputs[0].find("defined") != std::string::npos);
-                CHECK(outputs[0].find("f") != std::string::npos);
+                CHECK(outputs[0].contains("defined"));
+                CHECK(outputs[0].contains("f"));
             }
             THEN("second output is \"g(x) defined\"")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("defined") != std::string::npos);
-                CHECK(outputs[1].find("g") != std::string::npos);
+                CHECK(outputs[1].contains("defined"));
+                CHECK(outputs[1].contains("g"));
             }
             THEN("third output contains \"Error:\" and \"recursion\"")
             {
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("Error:") != std::string::npos);
-                CHECK(outputs[2].find("recursion") != std::string::npos);
+                CHECK(outputs[2].contains("Error:"));
+                CHECK(outputs[2].contains("recursion"));
             }
         }
     }
@@ -741,17 +741,17 @@ SCENARIO("Indirect recursion via redefinition is rejected")
 
 SCENARIO("Undef command removes a function")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "undef f", "f(1)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "undef f", "f(1)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"undef f\", \"f(1)\"]")
         {
             THEN("third output contains \"Error:\" and \"unknown function\"")
             {
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("Error:") != std::string::npos);
-                CHECK(outputs[2].find("unknown function") != std::string::npos);
+                CHECK(outputs[2].contains("Error:"));
+                CHECK(outputs[2].contains("unknown function"));
             }
         }
     }
@@ -759,17 +759,17 @@ SCENARIO("Undef command removes a function")
 
 SCENARIO("Undef command rejects removing a function with dependents")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "undef f"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "undef f"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"g(x) = f(x) + 2\", \"undef f\"]")
         {
             THEN("third output contains \"Error:\" and mentions \"g\" depending on \"f\"")
             {
                 REQUIRE(outputs.size() >= 3);
-                CHECK(outputs[2].find("Error:") != std::string::npos);
-                CHECK(outputs[2].find("g") != std::string::npos);
+                CHECK(outputs[2].contains("Error:"));
+                CHECK(outputs[2].contains("g"));
             }
         }
     }
@@ -777,10 +777,10 @@ SCENARIO("Undef command rejects removing a function with dependents")
 
 SCENARIO("Undef command removes interdependent functions together")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "undef f g", "f(1)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "undef f g", "f(1)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"g(x) = f(x) + 2\", \"undef f g\", \"f(1)\"]")
         {
             THEN("third output confirms removal")
@@ -790,8 +790,8 @@ SCENARIO("Undef command removes interdependent functions together")
             THEN("fourth output contains \"Error:\" and \"unknown function\"")
             {
                 REQUIRE(outputs.size() >= 4);
-                CHECK(outputs[3].find("Error:") != std::string::npos);
-                CHECK(outputs[3].find("unknown function") != std::string::npos);
+                CHECK(outputs[3].contains("Error:"));
+                CHECK(outputs[3].contains("unknown function"));
             }
         }
     }
@@ -799,10 +799,10 @@ SCENARIO("Undef command removes interdependent functions together")
 
 SCENARIO("Undef functions sequentially in correct order")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "undef g", "undef f", "f(1)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "undef g", "undef f", "f(1)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"g(x) = f(x) + 2\", \"undef g\", \"undef f\", \"f(1)\"]")
         {
             THEN("third output confirms removal of g")
@@ -816,8 +816,8 @@ SCENARIO("Undef functions sequentially in correct order")
             THEN("fifth output contains \"Error:\" and \"unknown function\"")
             {
                 REQUIRE(outputs.size() >= 5);
-                CHECK(outputs[4].find("Error:") != std::string::npos);
-                CHECK(outputs[4].find("unknown function") != std::string::npos);
+                CHECK(outputs[4].contains("Error:"));
+                CHECK(outputs[4].contains("unknown function"));
             }
         }
     }
@@ -825,10 +825,10 @@ SCENARIO("Undef functions sequentially in correct order")
 
 SCENARIO("Undef removes all overloads of a function")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "undef f", "f(1)", "f(1, 2)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "undef f", "f(1)", "f(1, 2)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(x, y) = x + y\", \"undef f\", \"f(1)\", \"f(1, 2)\"]")
         {
             THEN("\"undef f\" succeeds (removes both f/1 and f/2)")
@@ -838,14 +838,14 @@ SCENARIO("Undef removes all overloads of a function")
             THEN("\"f(1)\" returns error (unknown function)")
             {
                 REQUIRE(outputs.size() >= 4);
-                CHECK(outputs[3].find("Error:") != std::string::npos);
-                CHECK(outputs[3].find("unknown function") != std::string::npos);
+                CHECK(outputs[3].contains("Error:"));
+                CHECK(outputs[3].contains("unknown function"));
             }
             THEN("\"f(1, 2)\" returns error (unknown function)")
             {
                 REQUIRE(outputs.size() >= 5);
-                CHECK(outputs[4].find("Error:") != std::string::npos);
-                CHECK(outputs[4].find("unknown function") != std::string::npos);
+                CHECK(outputs[4].contains("Error:"));
+                CHECK(outputs[4].contains("unknown function"));
             }
         }
     }
@@ -861,7 +861,7 @@ SCENARIO("Undef overloaded function respects dependencies on specific arity")
             THEN("\"undef f\" returns error (g/1 depends on f/1)")
             {
                 REQUIRE(outputs.size() >= 4);
-                CHECK(outputs[3].find("Error:") != std::string::npos);
+                CHECK(outputs[3].contains("Error:"));
             }
         }
         WHEN("inputs are [\"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x) + 2\", \"undef f g\"]")
@@ -877,16 +877,16 @@ SCENARIO("Undef overloaded function respects dependencies on specific arity")
 
 SCENARIO("Redefining an overloaded function updates dependencies correctly")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "g(x) = f(x) + 2", "g(x) = x * 3", "undef f", "g(5)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "g(x) = f(x) + 2", "g(x) = x * 3", "undef f", "g(5)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x) + 2\", \"g(x) = x * 3\", \"undef f\", \"g(5)\"]")
         {
             THEN("\"g(x) = x * 3\" redefines g to no longer depend on f/1")
             {
                 REQUIRE(outputs.size() >= 4);
-                CHECK(outputs[3].find("defined") != std::string::npos);
+                CHECK(outputs[3].contains("defined"));
             }
             THEN("\"undef f\" succeeds")
             {
@@ -903,10 +903,10 @@ SCENARIO("Redefining an overloaded function updates dependencies correctly")
 
 SCENARIO("Undef removes specific arity overloads only")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "undef f/1", "f(1)", "f(1, 2)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "undef f/1", "f(1)", "f(1, 2)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(x, y) = x + y\", \"undef f/1\", \"f(1)\", \"f(1, 2)\"]")
         {
             THEN("\"undef f/1\" succeeds (removes only f/1)")
@@ -916,8 +916,8 @@ SCENARIO("Undef removes specific arity overloads only")
             THEN("\"f(1)\" returns error (f/1 removed)")
             {
                 REQUIRE(outputs.size() >= 4);
-                CHECK(outputs[3].find("Error:") != std::string::npos);
-                CHECK(outputs[3].find("unknown function") != std::string::npos);
+                CHECK(outputs[3].contains("Error:"));
+                CHECK(outputs[3].contains("unknown function"));
             }
             THEN("\"f(1, 2)\" returns \"3\" (f/2 still exists)")
             {
@@ -930,16 +930,16 @@ SCENARIO("Undef removes specific arity overloads only")
 
 SCENARIO("Undef with arity respects dependencies on specific overload")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "g(x) = f(x) + 2", "undef f/1"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "g(x) = f(x) + 2", "undef f/1"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x) + 2\", \"undef f/1\"]")
         {
             THEN("\"undef f/1\" returns error (g/1 depends on f/1)")
             {
                 REQUIRE(outputs.size() >= 4);
-                CHECK(outputs[3].find("Error:") != std::string::npos);
+                CHECK(outputs[3].contains("Error:"));
             }
         }
     }
@@ -947,10 +947,10 @@ SCENARIO("Undef with arity respects dependencies on specific overload")
 
 SCENARIO("Undef removes specific arity when no dependencies")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "g(y) = f(y, 2)", "undef f/1", "f(1)", "g(3)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "f(x, y) = x + y", "g(y) = f(y, 2)", "undef f/1", "f(1)", "g(3)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(y) = f(y, 2)\", \"undef f/1\", \"f(1)\", \"g(3)\"]")
         {
             THEN("\"undef f/1\" succeeds (g depends on f/2, not f/1)")
@@ -960,7 +960,7 @@ SCENARIO("Undef removes specific arity when no dependencies")
             THEN("\"f(1)\" returns error (f/1 removed)")
             {
                 REQUIRE(outputs.size() >= 5);
-                CHECK(outputs[4].find("Error:") != std::string::npos);
+                CHECK(outputs[4].contains("Error:"));
             }
             THEN("\"g(3)\" returns \"5\" (uses f/2)")
             {
@@ -973,17 +973,17 @@ SCENARIO("Undef removes specific arity when no dependencies")
 
 SCENARIO("Cross-arity function call is not recursion")
 {
-    auto outputs = runWithInputs({"f(x, y) = x + y", "f(x) = f(x, 1)", "f(3)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x, y) = x + y", "f(x) = f(x, 1)", "f(3)"});
+
         WHEN("inputs are [\"f(x, y) = x + y\", \"f(x) = f(x, 1)\", \"f(3)\"]")
         {
             THEN("\"f(x) = f(x, 1)\" succeeds (f/1 calls f/2, not itself)")
             {
                 REQUIRE(outputs.size() >= 2);
-                CHECK(outputs[1].find("defined") != std::string::npos);
-                CHECK(outputs[1].find("f") != std::string::npos);
+                CHECK(outputs[1].contains("defined"));
+                CHECK(outputs[1].contains("f"));
             }
             THEN("\"f(3)\" returns \"4\"")
             {
@@ -996,10 +996,10 @@ SCENARIO("Cross-arity function call is not recursion")
 
 SCENARIO("Redefining a function updates dependencies")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "g(x) = x * 3", "undef f", "g(5)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "g(x) = x * 3", "undef f", "g(5)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"g(x) = f(x) + 2\", \"g(x) = x * 3\", \"undef f\", \"g(5)\"]")
         {
             THEN("\"undef f\" succeeds (g no longer depends on f after redefinition)")
@@ -1017,23 +1017,21 @@ SCENARIO("Redefining a function updates dependencies")
 
 SCENARIO("Save and load preserves user functions")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "x = 10", "save", "clear", "load", "f(5)", "x"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "x = 10", "save", "clear", "load", "f(5)", "x"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"x = 10\", \"save\", \"clear\", \"load\", \"f(5)\", \"x\"]")
         {
             THEN("\"f(5)\" after load returns \"6\"")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                auto it = std::ranges::find(outputs, "6");
-                REQUIRE(it != outputs.end());
+                REQUIRE(std::ranges::contains(outputs, "6"));
             }
             THEN("\"x\" after load returns \"10\"")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                auto it = std::ranges::find(outputs, "10");
-                REQUIRE(it != outputs.end());
+                REQUIRE(std::ranges::contains(outputs, "10"));
             }
         }
     }
@@ -1041,17 +1039,16 @@ SCENARIO("Save and load preserves user functions")
 
 SCENARIO("Loading user functions with dependencies out of order")
 {
-    auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "save", "clear", "load", "g(3)"});
-
     GIVEN("a Repl with mocked I/O")
     {
+        auto outputs = runWithInputs({"f(x) = x + 1", "g(x) = f(x) + 2", "save", "clear", "load", "g(3)"});
+
         WHEN("inputs are [\"f(x) = x + 1\", \"g(x) = f(x) + 2\", \"save\", \"clear\", \"load\", \"g(3)\"]")
         {
             THEN("\"g(3)\" after load returns \"6\" (even if file has g before f, loader handles ordering)")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                auto it = std::ranges::find(outputs, "6");
-                REQUIRE(it != outputs.end());
+                REQUIRE(std::ranges::contains(outputs, "6"));
             }
         }
     }

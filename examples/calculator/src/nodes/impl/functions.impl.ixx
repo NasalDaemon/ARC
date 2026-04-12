@@ -1,6 +1,6 @@
-module examples.calculator.functions:impl;
+module examples.calculator.node.functions:impl;
 
-import examples.calculator.functions;
+import examples.calculator.node.functions;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -36,7 +36,6 @@ std::map<std::string, FuncDef, std::less<>> const builtins = {
     {"max",  {2, [](std::span<double const> a) { return std::max(a[0], a[1]); }}},
 };
 
-using FuncKey = std::pair<std::string, std::size_t>;
 using DepMap = std::map<FuncKey, std::set<FuncKey>, std::less<>>;
 
 auto hasCycle(FuncKey const& targetKey, DepMap const& deps) -> bool
@@ -230,8 +229,8 @@ FUNCTIONS::removeFunctions(std::span<std::string const> names) -> std::expected<
             if (keysToRemove.count(dep) > 0)
             {
                 return std::unexpected(EvalError{
-                    "cannot remove " + dep.first + "/" + std::to_string(dep.second) + ": " +
-                    key.first + "/" + std::to_string(key.second) + " depends on it"
+                    std::format("cannot remove {}/{}: {}/{} depends on it",
+                        dep.first, dep.second, key.first, key.second)
                 });
             }
         }

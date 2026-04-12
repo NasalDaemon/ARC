@@ -285,7 +285,7 @@ class Node:
             raise SyntaxError(f"{pos} cannot connect '{self.name}' to itself")
         if self.is_global:
             raise SyntaxError(f"{pos} cannot connect from @global to any other node")
-        if self.is_sink_node and not to_node.is_sink_node:
+        if self.is_sink_node and not self.is_parent and not to_node.is_sink_node:
             raise SyntaxError(f"{pos} cannot connect from sink node '{self.name}' to a non-sink node")
         if not is_no_trait(trait) and trait in self.cluster.sink_traits:
             raise SyntaxError(f"{pos} Trait '{trait}' already allocated to sink node '{self.cluster.sink_traits[trait][0][0].name}' "

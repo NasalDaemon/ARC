@@ -1,4 +1,4 @@
-module examples.calculator.formatter;
+module examples.calculator.node.formatter;
 
 import examples.calculator.types;
 import std;

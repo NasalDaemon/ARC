@@ -1,4 +1,4 @@
-module examples.calculator.console_output;
+module examples.calculator.node.console_output;
 
 import std;
 

@@ -159,7 +159,7 @@ namespace detail {
         template<class T>
         constexpr T* get(this auto& self)
         {
-            if (self.ptr and self.ptr->typeId == arc::typeId<T>)
+            if (self.ptr and &self.ptr->copyFunc == Derived<T>::copy)
                 return std::addressof(static_cast<Derived<T>*>(self.ptr.get())->value);
             return nullptr;
         }
@@ -169,7 +169,6 @@ namespace detail {
 
         struct Base
         {
-            TypeId typeId;
             Base*(&copyFunc)(Base const* self);
             void(&destroyFunc)(Base const* self);
         };
@@ -178,7 +177,7 @@ namespace detail {
         {
             template<class... Args>
             constexpr Derived(Args&&... args)
-                : Base(arc::typeId<T>, copy, destroy)
+                : Base(copy, destroy)
                 , value(std::forward<Args>(args)...)
             {
                 static_assert(not std::is_reference_v<T>);
@@ -189,7 +188,9 @@ namespace detail {
                 if constexpr (std::is_copy_constructible_v<T>)
                     return new Derived(static_cast<Derived const*>(self)->value);
                 else
-                    throw std::runtime_error(std::format("Copying non-copyable ({}) in a mock return value. Consider using a copyable type or returning a reference.", typeName<T>));
+                    throw std::runtime_error(std::format(
+                        "Copying non-copyable ({}) in a mock return value. Consider using a copyable type, returning a reference, "
+                        "or defining the method instead of using methodReturns/implReturns.", typeName<T>));
             }
 
             static constexpr void destroy(Base const* self)
@@ -509,7 +510,7 @@ namespace detail {
             static_assert((std::is_copy_constructible_v<std::remove_cvref_t<Args>> and ...),
                 "All argument types must be copy constructible to be logged");
             if (not loggingAllCalls)
-                throw std::runtime_error("visitCallLogs: Call logging is not enabled for this mock, please enable logging, or use subscribeCalls instead");
+                throw std::runtime_error("visitCallLogs: Call logging is not enabled for this mock, please enable logging");
 
             using result_t = std::invoke_result_t<F, std::remove_cvref_t<Args> const&...>;
             auto const implType_ = implType<Method, Args...>();
@@ -815,7 +816,7 @@ namespace detail {
             template<class Method>
             constexpr bool isMethod() const { return methodType_ == MockBase::methodType<Method>(); }
             template<class Method, class... Args>
-            constexpr bool isImpl() const { return methodType_ == MockBase::implType<Method, Args...>(); }
+            constexpr bool isImpl() const { return implType_ == MockBase::implType<Method, Args...>(); }
 
             constexpr std::size_t callIndex() const { return callId_; }
             constexpr bool isConst() const { return isConst_; }

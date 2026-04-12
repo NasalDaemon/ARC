@@ -1,4 +1,4 @@
-module examples.calculator.variables;
+module examples.calculator.node.variables;
 
 import std;
 

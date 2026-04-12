@@ -1,4 +1,4 @@
-module examples.calculator.parser;
+module examples.calculator.node.parser;
 
 import std;
 

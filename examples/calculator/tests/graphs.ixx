@@ -1,7 +1,6 @@
 export module examples.calculator.tests.graphs;
 
 import examples.calculator.clusters;
-import examples.calculator.evaluator;
 import examples.calculator.traits;
 import arc;
 import std;
@@ -53,20 +52,11 @@ export struct IntegrationTestRoot
 
 export using IntegrationGraph = arc::Graph<cluster::Calculator, IntegrationTestRoot>;
 
-// Helper to create a ready-to-use evaluator test graph with mocked dependencies.
-// Reduces duplication in test_evaluator.cpp where each scenario creates and configures the graph identically.
-export auto makeEvaluatorGraph()
-{
-    arc::test::Graph<node::Evaluator> graph;
-    graph.mocks->setReturnDefault();
-    return graph;
-}
-
 export struct MockVariableStore
 {
     std::map<std::string, double> vars;
 
-    void install(arc::test::Graph<node::Evaluator>& graph)
+    void install(auto& graph)
     {
         graph.mocks->define(
             [this](trait::Variables::get, std::string_view name) -> std::optional<double>
@@ -75,15 +65,11 @@ export struct MockVariableStore
                 if (it != vars.end())
                     return it->second;
                 return std::nullopt;
-            }
-        );
-        graph.mocks->define(
+            },
             [this](trait::Variables::set, std::string name, double value)
             {
                 vars[name] = value;
-            }
-        );
-        graph.mocks->define(
+            },
             [this](trait::Variables::remove, std::string_view name) -> bool
             {
                 return vars.erase(std::string(name)) > 0;

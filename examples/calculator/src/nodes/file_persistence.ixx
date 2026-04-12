@@ -1,4 +1,4 @@
-export module examples.calculator.file_persistence;
+export module examples.calculator.node.file_persistence;
 
 import examples.calculator.traits;
 import arc;

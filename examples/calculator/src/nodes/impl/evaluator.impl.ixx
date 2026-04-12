@@ -1,6 +1,6 @@
-module examples.calculator.evaluator:impl;
+module examples.calculator.node.evaluator:impl;
 
-import examples.calculator.evaluator;
+import examples.calculator.node.evaluator;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -12,19 +12,29 @@ import std;
 
 namespace examples::calculator::node {
 
-EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
+auto extractDouble(EvalResult const& r) -> double
 {
-    return std::visit([this]<class T>(T const& e) -> std::expected<double, EvalError> {
+    return std::visit([]<class T>(T const& v) -> double {
+        if constexpr (std::is_same_v<T, FuncDefResult>)
+            return 0.0;
+        else
+            return v.value;
+    }, r);
+}
+
+EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>
+{
+    return std::visit([this]<class T>(T const& e) -> std::expected<EvalResult, EvalError> {
         if constexpr (std::is_same_v<T, NumberExpr>)
         {
-            return e.value;
+            return NumberResult{e.value};
         }
         else if constexpr (std::is_same_v<T, VariableExpr>)
         {
             std::optional<double> val = getVariables().get(e.name);
             if (!val)
-                return std::unexpected(EvalError{"undefined variable: " + e.name});
-            return *val;
+                return std::unexpected(EvalError{std::format("undefined variable: {}", e.name)});
+            return NumberResult{*val};
         }
         else if constexpr (std::is_same_v<T, UnaryExpr>)
         {
@@ -32,7 +42,7 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
             if (!operand) return operand;
             switch (e.op)
             {
-                case UnaryOp::Negate: return -*operand;
+                case UnaryOp::Negate: return NumberResult{-extractDouble(*operand)};
             }
             return std::unexpected(EvalError{"unknown unary operator"});
         }
@@ -42,17 +52,18 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
             if (!left) return left;
             auto right = evaluate(*e.right);
             if (!right) return right;
-
+            double lv = extractDouble(*left);
+            double rv = extractDouble(*right);
             switch (e.op)
             {
-                case BinaryOp::Add: return *left + *right;
-                case BinaryOp::Sub: return *left - *right;
-                case BinaryOp::Mul: return *left * *right;
+                case BinaryOp::Add: return NumberResult{lv + rv};
+                case BinaryOp::Sub: return NumberResult{lv - rv};
+                case BinaryOp::Mul: return NumberResult{lv * rv};
                 case BinaryOp::Div:
-                    if (*right == 0.0)
+                    if (rv == 0.0)
                         return std::unexpected(EvalError{"division by zero"});
-                    return *left / *right;
-                case BinaryOp::Pow: return std::pow(*left, *right);
+                    return NumberResult{lv / rv};
+                case BinaryOp::Pow: return NumberResult{std::pow(lv, rv)};
             }
             return std::unexpected(EvalError{"unknown binary operator"});
         }
@@ -60,8 +71,9 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
         {
             auto val = evaluate(*e.value);
             if (!val) return val;
-            getVariables().set(e.name, *val);
-            return *val;
+            double dv = extractDouble(*val);
+            getVariables().set(e.name, dv);
+            return AssignResult{e.name, dv};
         }
         else if constexpr (std::is_same_v<T, CallExpr>)
         {
@@ -71,16 +83,16 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
             {
                 auto argVal = evaluate(*argExpr);
                 if (!argVal) return argVal;
-                args.push_back(*argVal);
+                args.push_back(extractDouble(*argVal));
             }
 
             auto result = getFunctions().call(e.name, args);
             if (result.has_value())
-                return result;
+                return NumberResult{*result};
 
             auto const* userFunc = getFunctions().getUserFunction(e.name, args.size());
             if (!userFunc)
-                return result;
+                return std::unexpected(result.error());
 
             std::vector<std::optional<double>> savedVars;
             savedVars.reserve(userFunc->params.size());
@@ -101,14 +113,16 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<double, EvalError>
                     }
                 });
 
-            return evaluate(*userFunc->body);
+            auto bodyResult = evaluate(*userFunc->body);
+            if (!bodyResult) return bodyResult;
+            return NumberResult{extractDouble(*bodyResult)};
         }
         else if constexpr (std::is_same_v<T, FuncDefExpr>)
         {
             auto result = getFunctions().define(e.name, e.params, e.body->clone(), e.source);
             if (!result.has_value())
                 return std::unexpected(result.error());
-            return 0.0;
+            return FuncDefResult{e.name, e.params};
         }
     }, static_cast<Expression::variant const&>(expr));
 }

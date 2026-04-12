@@ -1,4 +1,4 @@
-export module examples.calculator.formatter;
+export module examples.calculator.node.formatter;
 
 import examples.calculator.types;
 import examples.calculator.traits;

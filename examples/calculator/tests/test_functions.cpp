@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.functions;
+import examples.calculator.node.functions;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -110,11 +110,10 @@ auto defineGDependsOnF(auto functions)
 
 SCENARIO("Calling built-in unary functions")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling \"abs\" with [-5]")
         {
             std::array args{-5.0};
@@ -153,11 +152,10 @@ SCENARIO("Calling built-in unary functions")
 
 SCENARIO("Calling built-in binary functions")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling \"add\" with [2, 3]")
         {
             std::array args{2.0, 3.0};
@@ -207,11 +205,10 @@ SCENARIO("Calling built-in binary functions")
 
 SCENARIO("Calling trig functions")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling \"sin\" with [0]")
         {
             std::array args{0.0};
@@ -239,11 +236,10 @@ SCENARIO("Calling trig functions")
 
 SCENARIO("Wrong argument count")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling \"sqrt\" with [1, 2]")
         {
             std::array args{1.0, 2.0};
@@ -269,11 +265,10 @@ SCENARIO("Wrong argument count")
 
 SCENARIO("Unknown function")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling \"unknown\" with [1]")
         {
             std::array args{1.0};
@@ -289,11 +284,10 @@ SCENARIO("Unknown function")
 
 SCENARIO("Listing functions")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("listing functions")
         {
             auto result = functions.listBuiltins();
@@ -301,21 +295,21 @@ SCENARIO("Listing functions")
             THEN("returns all built-in function names")
             {
                 CHECK_FALSE(result.empty());
-                CHECK(std::ranges::find(result, "abs") != result.end());
-                CHECK(std::ranges::find(result, "sqrt") != result.end());
-                CHECK(std::ranges::find(result, "neg") != result.end());
-                CHECK(std::ranges::find(result, "sin") != result.end());
-                CHECK(std::ranges::find(result, "cos") != result.end());
-                CHECK(std::ranges::find(result, "tan") != result.end());
-                CHECK(std::ranges::find(result, "log") != result.end());
-                CHECK(std::ranges::find(result, "ln") != result.end());
-                CHECK(std::ranges::find(result, "add") != result.end());
-                CHECK(std::ranges::find(result, "sub") != result.end());
-                CHECK(std::ranges::find(result, "mul") != result.end());
-                CHECK(std::ranges::find(result, "div") != result.end());
-                CHECK(std::ranges::find(result, "pow") != result.end());
-                CHECK(std::ranges::find(result, "min") != result.end());
-                CHECK(std::ranges::find(result, "max") != result.end());
+                CHECK(std::ranges::contains(result, "abs"));
+                CHECK(std::ranges::contains(result, "sqrt"));
+                CHECK(std::ranges::contains(result, "neg"));
+                CHECK(std::ranges::contains(result, "sin"));
+                CHECK(std::ranges::contains(result, "cos"));
+                CHECK(std::ranges::contains(result, "tan"));
+                CHECK(std::ranges::contains(result, "log"));
+                CHECK(std::ranges::contains(result, "ln"));
+                CHECK(std::ranges::contains(result, "add"));
+                CHECK(std::ranges::contains(result, "sub"));
+                CHECK(std::ranges::contains(result, "mul"));
+                CHECK(std::ranges::contains(result, "div"));
+                CHECK(std::ranges::contains(result, "pow"));
+                CHECK(std::ranges::contains(result, "min"));
+                CHECK(std::ranges::contains(result, "max"));
             }
         }
     }
@@ -323,11 +317,10 @@ SCENARIO("Listing functions")
 
 SCENARIO("Functions contract: call rejects empty function name")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling call with an empty name")
         {
             std::array<double, 1> args{1.0};
@@ -386,11 +379,10 @@ SCENARIO("Defining and retrieving user functions")
 
 SCENARIO("getUserFunction returns nullptr for unknown functions")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("querying getUserFunction(\"unknown\", 1)")
         {
             THEN("returns nullptr")
@@ -506,7 +498,7 @@ SCENARIO("Defining a function with a builtin name and same arity is rejected")
             THEN("returns EvalError (cannot shadow builtin)")
             {
                 REQUIRE_FALSE(result.has_value());
-                CHECK(result.error().message.find("cannot shadow builtin") != std::string::npos);
+                CHECK(result.error().message.contains("cannot shadow builtin"));
             }
         }
         WHEN("calling define with name=\"sqrt\", params=[\"x\", \"y\"] (arity 2, different from builtin)")
@@ -726,6 +718,12 @@ SCENARIO("Removing user functions respects dependencies")
             {
                 REQUIRE_FALSE(result.has_value());
             }
+            THEN("error message names both functions")
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message.contains("f/1"));
+                CHECK(result.error().message.contains("g/1"));
+            }
         }
         WHEN("calling removeFunctions([\"g\"]) (nothing depends on g)")
         {
@@ -769,6 +767,12 @@ SCENARIO("Undef removes all overloads and checks dependencies")
             THEN("returns EvalError (g/1 depends on f/1)")
             {
                 REQUIRE_FALSE(result.has_value());
+            }
+            THEN("error message names both functions")
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message.contains("f/1"));
+                CHECK(result.error().message.contains("g/1"));
             }
         }
         WHEN("calling removeFunctions([\"f\", \"g\"])")
@@ -871,8 +875,8 @@ SCENARIO("list includes user function names")
 
             THEN("result still contains builtin names like \"sqrt\" and \"abs\"")
             {
-                CHECK(std::ranges::find(result, "sqrt") != result.end());
-                CHECK(std::ranges::find(result, "abs") != result.end());
+                CHECK(std::ranges::contains(result, "sqrt"));
+                CHECK(std::ranges::contains(result, "abs"));
             }
         }
     }
@@ -880,11 +884,10 @@ SCENARIO("list includes user function names")
 
 SCENARIO("Functions contract: define rejects empty name")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling define with empty name")
         {
             THEN("triggers a contract violation")
@@ -898,11 +901,10 @@ SCENARIO("Functions contract: define rejects empty name")
 
 SCENARIO("Functions contract: getUserFunction rejects empty name")
 {
-    arc::test::Graph<node::Functions> graph;
-    auto functions = graph.node.asTrait(trait::functions);
-
     GIVEN("a Functions node")
     {
+        arc::test::Graph<node::Functions> graph;
+        auto functions = graph.node.asTrait(trait::functions);
         WHEN("calling getUserFunction with empty name")
         {
             THEN("triggers a contract violation")
@@ -929,7 +931,7 @@ SCENARIO("Function definition with unknown variable reference is rejected")
             THEN("returns EvalError (undefined variable in function body)")
             {
                 REQUIRE_FALSE(result.has_value());
-                CHECK(result.error().message.find("undefined variable") != std::string::npos);
+                CHECK(result.error().message.contains("undefined variable"));
             }
         }
         WHEN("defining \"f(x) = x + 1\" where x is a parameter")
@@ -944,7 +946,7 @@ SCENARIO("Function definition with unknown variable reference is rejected")
         }
         WHEN("defining \"f() = y\" where y exists in Variables")
         {
-            graph.mocks->methodReturns<trait::Variables::get>(std::optional<double>{42.0});
+            graph.mocks->methodReturns<Variables::get>(std::optional<double>{42.0});
             auto body = makeVar("y");
             auto result = def(functions, "f", {}, std::move(body), "y");
 

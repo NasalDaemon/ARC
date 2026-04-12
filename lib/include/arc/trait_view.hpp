@@ -124,9 +124,7 @@ struct TraitView final : Trait::Meta::Methods
     ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method method, auto&&... args)
         requires requires { self.alias.get().impl(method, ARC_FWD(args)...); }
     {
-        using Sig = decltype(Trait::Meta::SignaturesByTag::impl(self, Method{}, ARC_FWD(args)...));
-        using Constraints = Sig::Constraints;
-        return detail::invokeMethod<Constraints, ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
+        return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
     }
 
     template<class Self, IsMethodOf<Trait> Method>
@@ -145,14 +143,10 @@ private:
     struct MethodFunctor
     {
         ImplAlias alias;
-        // Needed for SignaturesByTag to be able to query the method signature and constraints
-        using Types = TraitView::Types;
 
         ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
         {
-            using Sig = decltype(Trait::Meta::SignaturesByTag::impl(self, Method{}, ARC_FWD(args)...));
-            using Constraints = Sig::Constraints;
-            return detail::invokeMethod<Constraints, ContextOf<Node>, Trait>(self.alias.get(), Method{}, ARC_FWD(args)...);
+            return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), Method{}, ARC_FWD(args)...);
         }
     };
 

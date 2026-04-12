@@ -1,4 +1,4 @@
-module examples.calculator.history_store;
+module examples.calculator.node.history_store;
 
 import std;
 

@@ -1,6 +1,6 @@
-module examples.calculator.command_handler:impl;
+module examples.calculator.node.command_handler:impl;
 
-import examples.calculator.command_handler;
+import examples.calculator.node.command_handler;
 import std;
 
 #define COMMAND_HANDLER \

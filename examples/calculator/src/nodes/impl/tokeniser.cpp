@@ -1,4 +1,4 @@
-module examples.calculator.tokeniser;
+module examples.calculator.node.tokeniser;
 
 import std;
 

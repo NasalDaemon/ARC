@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.evaluator;
+import examples.calculator.node.evaluator;
 import examples.calculator.types;
 import examples.calculator.traits;
 import examples.calculator.tests.graphs;
@@ -50,11 +50,10 @@ auto makeFuncDef(std::string name, std::vector<std::string> params, ExprPtr body
 
 SCENARIO("Evaluating numeric literals")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node with mocked dependencies")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating NumberExpr(42)")
         {
             auto result = evaluator.evaluate(*makeNum(42));
@@ -62,7 +61,8 @@ SCENARIO("Evaluating numeric literals")
             THEN("returns 42")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(42.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(42.0));
             }
         }
     }
@@ -70,11 +70,10 @@ SCENARIO("Evaluating numeric literals")
 
 SCENARIO("Evaluating binary operations")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Add(2, 3)")
         {
             auto result = evaluator.evaluate(*makeBinary(BinaryOp::Add, makeNum(2), makeNum(3)));
@@ -82,7 +81,8 @@ SCENARIO("Evaluating binary operations")
             THEN("returns 5")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(5.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(5.0));
             }
         }
         WHEN("evaluating Sub(10, 3)")
@@ -92,7 +92,8 @@ SCENARIO("Evaluating binary operations")
             THEN("returns 7")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(7.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(7.0));
             }
         }
         WHEN("evaluating Mul(4, 5)")
@@ -102,7 +103,8 @@ SCENARIO("Evaluating binary operations")
             THEN("returns 20")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(20.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(20.0));
             }
         }
         WHEN("evaluating Div(10, 4)")
@@ -112,7 +114,8 @@ SCENARIO("Evaluating binary operations")
             THEN("returns 2.5")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(2.5));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(2.5));
             }
         }
         WHEN("evaluating Pow(2, 10)")
@@ -122,7 +125,8 @@ SCENARIO("Evaluating binary operations")
             THEN("returns 1024")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(1024.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(1024.0));
             }
         }
     }
@@ -130,11 +134,10 @@ SCENARIO("Evaluating binary operations")
 
 SCENARIO("Evaluating division by zero")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Div(1, 0)")
         {
             auto result = evaluator.evaluate(*makeBinary(BinaryOp::Div, makeNum(1), makeNum(0)));
@@ -149,11 +152,10 @@ SCENARIO("Evaluating division by zero")
 
 SCENARIO("Evaluating unary negation")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Negate(5)")
         {
             auto result = evaluator.evaluate(*makeUnary(UnaryOp::Negate, makeNum(5)));
@@ -161,7 +163,8 @@ SCENARIO("Evaluating unary negation")
             THEN("returns -5")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(-5.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(-5.0));
             }
         }
     }
@@ -169,13 +172,13 @@ SCENARIO("Evaluating unary negation")
 
 SCENARIO("Evaluating variable references")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
+
         graph.mocks->define(
-            [](trait::Variables::get, std::string_view name) -> std::optional<double> {
+            [](Variables::get, std::string_view name) -> std::optional<double> {
                 if (name == "x") return 42.0;
                 return std::nullopt;
             }
@@ -188,7 +191,8 @@ SCENARIO("Evaluating variable references")
             THEN("returns 42")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(42.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(42.0));
             }
         }
     }
@@ -196,12 +200,12 @@ SCENARIO("Evaluating variable references")
 
 SCENARIO("Evaluating undefined variable")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node with mock returning nullopt")
     {
-        graph.mocks->methodReturns<trait::Variables::get>(std::optional<double>{});
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
+
+        graph.mocks->methodReturns<Variables::get>(std::optional<double>{});
 
         WHEN("evaluating VariableExpr(\"y\")")
         {
@@ -217,22 +221,23 @@ SCENARIO("Evaluating undefined variable")
 
 SCENARIO("Evaluating assignment")
 {
-    arc::test::Graph<node::Evaluator> graph;
-    graph.mocks->setReturnDefault();
-    graph.mocks->enableCallCounting();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->enableCallCounting();
+        auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating AssignExpr(\"x\", NumberExpr(5))")
         {
             auto result = evaluator.evaluate(*makeAssign("x", makeNum(5)));
 
-            THEN("mock Variables::set is called and returns 5")
+            THEN("mock Variables::set is called and returns AssignResult")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(5.0));
-                CHECK(graph.mocks->methodCallCount<trait::Variables::set>() == 1);
+                REQUIRE(std::holds_alternative<AssignResult>(*result));
+                CHECK(std::get<AssignResult>(*result).value == doctest::Approx(5.0));
+                CHECK(std::get<AssignResult>(*result).name == "x");
+                CHECK(graph.mocks->methodCallCount<Variables::set>() == 1);
             }
         }
     }
@@ -240,13 +245,13 @@ SCENARIO("Evaluating assignment")
 
 SCENARIO("Evaluating function calls")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node with mock Functions")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
+
         graph.mocks->define(
-            [](trait::Functions::call, std::string_view name, std::span<double const> args)
+            [](Functions::call, std::string_view name, std::span<double const> args)
                 -> std::expected<double, EvalError>
             {
                 if (name == "sqrt" && args.size() == 1)
@@ -264,7 +269,8 @@ SCENARIO("Evaluating function calls")
             THEN("returns 2")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(2.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(2.0));
             }
         }
     }
@@ -272,11 +278,10 @@ SCENARIO("Evaluating function calls")
 
 SCENARIO("Evaluating nested expressions")
 {
-    auto graph = tests::makeEvaluatorGraph();
-    auto evaluator = graph.asTrait(trait::evaluator);
-
     GIVEN("an Evaluator node")
     {
+        arc::test::Graph<node::Evaluator> graph;
+        auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Add(Mul(2, 3), Pow(2, 3))")
         {
             auto result = evaluator.evaluate(*makeBinary(
@@ -288,7 +293,8 @@ SCENARIO("Evaluating nested expressions")
             THEN("returns 14")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(14.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(14.0));
             }
         }
     }
@@ -303,8 +309,6 @@ SCENARIO("Evaluating a function definition stores it")
         graph.mocks->enableCallCounting();
         auto evaluator = graph.asTrait(trait::evaluator);
 
-        // No need to mock define here, just use the default mock which returns success
-
         WHEN("evaluating a FuncDefExpr for \"f(x) = x + 1\"")
         {
             auto result = evaluator.evaluate(*makeFuncDef(
@@ -315,12 +319,13 @@ SCENARIO("Evaluating a function definition stores it")
 
             THEN("mock Functions.define is called with name=\"f\", params=[\"x\"]")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Functions::define>() == 1);
+                CHECK(graph.mocks->methodCallCount<Functions::define>() == 1);
             }
-            THEN("returns a value (0.0)")
+            THEN("returns FuncDefResult for \"f\"")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(0.0));
+                REQUIRE(std::holds_alternative<FuncDefResult>(*result));
+                CHECK(std::get<FuncDefResult>(*result).name == "f");
             }
         }
     }
@@ -335,23 +340,20 @@ SCENARIO("Calling a user-defined function")
         graph.mocks->enableCallCounting();
         auto evaluator = graph.asTrait(trait::evaluator);
 
-        // Create a user-defined function f(x) = x + 1
         UserFunction userFunc{
-            {"x"},                              // params
-            makeBinary(BinaryOp::Add, makeVar("x"), makeNum(1)),  // body: x + 1
-            ""                                  // source
+            {"x"},
+            makeBinary(BinaryOp::Add, makeVar("x"), makeNum(1)),
+            ""
         };
 
         tests::MockVariableStore varStore;
         varStore.install(graph);
 
-        // Mock Functions::call to return error (no builtin "f")
-        graph.mocks->methodReturns<trait::Functions::call>(
+        graph.mocks->methodReturns<Functions::call>(
             std::expected<double, EvalError>{std::unexpect, "unknown function"});
 
-        // Mock Functions::getUserFunction to return our user function for f/1
         graph.mocks->define(
-            [&userFunc](trait::Functions::getUserFunction, std::string_view name, std::size_t arity)
+            [&userFunc](Functions::getUserFunction, std::string_view name, std::size_t arity)
                 -> UserFunction const*
             {
                 if (name == "f" && arity == 1)
@@ -368,16 +370,17 @@ SCENARIO("Calling a user-defined function")
 
             THEN("Variables.set is called to bind the parameter")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::set>() >= 1);
+                CHECK(graph.mocks->methodCallCount<Variables::set>() >= 1);
             }
             THEN("the body is evaluated and result is 6.0")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(6.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(6.0));
             }
             THEN("Variables are restored (previous x value removed)")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::remove>() >= 1);
+                CHECK(graph.mocks->methodCallCount<Variables::remove>() >= 1);
             }
         }
     }
@@ -391,28 +394,25 @@ SCENARIO("Calling an overloaded user function selects correct arity")
         graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
 
-        // Create two overloaded user functions
         UserFunction funcArity1{
-            {"x"},                                  // params
-            makeBinary(BinaryOp::Mul, makeVar("x"), makeNum(2)),  // body: x * 2
-            ""                                      // source
+            {"x"},
+            makeBinary(BinaryOp::Mul, makeVar("x"), makeNum(2)),
+            ""
         };
         UserFunction funcArity2{
-            {"x", "y"},                             // params
-            makeBinary(BinaryOp::Add, makeVar("x"), makeVar("y")),  // body: x + y
-            ""                                      // source
+            {"x", "y"},
+            makeBinary(BinaryOp::Add, makeVar("x"), makeVar("y")),
+            ""
         };
 
         tests::MockVariableStore varStore;
         varStore.install(graph);
 
-        // Mock Functions::call to return error (no builtin "f")
-        graph.mocks->methodReturns<trait::Functions::call>(
+        graph.mocks->methodReturns<Functions::call>(
             std::expected<double, EvalError>{std::unexpect, "unknown function"});
 
-        // Mock Functions::getUserFunction to return correct overload by arity
         graph.mocks->define(
-            [&funcArity1, &funcArity2](trait::Functions::getUserFunction, std::string_view name, std::size_t arity)
+            [&funcArity1, &funcArity2](Functions::getUserFunction, std::string_view name, std::size_t arity)
                 -> UserFunction const*
             {
                 if (name == "f" && arity == 1)
@@ -432,7 +432,8 @@ SCENARIO("Calling an overloaded user function selects correct arity")
             THEN("result is 6.0 (uses f/1: x*2)")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(6.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(6.0));
             }
         }
         WHEN("evaluating CallExpr for f(3, 4)")
@@ -445,7 +446,8 @@ SCENARIO("Calling an overloaded user function selects correct arity")
             THEN("result is 7.0 (uses f/2: x+y)")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(7.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(7.0));
             }
         }
     }
@@ -459,17 +461,15 @@ SCENARIO("User function with wrong arity (no matching overload)")
         graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
 
-        // Mock Functions::call to return "unknown function" error
         graph.mocks->define(
-            [](trait::Functions::call, std::string_view name, std::span<double const> /*args*/)
+            [](Functions::call, std::string_view name, std::span<double const> /*args*/)
                 -> std::expected<double, EvalError>
             {
                 return std::unexpected(EvalError{"unknown function: " + std::string(name)});
             }
         );
 
-        // Mock Functions::getUserFunction to return nullptr (no matching arity)
-        graph.mocks->methodReturns<trait::Functions::getUserFunction>(
+        graph.mocks->methodReturns<Functions::getUserFunction>(
             static_cast<UserFunction const*>(nullptr));
 
         WHEN("evaluating CallExpr for f(1, 2)")
@@ -496,19 +496,17 @@ SCENARIO("Variable scoping in user function calls")
         graph.mocks->enableCallCounting();
         auto evaluator = graph.asTrait(trait::evaluator);
 
-        // Create a user-defined function f(x) = x
         UserFunction userFunc{
-            {"x"},                              // params
-            makeVar("x"),                       // body: x (just return the param)
-            ""                                  // source
+            {"x"},
+            makeVar("x"),
+            ""
         };
 
-        graph.mocks->methodReturns<trait::Functions::call>(
+        graph.mocks->methodReturns<Functions::call>(
             std::expected<double, EvalError>{std::unexpect, "unknown function"});
 
-        // Mock Functions::getUserFunction to return our user function for f/1
         graph.mocks->define(
-            [&userFunc](trait::Functions::getUserFunction, std::string_view name, std::size_t arity)
+            [&userFunc](Functions::getUserFunction, std::string_view name, std::size_t arity)
                 -> UserFunction const*
             {
                 if (name == "f" && arity == 1)
@@ -529,16 +527,17 @@ SCENARIO("Variable scoping in user function calls")
 
             THEN("Variables.set(\"x\", 5.0) is called (binding)")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::set>() >= 1);
+                CHECK(graph.mocks->methodCallCount<Variables::set>() >= 1);
             }
             THEN("result is 5.0")
             {
                 REQUIRE(result.has_value());
-                CHECK(*result == doctest::Approx(5.0));
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(5.0));
             }
             THEN("Variables.set(\"x\", 10.0) is called (restore)")
             {
-                CHECK(graph.mocks->methodCallCount<trait::Variables::set>() >= 2);
+                CHECK(graph.mocks->methodCallCount<Variables::set>() >= 2);
             }
         }
     }

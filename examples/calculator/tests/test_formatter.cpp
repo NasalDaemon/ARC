@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import examples.calculator.formatter;
+import examples.calculator.node.formatter;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
@@ -11,11 +11,10 @@ using namespace std::string_view_literals;
 
 SCENARIO("Formatting results")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("formatting result 42.0")
         {
             auto result = formatter.formatResult(42.0);
@@ -39,11 +38,10 @@ SCENARIO("Formatting results")
 
 SCENARIO("Formatting errors")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("formatting error \"undefined variable: x\"")
         {
             auto result = formatter.formatError("undefined variable: x"sv);
@@ -58,11 +56,10 @@ SCENARIO("Formatting errors")
 
 SCENARIO("Formatting assignments")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("formatting assignment \"x\" = 5")
         {
             auto result = formatter.formatAssignment("x"sv, 5);
@@ -77,11 +74,10 @@ SCENARIO("Formatting assignments")
 
 SCENARIO("Formatting variable listing")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("formatting variables")
         {
             std::vector<std::pair<std::string, double>> vars{
@@ -99,11 +95,10 @@ SCENARIO("Formatting variable listing")
 
 SCENARIO("Formatting function listing")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("formatting functions")
         {
             std::vector<std::string> builtins{"abs", "add", "sqrt"};
@@ -112,9 +107,9 @@ SCENARIO("Formatting function listing")
 
             THEN("returns readable list")
             {
-                CHECK(result.find("abs") != std::string::npos);
-                CHECK(result.find("add") != std::string::npos);
-                CHECK(result.find("sqrt") != std::string::npos);
+                CHECK(result.contains("abs"));
+                CHECK(result.contains("add"));
+                CHECK(result.contains("sqrt"));
             }
         }
     }
@@ -122,11 +117,10 @@ SCENARIO("Formatting function listing")
 
 SCENARIO("Formatter contract: pre-contract violations")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("calling formatError with empty message")
         {
             THEN("triggers a contract violation")
@@ -165,7 +159,7 @@ SCENARIO("Formatter contract: pre-contract violations")
 
 namespace {
 
-struct BuggyFormatter : arc::NodeImpl<trait::Formatter>
+struct BuggyFormatter : arc::NodeImpl<Formatter>
 {
     std::string formatResult(double) const { return ""; }
     std::string formatError(std::string_view) const { return "err"; }
@@ -179,11 +173,10 @@ struct BuggyFormatter : arc::NodeImpl<trait::Formatter>
 
 SCENARIO("Formatter contract: formatResult post-contract fires when result is empty")
 {
-    arc::test::Graph<BuggyFormatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a buggy Formatter that returns empty string from formatResult")
     {
+        arc::test::Graph<BuggyFormatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("calling formatResult")
         {
             THEN("triggers a post-contract violation")
@@ -196,11 +189,10 @@ SCENARIO("Formatter contract: formatResult post-contract fires when result is em
 
 SCENARIO("Formatting a function definition confirmation")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("formatting function def with name=\"f\", params=[\"x\"]")
         {
             std::vector<std::string> params{"x"};
@@ -226,11 +218,10 @@ SCENARIO("Formatting a function definition confirmation")
 
 SCENARIO("Formatter contract: formatFunctionDef rejects empty name")
 {
-    arc::test::Graph<node::Formatter> graph;
-    auto formatter = graph.node.asTrait(trait::formatter);
-
     GIVEN("a Formatter node")
     {
+        arc::test::Graph<node::Formatter> graph;
+        auto formatter = graph.node.asTrait(trait::formatter);
         WHEN("calling formatFunctionDef with empty name")
         {
             std::vector<std::string> params{"x"};

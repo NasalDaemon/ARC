@@ -1,15 +1,15 @@
 export module examples.calculator.clusters;
 
-import examples.calculator.tokeniser;
-import examples.calculator.parser;
-import examples.calculator.evaluator;
-import examples.calculator.variables;
-import examples.calculator.functions;
-import examples.calculator.formatter;
-import examples.calculator.repl;
-import examples.calculator.history_store;
-import examples.calculator.command_handler;
-import examples.calculator.file_persistence;
+import examples.calculator.node.tokeniser;
+import examples.calculator.node.parser;
+import examples.calculator.node.evaluator;
+import examples.calculator.node.variables;
+import examples.calculator.node.functions;
+import examples.calculator.node.formatter;
+import examples.calculator.node.repl;
+import examples.calculator.node.history_store;
+import examples.calculator.node.command_handler;
+import examples.calculator.node.file_persistence;
 import examples.calculator.traits;
 
 namespace examples::calculator {

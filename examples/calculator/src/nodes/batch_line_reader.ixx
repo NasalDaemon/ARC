@@ -1,4 +1,4 @@
-export module examples.calculator.batch_line_reader;
+export module examples.calculator.node.batch_line_reader;
 
 import examples.calculator.traits;
 import arc;

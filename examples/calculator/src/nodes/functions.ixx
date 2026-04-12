@@ -1,4 +1,4 @@
-export module examples.calculator.functions;
+export module examples.calculator.node.functions;
 
 import examples.calculator.types;
 import examples.calculator.traits;
@@ -7,12 +7,14 @@ import std;
 
 namespace examples::calculator::node {
 
+export using FuncKey = std::pair<std::string, std::size_t>;
+
 export struct Functions
 {
     template<class Context>
     struct Node : arc::Node::
         Impl<trait::Functions>::
-        Uses<trait::Variables>
+        Uses<Variables>
     {
         auto call(std::string_view name, std::span<double const> args) const -> std::expected<double, EvalError>;
         auto listBuiltins() const -> std::vector<std::string>;
@@ -24,8 +26,8 @@ export struct Functions
         void clearUserFunctions();
 
     private:
-        std::map<std::pair<std::string, std::size_t>, UserFunction, std::less<>> userFunctions_;
-        std::map<std::pair<std::string, std::size_t>, std::set<std::pair<std::string, std::size_t>>, std::less<>> dependencies_;
+        std::map<FuncKey, UserFunction, std::less<>> userFunctions_;
+        std::map<FuncKey, std::set<FuncKey>, std::less<>> dependencies_;
     };
 };
 

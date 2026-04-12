@@ -2,9 +2,9 @@ module;
 #include <cstdio>
 #include <termios.h>
 #include <unistd.h>
-module examples.calculator.terminal_line_reader:impl;
+module examples.calculator.node.terminal_line_reader:impl;
 
-import examples.calculator.terminal_line_reader;
+import examples.calculator.node.terminal_line_reader;
 import std;
 
 #define TERMINAL_LINE_READER \

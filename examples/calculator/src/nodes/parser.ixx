@@ -1,4 +1,4 @@
-export module examples.calculator.parser;
+export module examples.calculator.node.parser;
 
 import examples.calculator.types;
 import examples.calculator.traits;

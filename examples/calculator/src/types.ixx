@@ -102,4 +102,11 @@ export struct EvalError
     std::string message;
 };
 
+// --- Evaluator results ---
+
+export struct NumberResult  { double value; };
+export struct AssignResult  { std::string name; double value; };
+export struct FuncDefResult { std::string name; std::vector<std::string> params; };
+export using EvalResult = std::variant<NumberResult, AssignResult, FuncDefResult>;
+
 } // namespace examples::calculator

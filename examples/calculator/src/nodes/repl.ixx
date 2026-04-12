@@ -1,4 +1,4 @@
-export module examples.calculator.repl;
+export module examples.calculator.node.repl;
 
 import examples.calculator.traits;
 import arc;

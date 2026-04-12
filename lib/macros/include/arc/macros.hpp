@@ -243,7 +243,7 @@
         if constexpr (::arc::IsTraitView<Self>) \
         { \
             using Invoker = decltype(ARC_This_Trait::Meta::Signatures::method(self, static_cast<Args&&>(args)...)); \
-            return Invoker::invoke(self, method ## _c, static_cast<Args&&>(args)...); \
+            return Invoker{}.invoke(self, method ## _c, static_cast<Args&&>(args)...); \
         } \
         else \
         { \

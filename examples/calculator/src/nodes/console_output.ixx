@@ -1,4 +1,4 @@
-export module examples.calculator.console_output;
+export module examples.calculator.node.console_output;
 
 import examples.calculator.traits;
 import arc;

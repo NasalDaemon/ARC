@@ -19,7 +19,7 @@ trait Parser
 
 trait Evaluator
 {
-    evaluate(Expression const& expr) -> std::expected<double, EvalError>
+    evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>
 }
 
 trait Variables
@@ -104,7 +104,7 @@ trait Commands
         pre(self.isCommand(input))
 }
 
-// Save/load calculator state (variables) to/from a file.
+// Save/load calculator state (variables and user-defined functions) to/from a file.
 trait Persistence
 {
     save(std::string_view path) -> std::expected<void, std::string>

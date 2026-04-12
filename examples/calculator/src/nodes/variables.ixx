@@ -1,4 +1,4 @@
-export module examples.calculator.variables;
+export module examples.calculator.node.variables;
 
 import examples.calculator.traits;
 import arc;

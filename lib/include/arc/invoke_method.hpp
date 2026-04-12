@@ -16,91 +16,22 @@ namespace arc {
 
 namespace detail {
 
-    template<IsTrait Trait, class Node>
-    struct ContractTraitView : Trait::Meta::Methods
-    {
-        constexpr explicit ContractTraitView(Node& node) : node(node) {}
-
-        template<IsMethodOf<Trait> Method>
-        constexpr decltype(auto) impl(Method method, auto&&... args) const
-        {
-            return node.impl(method, ARC_FWD(args)...);
-        }
-
-    private:
-        Node& node;
-        friend Trait;
-    };
-
-    template<class Trait, class Node>
-    constexpr bool isTraitView<ContractTraitView<Trait, Node>> = true;
-
-    template<IsTrait Trait, class Node>
-    constexpr auto asContractTraitView(Node& node)
-    {
-        return ContractTraitView<Trait, Node>(node);
-    }
-    template<IsTrait Trait, IsTraitViewOf<Trait> Node>
-    constexpr auto asContractTraitView(Node& node)
-    {
-        return node;
-    }
-
-    template<class Constraints, class Context, class Trait, class Method, class... Args>
+    template<class Context, class Trait, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethod(auto& node, Method method, Args&&... args)
     {
-        if constexpr (Context::Info::ContractAssert.enabled)
-            Constraints::pre(Context::Info::ContractAssert, asContractTraitView<Trait>(node), args...);
-        using R = decltype(node.impl(method, ARC_FWD(args)...));
-        if constexpr (std::is_void_v<R>)
-        {
-            node.impl(method, ARC_FWD(args)...);
-            if constexpr (Context::Info::ContractAssert.enabled)
-                Constraints::post(Context::Info::ContractAssert, asContractTraitView<Trait>(node), nullptr);
-        }
-        else
-        {
-            decltype(auto) value = node.impl(method, ARC_FWD(args)...);
-            if constexpr (Context::Info::ContractAssert.enabled)
-                Constraints::post(Context::Info::ContractAssert, asContractTraitView<Trait>(node), value);
-            if constexpr (std::is_rvalue_reference_v<decltype(value)>)
-                return std::move(value);
-            else
-                return value;
-        }
+        return node.impl(method, ARC_FWD(args)...);
     }
 
-    template<class Constraints, class Context, class Trait, class Method, class... Args>
+    template<class Context, class Trait, class Method, class... Args>
     requires (not IsGlobalContext<Context>) and ContextHasGlobalTrait<Context, Global<arc::trait::SpyOnly<Trait>>>
     ARC_INLINE constexpr decltype(auto) invokeMethod(auto& node, Method method, Args&&... args)
     {
-        // Enforce pre-contracts before invoking the spy, to ensure the caller is contract-compliant
-        if constexpr (Context::Info::ContractAssert.enabled)
-            Constraints::pre(Context::Info::ContractAssert, asContractTraitView<Trait>(node), args...);
-
         auto const caller = [&node](auto&&... spyArgs) -> decltype(auto)
         {
             return node.impl(Method{}, static_cast<Args&&>(*static_cast<std::remove_reference_t<Args>*>(std::addressof(spyArgs)))...);
         };
 
-        using R = decltype(node.getGlobal(arc::trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...));
-        if constexpr (std::is_void_v<R>)
-        {
-            node.getGlobal(arc::trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
-            if constexpr (Context::Info::ContractAssert.enabled)
-                Constraints::post(Context::Info::ContractAssert, asContractTraitView<Trait>(node), nullptr);
-        }
-        else
-        {
-            decltype(auto) value = node.getGlobal(arc::trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
-            // Enforce post-contracts on the value returned to the caller
-            if constexpr (Context::Info::ContractAssert.enabled)
-                Constraints::post(Context::Info::ContractAssert, asContractTraitView<Trait>(node), value);
-            if constexpr (std::is_rvalue_reference_v<decltype(value)>)
-                return std::move(value);
-            else
-                return value;
-        }
+        return node.getGlobal(arc::trait::spyOnly<Trait>).intercept(method, caller, ARC_FWD(args)...);
     }
 
     template<class Method>
@@ -112,11 +43,11 @@ namespace detail {
 }
 
 ARC_MODULE_EXPORT
-template<class Constraints, class Node, class Method, class... Args>
+template<class Node, class Method, class... Args>
 requires (not IsTraitView<Node>) and requires { typename ContextOf<detail::NodeOf<Node>>; }
 ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args)
 {
-    return detail::invokeMethod<Constraints, ContextOf<detail::NodeOf<Node>>, TraitOf<Method>>(node, method, ARC_FWD(args)...);
+    return detail::invokeMethod<ContextOf<detail::NodeOf<Node>>, TraitOf<Method>>(node, method, ARC_FWD(args)...);
 }
 
 } // namespace arc

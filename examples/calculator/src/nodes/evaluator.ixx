@@ -1,4 +1,4 @@
-export module examples.calculator.evaluator;
+export module examples.calculator.node.evaluator;
 
 import examples.calculator.types;
 import examples.calculator.traits;
@@ -14,7 +14,7 @@ export struct Evaluator
         Impl<trait::Evaluator>::
         Uses<Variables, Functions>
     {
-        auto evaluate(Expression const& expr) -> std::expected<double, EvalError>;
+        auto evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>;
     };
 };
 

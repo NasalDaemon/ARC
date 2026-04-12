@@ -1,4 +1,4 @@
-export module examples.calculator.command_handler;
+export module examples.calculator.node.command_handler;
 
 import examples.calculator.traits;
 import arc;
