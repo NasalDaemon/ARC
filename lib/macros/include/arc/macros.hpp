@@ -158,10 +158,14 @@
             METHOD_LIST(ARC_METHOD_TAG_APPLICABLE) \
         }; \
         struct SignaturesByTag : ::arc::NullSignaturesByTag {}; \
-        struct Methods \
+        struct NamedMethods \
         { \
-            METHOD_LIST(ARC_DUCK_METHOD) \
+            struct TraitName \
+            { \
+                METHOD_LIST(ARC_DUCK_METHOD) \
+            }; \
         }; \
+        using Methods = NamedMethods::TraitName; \
         using DuckMethods = Methods; \
         struct DisableImpl \
         { \

@@ -79,9 +79,9 @@ SCENARIO("fns command")
         arc::test::Graph<node::CommandHandler> graph;
         auto commands = graph.asTrait(trait::commands);
 
-        graph.mocks->methodReturns<Functions::listBuiltins>(
+        graph.mocks->methodReturns<BuiltinFunctions::list>(
             std::vector<std::string>{"abs", "sqrt"});
-        graph.mocks->methodReturns<Functions::listUserFunctions>(
+        graph.mocks->methodReturns<UserFunctions::list>(
             std::vector<std::pair<std::string, UserFunction const*>>{});
         graph.mocks->define(
             [](Formatter::formatFunctions, std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const>) -> std::string
@@ -302,7 +302,7 @@ SCENARIO("isCommand recognises known commands")
     GIVEN("a CommandHandler node")
     {
         arc::test::Graph<node::CommandHandler> graph;
-        graph.mocks->methodReturns<Functions::listBuiltins>(
+        graph.mocks->methodReturns<BuiltinFunctions::list>(
             std::vector<std::string>{"abs", "sqrt", "sin"});
         auto commands = graph.asTrait(trait::commands);
         WHEN("checking \"help\"")
@@ -349,7 +349,7 @@ SCENARIO("isCommand rejects non-commands")
     GIVEN("a CommandHandler node")
     {
         arc::test::Graph<node::CommandHandler> graph;
-        graph.mocks->methodReturns<Functions::listBuiltins>(
+        graph.mocks->methodReturns<BuiltinFunctions::list>(
             std::vector<std::string>{"abs", "sqrt", "sin"});
         auto commands = graph.asTrait(trait::commands);
         WHEN("checking \"2 + 3\"")
@@ -378,7 +378,7 @@ SCENARIO("Commands contract: execute requires isCommand")
     GIVEN("a CommandHandler node")
     {
         arc::test::Graph<node::CommandHandler> graph;
-        graph.mocks->methodReturns<Functions::listBuiltins>(
+        graph.mocks->methodReturns<BuiltinFunctions::list>(
             std::vector<std::string>{});
         auto commands = graph.asTrait(trait::commands);
         WHEN("calling execute(\"2 + 3\") which is not a command")
@@ -405,7 +405,7 @@ SCENARIO("Clear command clears user functions")
 
             THEN("Functions.clearUserFunctions is called")
             {
-                CHECK(graph.mocks->methodCallCount<Functions::clearUserFunctions>() > 0);
+                CHECK(graph.mocks->methodCallCount<Functions::clear>() > 0);
             }
             THEN("Variables.clear is called")
             {
@@ -425,7 +425,7 @@ SCENARIO("Undef command removes user functions")
 
         std::vector<std::string> capturedNames;
         graph.mocks->define(
-            [&capturedNames](Functions::removeFunctions, std::span<std::string const> names) -> std::expected<void, EvalError>
+            [&capturedNames](Functions::remove, std::span<std::string const> names) -> std::expected<void, EvalError>
             {
                 capturedNames.assign(names.begin(), names.end());
                 return {};
@@ -456,7 +456,7 @@ SCENARIO("Undef command removes multiple functions")
 
         std::vector<std::string> capturedNames;
         graph.mocks->define(
-            [&capturedNames](Functions::removeFunctions, std::span<std::string const> names) -> std::expected<void, EvalError>
+            [&capturedNames](Functions::remove, std::span<std::string const> names) -> std::expected<void, EvalError>
             {
                 capturedNames.assign(names.begin(), names.end());
                 return {};

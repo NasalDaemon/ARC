@@ -68,13 +68,11 @@ REPL::run() -> int
             }
             else if constexpr (std::is_same_v<T, AssignResult>)
             {
-                getVariables().set(std::string{"ans"}, r.value);
                 getOutput().writeLine(getFormatter().formatAssignment(r.name, r.value));
             }
             else
             {
                 static_assert(std::is_same_v<T, NumberResult>);
-                getVariables().set(std::string{"ans"}, r.value);
                 getOutput().writeLine(getFormatter().formatResult(r.value));
             }
         }, *result);

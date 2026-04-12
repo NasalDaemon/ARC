@@ -139,9 +139,11 @@ SCENARIO("Formatter contract: pre-contract violations")
         {
             std::vector<std::pair<std::string, double>> empty;
 
-            THEN("triggers a contract violation")
+            THEN("returns a non-empty \"no variables\" message")
             {
-                CHECK_THROWS_AS(formatter.formatVariables(empty), arc::ContractViolation);
+                auto result = formatter.formatVariables(empty);
+                CHECK_FALSE(result.empty());
+                CHECK(result.contains("No variables"));
             }
         }
         WHEN("calling formatFunctions with empty builtins and empty userFuncs")
@@ -149,9 +151,11 @@ SCENARIO("Formatter contract: pre-contract violations")
             std::vector<std::string> emptyBuiltins;
             std::vector<std::pair<std::string, UserFunction const*>> emptyUserFuncs;
 
-            THEN("triggers a contract violation")
+            THEN("returns a non-empty \"no functions\" message")
             {
-                CHECK_THROWS_AS(formatter.formatFunctions(emptyBuiltins, emptyUserFuncs), arc::ContractViolation);
+                auto result = formatter.formatFunctions(emptyBuiltins, emptyUserFuncs);
+                CHECK_FALSE(result.empty());
+                CHECK(result.contains("No functions"));
             }
         }
     }

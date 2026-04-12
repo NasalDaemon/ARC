@@ -45,7 +45,7 @@ auto Formatter::formatAssignment(std::string_view name, double value) const -> s
 auto Formatter::formatVariables(std::span<std::pair<std::string, double> const> vars) const -> std::string
 {
     if (vars.empty())
-        return {};
+        return std::string("No variables defined.");
 
     std::string result;
     bool first = true;
@@ -61,6 +61,9 @@ auto Formatter::formatVariables(std::span<std::pair<std::string, double> const> 
 
 auto Formatter::formatFunctions(std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const> userFuncs) const -> std::string
 {
+    if (builtins.empty() && userFuncs.empty())
+        return std::string("No functions defined.");
+
     std::string result;
     if (!builtins.empty())
     {

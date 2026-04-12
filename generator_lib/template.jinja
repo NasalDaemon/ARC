@@ -221,19 +221,27 @@ struct {{ trait.name }} : ::arc::Trait
             {% endfor %}
         };
         // Provides interface to TraitView, enforcing Meta::Signatures and Meta::Constraints
-        struct Methods
+        struct NamedMethods
         {
-            {% for method_name in trait.method_names %}
-            ARC_SIGNATURE_METHOD({{ method_name }})
-            {% endfor %}
+            struct {{ trait.name }}
+            {
+                {% for method_name in trait.method_names %}
+                ARC_SIGNATURE_METHOD({{ method_name }})
+                {% endfor %}
+            };
         };
+        using Methods = NamedMethods::{{ trait.name }};
         // Provides interface without any signature enforcement (used when transforming traits with keys)
-        struct DuckMethods
+        struct NamedDuckMethods
         {
-            {% for method_name in trait.method_names %}
-            ARC_DUCK_METHOD({{ method_name }})
-            {% endfor %}
+            struct {{ trait.name }}
+            {
+                {% for method_name in trait.method_names %}
+                ARC_DUCK_METHOD({{ method_name }})
+                {% endfor %}
+            };
         };
+        using DuckMethods = NamedDuckMethods::{{ trait.name }};
         // Disable redirections `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
         struct DisableImpl
         {

@@ -27,8 +27,6 @@ SCENARIO("Basic arithmetic through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("input is \"2 + 3\"")
         {
             auto outputs = runWithInputs({"2 + 3"});
@@ -66,8 +64,6 @@ SCENARIO("BIDMAS precedence end-to-end")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("input is \"2 + 3 * 4\"")
         {
             auto outputs = runWithInputs({"2 + 3 * 4"});
@@ -105,8 +101,6 @@ SCENARIO("Variable assignment and recall through Repl")
 {
     GIVEN("a Repl with mocked I/O and real Variables/Evaluator")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"x = 5\", \"x * 2 + 1\"]")
         {
             auto outputs = runWithInputs({"x = 5", "x * 2 + 1"});
@@ -129,8 +123,6 @@ SCENARIO("ans variable through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"2 + 3\", \"ans * 10\"]")
         {
             auto outputs = runWithInputs({"2 + 3", "ans * 10"});
@@ -153,8 +145,6 @@ SCENARIO("Function calls through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"sqrt(16)\", \"max(3, 7)\", \"abs(-42)\"]")
         {
             auto outputs = runWithInputs({"sqrt(16)", "max(3, 7)", "abs(-42)"});
@@ -174,8 +164,6 @@ SCENARIO("Repl handles evaluation errors")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("input is \"1 / 0\"")
         {
             auto outputs = runWithInputs({"1 / 0"});
@@ -226,12 +214,10 @@ SCENARIO("vars command through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"x = 5\", \"y = 10\", \"vars\"]")
         {
-            // Note: "x = 5" also sets ans=5, "y = 10" sets ans=10
-            // so vars will list ans, x, y (alphabetical from std::map)
+            // Note: "x = 5" evaluates as an assignment, Evaluator sets ans=5;
+            // "y = 10" similarly sets ans=10. vars lists ans, x, y (alphabetical).
             auto outputs = runWithInputs({"x = 5", "y = 10", "vars"});
 
             THEN("third output contains \"x = 5\" and \"y = 10\"")
@@ -248,8 +234,6 @@ SCENARIO("fns command through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("input is \"fns\"")
         {
             auto outputs = runWithInputs({"fns"});
@@ -270,8 +254,6 @@ SCENARIO("history command through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"2 + 3\", \"x = 5\", \"history\"]")
         {
             auto outputs = runWithInputs({"2 + 3", "x = 5", "history"});
@@ -295,8 +277,6 @@ SCENARIO("help command through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("input is \"help\"")
         {
             auto outputs = runWithInputs({"help"});
@@ -318,8 +298,6 @@ SCENARIO("clear command through Repl")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"x = 5\", \"clear\", \"x\"]")
         {
             auto outputs = runWithInputs({"x = 5", "clear", "x"});
@@ -347,8 +325,6 @@ SCENARIO("Repl handles empty input and quit")
 {
     GIVEN("a Repl with mocked I/O")
     {
-        IntegrationGraph graph;
-
         WHEN("inputs are [\"\", \"2 + 3\", \"quit\"]")
         {
             auto outputs = runWithInputs({"", "2 + 3", "quit"});

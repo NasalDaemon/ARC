@@ -36,14 +36,14 @@ std::map<std::string, FuncDef, std::less<>> const builtins = {
     {"max",  {2, [](std::span<double const> a) { return std::max(a[0], a[1]); }}},
 };
 
-using DepMap = std::map<FuncKey, std::set<FuncKey>, std::less<>>;
+using DepMap = std::map<Functions::FuncKey, std::set<Functions::FuncKey>, std::less<>>;
 
-auto hasCycle(FuncKey const& targetKey, DepMap const& deps) -> bool
+auto hasCycle(Functions::FuncKey const& targetKey, DepMap const& deps) -> bool
 {
-    std::set<FuncKey, std::less<>> visited;
-    std::set<FuncKey, std::less<>> recStack;
+    std::set<Functions::FuncKey, std::less<>> visited;
+    std::set<Functions::FuncKey, std::less<>> recStack;
 
-    auto const dfs = [&](this auto const& self, FuncKey const& key) -> bool {
+    auto const dfs = [&](this auto const& self, Functions::FuncKey const& key) -> bool {
         if (recStack.count(key) > 0)
             return true;
         if (visited.count(key) > 0)
@@ -73,23 +73,17 @@ FUNCTIONS::call(std::string_view name, std::span<double const> args) const
     -> std::expected<double, EvalError>
 {
     auto it = builtins.find(name);
-    if (it == builtins.end())
-        return std::unexpected(EvalError{std::format("unknown function: {}", name)});
+    if (it == builtins.end() || static_cast<int>(args.size()) != it->second.arity)
+        return std::unexpected(EvalError{std::format("unknown function: {}/{}", name, args.size())});
 
     const auto& def = it->second;
-    if (static_cast<int>(args.size()) != def.arity)
-        return std::unexpected(EvalError{
-            std::format("wrong argument count for {}: expected {}, got {}",
-                name, def.arity, args.size())
-        });
-
     if (name == "div" && args[1] == 0.0)
         return std::unexpected(EvalError{"division by zero"});
 
     return def.fn(args);
 }
 
-FUNCTIONS::listBuiltins() const -> std::vector<std::string>
+FUNCTIONS::impl(BuiltinFunctions::list) const -> std::vector<std::string>
 {
     std::vector<std::string> names;
     names.reserve(builtins.size());
@@ -192,7 +186,7 @@ auto parseFunctionName(std::string_view name) -> std::expected<std::pair<std::st
     }
 }
 
-FUNCTIONS::removeFunctions(std::span<std::string const> names) -> std::expected<void, EvalError>
+FUNCTIONS::remove(std::span<std::string const> names) -> std::expected<void, EvalError>
 {
     std::set<FuncKey, std::less<>> keysToRemove;
     for (auto const& name : names)
@@ -245,7 +239,7 @@ FUNCTIONS::removeFunctions(std::span<std::string const> names) -> std::expected<
     return {};
 }
 
-FUNCTIONS::getUserFunction(std::string_view name, std::size_t arity) const -> UserFunction const*
+FUNCTIONS::get(std::string_view name, std::size_t arity) const -> UserFunction const*
 {
     auto it = userFunctions_.find({std::string(name), arity});
     if (it == userFunctions_.end())
@@ -253,7 +247,7 @@ FUNCTIONS::getUserFunction(std::string_view name, std::size_t arity) const -> Us
     return &it->second;
 }
 
-FUNCTIONS::listUserFunctions() const -> std::vector<std::pair<std::string, UserFunction const*>>
+FUNCTIONS::impl(UserFunctions::list) const -> std::vector<std::pair<std::string, UserFunction const*>>
 {
     std::vector<std::pair<std::string, UserFunction const*>> result;
     result.reserve(userFunctions_.size());
@@ -264,7 +258,7 @@ FUNCTIONS::listUserFunctions() const -> std::vector<std::pair<std::string, UserF
     return result;
 }
 
-FUNCTIONS::clearUserFunctions() -> void
+FUNCTIONS::clear() -> void
 {
     userFunctions_.clear();
     dependencies_.clear();

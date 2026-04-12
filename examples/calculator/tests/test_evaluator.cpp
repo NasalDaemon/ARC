@@ -53,6 +53,7 @@ SCENARIO("Evaluating numeric literals")
     GIVEN("an Evaluator node with mocked dependencies")
     {
         arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating NumberExpr(42)")
         {
@@ -73,6 +74,7 @@ SCENARIO("Evaluating binary operations")
     GIVEN("an Evaluator node")
     {
         arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Add(2, 3)")
         {
@@ -155,6 +157,7 @@ SCENARIO("Evaluating unary negation")
     GIVEN("an Evaluator node")
     {
         arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Negate(5)")
         {
@@ -175,6 +178,7 @@ SCENARIO("Evaluating variable references")
     GIVEN("an Evaluator node")
     {
         arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
 
         graph.mocks->define(
@@ -231,23 +235,93 @@ SCENARIO("Evaluating assignment")
         {
             auto result = evaluator.evaluate(*makeAssign("x", makeNum(5)));
 
-            THEN("mock Variables::set is called and returns AssignResult")
+            THEN("Variables::set is called for the variable and for \"ans\", and returns AssignResult")
             {
                 REQUIRE(result.has_value());
                 REQUIRE(std::holds_alternative<AssignResult>(*result));
                 CHECK(std::get<AssignResult>(*result).value == doctest::Approx(5.0));
                 CHECK(std::get<AssignResult>(*result).name == "x");
-                CHECK(graph.mocks->methodCallCount<Variables::set>() == 1);
+                CHECK(graph.mocks->methodCallCount<Variables::set>() == 2);
             }
         }
     }
 }
 
-SCENARIO("Evaluating function calls")
+SCENARIO("Evaluating numeric expressions sets \"ans\"")
 {
-    GIVEN("an Evaluator node with mock Functions")
+    GIVEN("an Evaluator node")
     {
         arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->logAllCalls();
+        auto evaluator = graph.asTrait(trait::evaluator);
+
+        WHEN("evaluating NumberExpr(42)")
+        {
+            evaluator.evaluate(*makeNum(42));
+
+            THEN("Variables::set is called with \"ans\" and 42.0")
+            {
+                auto visitor = graph.mocks->visitCallLogs<Variables::set, std::string, double>();
+                REQUIRE(visitor.size() >= 1);
+                auto ansCall = visitor.findNext(std::tuple{"ans", 42.0});
+                REQUIRE(ansCall.has_value());
+            }
+        }
+    }
+}
+
+SCENARIO("Evaluating a function definition")
+{
+    GIVEN("an Evaluator node with mocked Functions")
+    {
+        arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->enableCallCounting();
+        auto evaluator = graph.asTrait(trait::evaluator);
+
+        WHEN("evaluating a FuncDefExpr for \"f(x) = x + 1\"")
+        {
+            auto result = evaluator.evaluate(*makeFuncDef(
+                "f",
+                {"x"},
+                makeBinary(BinaryOp::Add, makeVar("x"), makeNum(1))
+            ));
+
+            THEN("Functions::define is called once and returns FuncDefResult with the function name")
+            {
+                REQUIRE(result.has_value());
+                REQUIRE(std::holds_alternative<FuncDefResult>(*result));
+                CHECK(std::get<FuncDefResult>(*result).name == "f");
+                CHECK(graph.mocks->methodCallCount<Functions::define>() == 1);
+            }
+            THEN("Variables::set is not called — function definitions do not update \"ans\"")
+            {
+                CHECK(graph.mocks->methodCallCount<Variables::set>() == 0);
+            }
+        }
+        WHEN("Functions::define returns an error")
+        {
+            graph.mocks->methodReturns<Functions::define>(
+                std::expected<void, EvalError>{std::unexpect, EvalError{"cannot shadow builtin"}});
+
+            auto result = evaluator.evaluate(*makeFuncDef("abs", {"x"}, makeNum(1)));
+
+            THEN("the error is propagated")
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message.contains("cannot shadow builtin"));
+            }
+        }
+    }
+}
+
+SCENARIO("Evaluating builtin function calls")
+{
+    GIVEN("an Evaluator node with mock Functions returning a value for \"sqrt\"")
+    {
+        arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
 
         graph.mocks->define(
@@ -281,6 +355,7 @@ SCENARIO("Evaluating nested expressions")
     GIVEN("an Evaluator node")
     {
         arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
         WHEN("evaluating Add(Mul(2, 3), Pow(2, 3))")
         {
@@ -295,37 +370,6 @@ SCENARIO("Evaluating nested expressions")
                 REQUIRE(result.has_value());
                 REQUIRE(std::holds_alternative<NumberResult>(*result));
                 CHECK(std::get<NumberResult>(*result).value == doctest::Approx(14.0));
-            }
-        }
-    }
-}
-
-SCENARIO("Evaluating a function definition stores it")
-{
-    GIVEN("an Evaluator node with mocked Functions")
-    {
-        arc::test::Graph<node::Evaluator> graph;
-        graph.mocks->setReturnDefault();
-        graph.mocks->enableCallCounting();
-        auto evaluator = graph.asTrait(trait::evaluator);
-
-        WHEN("evaluating a FuncDefExpr for \"f(x) = x + 1\"")
-        {
-            auto result = evaluator.evaluate(*makeFuncDef(
-                "f",
-                {"x"},
-                makeBinary(BinaryOp::Add, makeVar("x"), makeNum(1))
-            ));
-
-            THEN("mock Functions.define is called with name=\"f\", params=[\"x\"]")
-            {
-                CHECK(graph.mocks->methodCallCount<Functions::define>() == 1);
-            }
-            THEN("returns FuncDefResult for \"f\"")
-            {
-                REQUIRE(result.has_value());
-                REQUIRE(std::holds_alternative<FuncDefResult>(*result));
-                CHECK(std::get<FuncDefResult>(*result).name == "f");
             }
         }
     }
@@ -353,7 +397,7 @@ SCENARIO("Calling a user-defined function")
             std::expected<double, EvalError>{std::unexpect, "unknown function"});
 
         graph.mocks->define(
-            [&userFunc](Functions::getUserFunction, std::string_view name, std::size_t arity)
+            [&userFunc](Functions::get, std::string_view name, std::size_t arity)
                 -> UserFunction const*
             {
                 if (name == "f" && arity == 1)
@@ -412,7 +456,7 @@ SCENARIO("Calling an overloaded user function selects correct arity")
             std::expected<double, EvalError>{std::unexpect, "unknown function"});
 
         graph.mocks->define(
-            [&funcArity1, &funcArity2](Functions::getUserFunction, std::string_view name, std::size_t arity)
+            [&funcArity1, &funcArity2](Functions::get, std::string_view name, std::size_t arity)
                 -> UserFunction const*
             {
                 if (name == "f" && arity == 1)
@@ -453,24 +497,58 @@ SCENARIO("Calling an overloaded user function selects correct arity")
     }
 }
 
-SCENARIO("User function with wrong arity (no matching overload)")
+SCENARIO("Evaluator binds and restores variables when calling a user function")
 {
-    GIVEN("an Evaluator node with mocked Functions")
+    GIVEN(R"(an Evaluator with f(x) = x * 2 and a pre-existing variable x = 99)")
+    {
+        arc::test::Graph<node::Evaluator> graph;
+        graph.mocks->setReturnDefault();
+        graph.mocks->enableCallCounting();
+        auto evaluator = graph.asTrait(trait::evaluator);
+
+        auto body = makeBinary(BinaryOp::Mul, makeVar("x"), makeNum(2));
+        UserFunction userFunc{{"x"}, body->clone(), ""};
+
+        tests::MockVariableStore varStore;
+        varStore.vars["x"] = 99.0;
+        varStore.install(graph);
+
+        graph.mocks->methodReturns<Functions::call>(
+            std::expected<double, EvalError>{std::unexpect, "unknown function"});
+
+        graph.mocks->define(
+            [&userFunc](Functions::get, std::string_view name, std::size_t arity) -> UserFunction const*
+            {
+                return (name == "f" && arity == 1) ? &userFunc : nullptr;
+            });
+
+        WHEN("evaluating f(7)")
+        {
+            std::vector<ExprPtr> args;
+            args.push_back(makeNum(7));
+            auto result = evaluator.evaluate(*makeCall("f", std::move(args)));
+
+            THEN("body evaluates with x = 7, giving 14; and x is restored to 99 afterward")
+            {
+                REQUIRE(result.has_value());
+                REQUIRE(std::holds_alternative<NumberResult>(*result));
+                CHECK(std::get<NumberResult>(*result).value == doctest::Approx(14.0));
+                CHECK(varStore.vars.at("x") == doctest::Approx(99.0));
+            }
+        }
+    }
+}
+
+SCENARIO("Unknown function returns EvalError with name/arity")
+{
+    GIVEN("an Evaluator where no builtin or user function matches f/2")
     {
         arc::test::Graph<node::Evaluator> graph;
         graph.mocks->setReturnDefault();
         auto evaluator = graph.asTrait(trait::evaluator);
 
-        graph.mocks->define(
-            [](Functions::call, std::string_view name, std::span<double const> /*args*/)
-                -> std::expected<double, EvalError>
-            {
-                return std::unexpected(EvalError{"unknown function: " + std::string(name)});
-            }
-        );
-
-        graph.mocks->methodReturns<Functions::getUserFunction>(
-            static_cast<UserFunction const*>(nullptr));
+        graph.mocks->methodReturns<BuiltinFunctions::call>(
+            std::expected<double, EvalError>{std::unexpect, "unknown function: f/2"});
 
         WHEN("evaluating CallExpr for f(1, 2)")
         {
@@ -479,17 +557,18 @@ SCENARIO("User function with wrong arity (no matching overload)")
             args.push_back(makeNum(2));
             auto result = evaluator.evaluate(*makeCall("f", std::move(args)));
 
-            THEN("returns EvalError with \"unknown function\"")
+            THEN("returns EvalError with \"unknown function: f/2\"")
             {
                 REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message == "unknown function: f/2");
             }
         }
     }
 }
 
-SCENARIO("Variable scoping in user function calls")
+SCENARIO("Variable scoping: pre-existing variable is restored via set, not remove")
 {
-    GIVEN("an Evaluator with mocked Functions and Variables")
+    GIVEN(R"(an Evaluator with f(x) = x and a pre-existing variable x = 10)")
     {
         arc::test::Graph<node::Evaluator> graph;
         graph.mocks->setReturnDefault();
@@ -506,7 +585,7 @@ SCENARIO("Variable scoping in user function calls")
             std::expected<double, EvalError>{std::unexpect, "unknown function"});
 
         graph.mocks->define(
-            [&userFunc](Functions::getUserFunction, std::string_view name, std::size_t arity)
+            [&userFunc](Functions::get, std::string_view name, std::size_t arity)
                 -> UserFunction const*
             {
                 if (name == "f" && arity == 1)

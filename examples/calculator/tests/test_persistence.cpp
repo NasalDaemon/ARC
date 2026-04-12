@@ -52,7 +52,7 @@ SCENARIO("Saving variables to file")
                 {"x", 5.0}, {"y", 10.0}
             });
 
-        graph.mocks->methodReturns<Functions::listUserFunctions>(
+        graph.mocks->methodReturns<UserFunctions::list>(
             std::vector<std::pair<std::string, UserFunction const*>>{});
 
         WHEN("saving to a temp file")
@@ -179,7 +179,7 @@ SCENARIO("Saving user functions")
                 {"x", 5.0}, {"y", 10.0}
             });
 
-        graph.mocks->methodReturns<Functions::listUserFunctions>(
+        graph.mocks->methodReturns<UserFunctions::list>(
             std::vector<std::pair<std::string, UserFunction const*>>{});
 
         WHEN("saving to a file path")

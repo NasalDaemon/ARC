@@ -282,15 +282,39 @@ SCENARIO("Unknown function")
     }
 }
 
-SCENARIO("Listing functions")
+SCENARIO("call() returns unknown-function error for a user-defined function name")
+{
+    GIVEN("a Functions node with f(x) = 99 defined")
+    {
+        arc::test::Graph<node::Functions> graph;
+        graph.mocks->setReturnDefault();
+        auto functions = graph.node.asTrait(trait::functions);
+        auto body = std::make_unique<Expression>(NumberExpr{99.0});
+        functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("99"));
+
+        WHEN("calling f(5) via call()")
+        {
+            std::array args{5.0};
+            auto result = functions.call("f"sv, args);
+
+            THEN("returns an error — user functions are dispatched by the Evaluator via get()")
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error().message.contains("unknown function"));
+            }
+        }
+    }
+}
+
+SCENARIO("Listing builtin functions")
 {
     GIVEN("a Functions node")
     {
         arc::test::Graph<node::Functions> graph;
-        auto functions = graph.node.asTrait(trait::functions);
-        WHEN("listing functions")
+        auto builtins = graph.node.asTrait(trait::builtinFunctions);
+        WHEN("listing builtin functions")
         {
-            auto result = functions.listBuiltins();
+            auto result = builtins.list();
 
             THEN("returns all built-in function names")
             {
@@ -345,15 +369,15 @@ SCENARIO("Defining and retrieving user functions")
             auto body = xPlus1();
             auto result = functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("x + 1"));
 
-            THEN("getUserFunction(\"f\", 1) returns non-null")
+            THEN("returns non-null for f/1")
             {
                 REQUIRE(result.has_value());
-                auto fn = functions.getUserFunction("f"sv, 1);
+                auto fn = functions.get("f"sv, 1);
                 CHECK(fn != nullptr);
             }
             THEN("the returned UserFunction has params [\"x\"]")
             {
-                auto fn = functions.getUserFunction("f"sv, 1);
+                auto fn = functions.get("f"sv, 1);
                 REQUIRE(fn != nullptr);
                 CHECK(fn->params.size() == 1);
                 CHECK(fn->params[0] == "x");
@@ -364,10 +388,10 @@ SCENARIO("Defining and retrieving user functions")
             auto body = xPlusY();
             auto result = functions.define(std::string("g"), std::vector<std::string>{"x", "y"}, std::move(body), std::string("x + y"));
 
-            THEN("getUserFunction(\"g\", 2) returns non-null with params [\"x\", \"y\"]")
+            THEN("returns non-null for g/2 with params [x, y]")
             {
                 REQUIRE(result.has_value());
-                auto fn = functions.getUserFunction("g"sv, 2);
+                auto fn = functions.get("g"sv, 2);
                 REQUIRE(fn != nullptr);
                 CHECK(fn->params.size() == 2);
                 CHECK(fn->params[0] == "x");
@@ -377,24 +401,24 @@ SCENARIO("Defining and retrieving user functions")
     }
 }
 
-SCENARIO("getUserFunction returns nullptr for unknown functions")
+SCENARIO("get returns nullptr for unknown functions")
 {
     GIVEN("a Functions node")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        WHEN("querying getUserFunction(\"unknown\", 1)")
+        WHEN("querying get for unknown/1")
         {
             THEN("returns nullptr")
             {
-                auto fn = functions.getUserFunction("unknown"sv, 1);
+                auto fn = functions.get("unknown"sv, 1);
                 CHECK(fn == nullptr);
             }
         }
     }
 }
 
-SCENARIO("getUserFunction returns nullptr for wrong arity")
+SCENARIO("get returns nullptr for wrong arity")
 {
     GIVEN("a Functions node with \"f(x) = x + 1\" defined (arity 1)")
     {
@@ -402,11 +426,11 @@ SCENARIO("getUserFunction returns nullptr for wrong arity")
         auto functions = graph.node.asTrait(trait::functions);
         defineF(functions);
 
-        WHEN("querying getUserFunction(\"f\", 2)")
+        WHEN("querying get for f/2")
         {
             THEN("returns nullptr")
             {
-                auto fn = functions.getUserFunction("f"sv, 2);
+                auto fn = functions.get("f"sv, 2);
                 CHECK(fn == nullptr);
             }
         }
@@ -430,16 +454,16 @@ SCENARIO("Overloaded functions with same name but different arity coexist")
                 REQUIRE(result1.has_value());
                 REQUIRE(result2.has_value());
             }
-            THEN("getUserFunction(\"f\", 1) returns params=[\"x\"]")
+            THEN("f/1 has params [x]")
             {
-                auto fn = functions.getUserFunction("f"sv, 1);
+                auto fn = functions.get("f"sv, 1);
                 REQUIRE(fn != nullptr);
                 CHECK(fn->params.size() == 1);
                 CHECK(fn->params[0] == "x");
             }
-            THEN("getUserFunction(\"f\", 2) returns params=[\"x\", \"y\"]")
+            THEN("f/2 has params [x, y]")
             {
-                auto fn = functions.getUserFunction("f"sv, 2);
+                auto fn = functions.get("f"sv, 2);
                 REQUIRE(fn != nullptr);
                 CHECK(fn->params.size() == 2);
                 CHECK(fn->params[0] == "x");
@@ -467,15 +491,15 @@ SCENARIO("Redefining a user function replaces only that arity")
             {
                 REQUIRE(result.has_value());
             }
-            THEN("getUserFunction(\"f\", 1) has updated body")
+            THEN("f/1 has updated body")
             {
-                auto fn = functions.getUserFunction("f"sv, 1);
+                auto fn = functions.get("f"sv, 1);
                 REQUIRE(fn != nullptr);
                 CHECK(fn->source == "x * 10");
             }
-            THEN("getUserFunction(\"f\", 2) is unchanged")
+            THEN("f/2 is unchanged")
             {
-                auto fn = functions.getUserFunction("f"sv, 2);
+                auto fn = functions.get("f"sv, 2);
                 REQUIRE(fn != nullptr);
                 CHECK(fn->source == "x + y");
             }
@@ -659,7 +683,7 @@ SCENARIO("Redefining a function updates dependency graph")
             }
             THEN("f can now be removed since g no longer depends on it")
             {
-                auto removeResult = functions.removeFunctions(std::vector<std::string>{"f"});
+                auto removeResult = functions.remove(std::vector<std::string>{"f"});
                 REQUIRE(removeResult.has_value());
             }
         }
@@ -676,9 +700,9 @@ SCENARIO("Redefining an overloaded function with dependencies updates correctly"
         defineF2(functions);
         defineGDependsOnF(functions);
 
-        WHEN("calling removeFunctions([\"f\"])")
+        WHEN("calling remove([\"f\"])")
         {
-            auto result = functions.removeFunctions(std::vector<std::string>{"f"});
+            auto result = functions.remove(std::vector<std::string>{"f"});
 
             THEN("returns EvalError (g/1 depends on f/1)")
             {
@@ -691,7 +715,7 @@ SCENARIO("Redefining an overloaded function with dependencies updates correctly"
             auto redefineResult = functions.define(std::string("g"), std::vector<std::string>{"x"}, std::move(body), std::string("x * 3"));
             REQUIRE(redefineResult.has_value());
 
-            auto removeResult = functions.removeFunctions(std::vector<std::string>{"f"});
+            auto removeResult = functions.remove(std::vector<std::string>{"f"});
 
             THEN("remove returns success (g no longer depends on f)")
             {
@@ -710,9 +734,9 @@ SCENARIO("Removing user functions respects dependencies")
         defineF(functions);
         defineGDependsOnF(functions);
 
-        WHEN("calling removeFunctions([\"f\"]) (g depends on f)")
+        WHEN("calling remove([\"f\"]) (g depends on f)")
         {
-            auto result = functions.removeFunctions(std::vector<std::string>{"f"});
+            auto result = functions.remove(std::vector<std::string>{"f"});
 
             THEN("returns EvalError (g depends on f)")
             {
@@ -725,22 +749,22 @@ SCENARIO("Removing user functions respects dependencies")
                 CHECK(result.error().message.contains("g/1"));
             }
         }
-        WHEN("calling removeFunctions([\"g\"]) (nothing depends on g)")
+        WHEN("calling remove([\"g\"]) (nothing depends on g)")
         {
-            auto result = functions.removeFunctions(std::vector<std::string>{"g"});
+            auto result = functions.remove(std::vector<std::string>{"g"});
 
             THEN("returns success")
             {
                 REQUIRE(result.has_value());
             }
-            THEN("getUserFunction(\"g\", 1) returns nullptr")
+            THEN("g/1 returns nullptr")
             {
-                CHECK(functions.getUserFunction("g"sv, 1) == nullptr);
+                CHECK(functions.get("g"sv, 1) == nullptr);
             }
         }
-        WHEN("calling removeFunctions([\"f\", \"g\"]) (remove both)")
+        WHEN("calling remove([\"f\", \"g\"]) (remove both)")
         {
-            auto result = functions.removeFunctions(std::vector<std::string>{"f", "g"});
+            auto result = functions.remove(std::vector<std::string>{"f", "g"});
 
             THEN("returns success (all dependencies removed together)")
             {
@@ -760,9 +784,9 @@ SCENARIO("Undef removes all overloads and checks dependencies")
         defineF2(functions);
         defineGDependsOnF(functions);
 
-        WHEN("calling removeFunctions([\"f\"])")
+        WHEN("calling remove([\"f\"])")
         {
-            auto result = functions.removeFunctions(std::vector<std::string>{"f"});
+            auto result = functions.remove(std::vector<std::string>{"f"});
 
             THEN("returns EvalError (g/1 depends on f/1)")
             {
@@ -775,25 +799,25 @@ SCENARIO("Undef removes all overloads and checks dependencies")
                 CHECK(result.error().message.contains("g/1"));
             }
         }
-        WHEN("calling removeFunctions([\"f\", \"g\"])")
+        WHEN("calling remove([\"f\", \"g\"])")
         {
-            auto result = functions.removeFunctions(std::vector<std::string>{"f", "g"});
+            auto result = functions.remove(std::vector<std::string>{"f", "g"});
 
             THEN("returns success (both f overloads and g removed)")
             {
                 REQUIRE(result.has_value());
             }
-            THEN("getUserFunction(\"f\", 1) returns nullptr")
+            THEN("f/1 returns nullptr")
             {
-                CHECK(functions.getUserFunction("f"sv, 1) == nullptr);
+                CHECK(functions.get("f"sv, 1) == nullptr);
             }
-            THEN("getUserFunction(\"f\", 2) returns nullptr")
+            THEN("f/2 returns nullptr")
             {
-                CHECK(functions.getUserFunction("f"sv, 2) == nullptr);
+                CHECK(functions.get("f"sv, 2) == nullptr);
             }
-            THEN("getUserFunction(\"g\", 1) returns nullptr")
+            THEN("g/1 returns nullptr")
             {
-                CHECK(functions.getUserFunction("g"sv, 1) == nullptr);
+                CHECK(functions.get("g"sv, 1) == nullptr);
             }
         }
     }
@@ -808,12 +832,12 @@ SCENARIO("Removing functions sequentially in dependency order")
         defineF(functions);
         defineGDependsOnF(functions);
 
-        WHEN("calling removeFunctions([\"g\"]) then removeFunctions([\"f\"])")
+        WHEN("calling remove([\"g\"]) then remove([\"f\"])")
         {
-            auto result1 = functions.removeFunctions(std::vector<std::string>{"g"});
+            auto result1 = functions.remove(std::vector<std::string>{"g"});
             REQUIRE(result1.has_value());
 
-            auto result2 = functions.removeFunctions(std::vector<std::string>{"f"});
+            auto result2 = functions.remove(std::vector<std::string>{"f"});
 
             THEN("both removals succeed")
             {
@@ -823,7 +847,7 @@ SCENARIO("Removing functions sequentially in dependency order")
     }
 }
 
-SCENARIO("clearUserFunctions removes all user functions including overloads")
+SCENARIO("clear removes all user functions including overloads")
 {
     GIVEN("a Functions node with \"f(x) = x + 1\", \"f(x, y) = x + y\", \"g(x) = f(x)\" defined")
     {
@@ -833,21 +857,21 @@ SCENARIO("clearUserFunctions removes all user functions including overloads")
         defineF2(functions);
         functions.define(std::string("g"), std::vector<std::string>{"x"}, fCall(makeVar("x")), std::string("f(x)"));
 
-        WHEN("calling clearUserFunctions")
+        WHEN("calling clear")
         {
-            functions.clearUserFunctions();
+            functions.clear();
 
-            THEN("getUserFunction(\"f\", 1) returns nullptr")
+            THEN("f/1 returns nullptr")
             {
-                CHECK(functions.getUserFunction("f"sv, 1) == nullptr);
+                CHECK(functions.get("f"sv, 1) == nullptr);
             }
-            THEN("getUserFunction(\"f\", 2) returns nullptr")
+            THEN("f/2 returns nullptr")
             {
-                CHECK(functions.getUserFunction("f"sv, 2) == nullptr);
+                CHECK(functions.get("f"sv, 2) == nullptr);
             }
-            THEN("getUserFunction(\"g\", 1) returns nullptr")
+            THEN("g/1 returns nullptr")
             {
-                CHECK(functions.getUserFunction("g"sv, 1) == nullptr);
+                CHECK(functions.get("g"sv, 1) == nullptr);
             }
             THEN("builtins still work (call(\"sqrt\", [4]) returns 2)")
             {
@@ -860,23 +884,24 @@ SCENARIO("clearUserFunctions removes all user functions including overloads")
     }
 }
 
-SCENARIO("list includes user function names")
+SCENARIO("user list includes defined function names")
 {
     GIVEN("a Functions node with user function \"f(x)\" and \"f(x,y)\" defined")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
+        auto userFunctions = graph.node.asTrait(trait::userFunctions);
         defineF(functions);
         defineF2(functions);
 
-        WHEN("calling listBuiltins()")
+        WHEN("calling user list()")
         {
-            auto result = functions.listBuiltins();
+            auto result = userFunctions.list();
 
-            THEN("result still contains builtin names like \"sqrt\" and \"abs\"")
+            THEN("result contains \"f\" entries")
             {
-                CHECK(std::ranges::contains(result, "sqrt"));
-                CHECK(std::ranges::contains(result, "abs"));
+                auto names = result | std::views::keys;
+                CHECK(std::ranges::contains(names, "f"));
             }
         }
     }
@@ -899,17 +924,17 @@ SCENARIO("Functions contract: define rejects empty name")
     }
 }
 
-SCENARIO("Functions contract: getUserFunction rejects empty name")
+SCENARIO("Functions contract: get rejects empty name")
 {
     GIVEN("a Functions node")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        WHEN("calling getUserFunction with empty name")
+        WHEN("calling get with empty name")
         {
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(functions.getUserFunction(""sv, 1), arc::ContractViolation);
+                CHECK_THROWS_AS(functions.get(""sv, 1), arc::ContractViolation);
             }
         }
     }

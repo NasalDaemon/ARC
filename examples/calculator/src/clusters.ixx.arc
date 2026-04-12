@@ -37,10 +37,10 @@ cluster Calculator [Root]
     [Evaluator]    repl --> evaluator
     [Output]       repl --> output
     [History]      repl --> history     <-- commands, lineReader
-    [Variables]    repl --> variables   <-- commands, evaluator, persistence, functions
     [Formatter]    repl --> formatter   <-- commands
 
     [Functions]             functions   <-- commands, evaluator, persistence
+    [Variables]             variables   <-- commands, evaluator, persistence, functions
     [Persistence]           persistence <-- commands
 }
 

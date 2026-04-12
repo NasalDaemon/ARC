@@ -9,7 +9,7 @@ namespace examples::calculator::node {
 export struct Repl
 {
     template<class Context>
-    struct Node : arc::NodeUses<LineReader, Output, Commands, Tokeniser, Parser, Evaluator, Variables, Formatter, History>
+    struct Node : arc::NodeUses<LineReader, Output, Commands, Tokeniser, Parser, Evaluator, Formatter, History>
     {
         auto run() -> int;
     };

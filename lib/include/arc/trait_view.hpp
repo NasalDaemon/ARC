@@ -107,8 +107,22 @@ struct TraitView final : Trait::Meta::Methods
 
     using Node = detail::NodeOf<typename ImplAlias::Impl>;
 
-    static consteval std::true_type isTrait(MatchesTrait<Trait> auto) { return {}; }
-    static consteval std::false_type isTrait(auto) { return {}; }
+    template<MatchesTrait<Trait> SubTrait>
+    static consteval std::true_type isTrait(SubTrait = {}) { return {}; }
+    template<class SubTrait>
+    static consteval std::false_type isTrait(SubTrait = {}) { return {}; }
+
+    template<MatchesTrait<Trait> SubTrait, bool Fallback = false>
+    constexpr auto asTrait(this auto&& self, SubTrait = {}, std::bool_constant<Fallback> = {})
+    {
+        return TraitView<SubTrait, ImplAlias, Types_>({}, self.alias, {});
+    }
+    template<class SubTrait, bool Fallback = false>
+    constexpr TraitView asTrait(this auto&& self, SubTrait = {}, std::bool_constant<Fallback> = {})
+    {
+        static_assert(Fallback, "Cannot convert to requested trait");
+        return self;
+    }
 
     using Types = detail::Decompress<Types_>;
     struct Traits

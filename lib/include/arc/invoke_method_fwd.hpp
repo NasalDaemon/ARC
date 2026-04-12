@@ -69,7 +69,7 @@ namespace detail {
         {
             using Context = ContextOf<typename TraitView::Node>;
             if constexpr (Context::Info::ContractAssert.enabled)
-                Self::Constraints::pre(Context::Info::ContractAssert, traitView, args...);
+                Self::Constraints::pre(Context::Info::ContractAssert, traitView.asTrait(traitOf(method), std::true_type{}), args...);
 
             using T = decltype(self.invokeImpl(traitView, method, ARC_FWD(args)...));
             if constexpr (std::is_void_v<T>)
@@ -77,14 +77,14 @@ namespace detail {
                 self.invokeImpl(traitView, method, ARC_FWD(args)...);
 
                 if constexpr (Context::Info::ContractAssert.enabled)
-                    Self::Constraints::post(Context::Info::ContractAssert, traitView, nullptr);
+                    Self::Constraints::post(Context::Info::ContractAssert, traitView.asTrait(traitOf(method), std::true_type{}), nullptr);
             }
             else
             {
                 decltype(auto) value = self.invokeImpl(traitView, method, ARC_FWD(args)...);
 
                 if constexpr (Context::Info::ContractAssert.enabled)
-                    Self::Constraints::post(Context::Info::ContractAssert, traitView, value);
+                    Self::Constraints::post(Context::Info::ContractAssert, traitView.asTrait(traitOf(method), std::true_type{}), value);
 
                 if constexpr (std::is_rvalue_reference_v<T>)
                     return std::move(value);

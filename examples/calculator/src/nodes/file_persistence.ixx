@@ -11,7 +11,7 @@ export struct FilePersistence
     template<class Context>
     struct Node : arc::Node::
         Impl<Persistence>::
-        Uses<Variables, Functions, Tokeniser, Parser>
+        Uses<Variables, UserFunctions, Tokeniser, Parser>
     {
         auto save(std::string_view path) -> std::expected<void, std::string>;
         auto load(std::string_view path) -> std::expected<void, std::string>;

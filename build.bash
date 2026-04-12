@@ -3,20 +3,12 @@
 cd $(dirname "$0")
 
 BUILD_TYPE="Debug"
-STD_MODULE="ON"
-BUILD_EXAMPLES="ON"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -c|--config)
             BUILD_TYPE="$2";
             shift ;;
-        -m|--std-module)
-            STD_MODULE="$2"
-            ;;
-        -e|--examples)
-            BUILD_EXAMPLES="$2"
-            ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift

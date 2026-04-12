@@ -22,7 +22,7 @@ auto extractDouble(EvalResult const& r) -> double
     }, r);
 }
 
-EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>
+EVALUATOR::evaluateExpr(Expression const& expr) -> std::expected<EvalResult, EvalError>
 {
     return std::visit([this]<class T>(T const& e) -> std::expected<EvalResult, EvalError> {
         if constexpr (std::is_same_v<T, NumberExpr>)
@@ -38,7 +38,7 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalErr
         }
         else if constexpr (std::is_same_v<T, UnaryExpr>)
         {
-            auto operand = evaluate(*e.operand);
+            auto operand = evaluateExpr(*e.operand);
             if (!operand) return operand;
             switch (e.op)
             {
@@ -48,9 +48,9 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalErr
         }
         else if constexpr (std::is_same_v<T, BinaryExpr>)
         {
-            auto left = evaluate(*e.left);
+            auto left = evaluateExpr(*e.left);
             if (!left) return left;
-            auto right = evaluate(*e.right);
+            auto right = evaluateExpr(*e.right);
             if (!right) return right;
             double lv = extractDouble(*left);
             double rv = extractDouble(*right);
@@ -69,7 +69,7 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalErr
         }
         else if constexpr (std::is_same_v<T, AssignExpr>)
         {
-            auto val = evaluate(*e.value);
+            auto val = evaluateExpr(*e.value);
             if (!val) return val;
             double dv = extractDouble(*val);
             getVariables().set(e.name, dv);
@@ -81,19 +81,22 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalErr
             args.reserve(e.args.size());
             for (auto const& argExpr : e.args)
             {
-                auto argVal = evaluate(*argExpr);
+                auto argVal = evaluateExpr(*argExpr);
                 if (!argVal) return argVal;
                 args.push_back(extractDouble(*argVal));
             }
 
-            auto result = getFunctions().call(e.name, args);
-            if (result.has_value())
-                return NumberResult{*result};
+            // Try builtin dispatch first.
+            auto builtinResult = getBuiltinFunctions().call(e.name, args);
+            if (builtinResult)
+                return NumberResult{*builtinResult};
 
-            auto const* userFunc = getFunctions().getUserFunction(e.name, args.size());
+            // Fall back to user-defined function.
+            auto const* userFunc = getUserFunctions().get(e.name, args.size());
             if (!userFunc)
-                return std::unexpected(result.error());
+                return std::unexpected(EvalError{std::format("unknown function: {}/{}", e.name, args.size())});
 
+            // Save current variable values, bind parameters, evaluate body, then restore.
             std::vector<std::optional<double>> savedVars;
             savedVars.reserve(userFunc->params.size());
             for (std::size_t i = 0; i < userFunc->params.size(); ++i)
@@ -102,29 +105,41 @@ EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalErr
                 getVariables().set(userFunc->params[i], args[i]);
             }
 
-            auto guard = arc::Defer(
-                [&] {
-                    for (std::size_t i = 0; i < userFunc->params.size(); ++i)
-                    {
-                        if (savedVars[i].has_value())
-                            getVariables().set(userFunc->params[i], *savedVars[i]);
-                        else
-                            getVariables().remove(userFunc->params[i]);
-                    }
-                });
+            auto guard = arc::Defer([&] {
+                for (std::size_t i = 0; i < userFunc->params.size(); ++i)
+                {
+                    if (savedVars[i].has_value())
+                        getVariables().set(userFunc->params[i], *savedVars[i]);
+                    else
+                        getVariables().remove(userFunc->params[i]);
+                }
+            });
 
-            auto bodyResult = evaluate(*userFunc->body);
+            auto bodyResult = evaluateExpr(*userFunc->body);
             if (!bodyResult) return bodyResult;
             return NumberResult{extractDouble(*bodyResult)};
         }
         else if constexpr (std::is_same_v<T, FuncDefExpr>)
         {
-            auto result = getFunctions().define(e.name, e.params, e.body->clone(), e.source);
+            auto result = getUserFunctions().define(e.name, e.params, e.body->clone(), e.source);
             if (!result.has_value())
                 return std::unexpected(result.error());
             return FuncDefResult{e.name, e.params};
         }
     }, static_cast<Expression::variant const&>(expr));
+}
+
+EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>
+{
+    auto result = evaluateExpr(expr);
+    if (result)
+    {
+        std::visit([this]<class T>(T const& r) {
+            if constexpr (std::is_same_v<T, NumberResult> || std::is_same_v<T, AssignResult>)
+                getVariables().set(std::string{"ans"}, r.value);
+        }, *result);
+    }
+    return result;
 }
 
 } // namespace examples::calculator::node

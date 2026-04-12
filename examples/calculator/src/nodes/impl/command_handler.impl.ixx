@@ -45,18 +45,11 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
     }
     else if (cmd == "vars")
     {
-        auto vars = getVariables().list();
-        if (vars.empty())
-            return std::string("No variables defined.");
-        return getFormatter().formatVariables(vars);
+        return getFormatter().formatVariables(getVariables().list());
     }
     else if (cmd == "fns")
     {
-        auto builtinNames = getFunctions().listBuiltins();
-        auto userFuncs = getFunctions().listUserFunctions();
-        if (builtinNames.empty() && userFuncs.empty())
-            return std::string("No functions defined.");
-        return getFormatter().formatFunctions(builtinNames, userFuncs);
+        return getFormatter().formatFunctions(getBuiltinFunctions().list(), getUserFunctions().list());
     }
     else if (cmd == "history")
     {
@@ -75,7 +68,7 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
     else if (cmd == "clear")
     {
         getVariables().clear();
-        getFunctions().clearUserFunctions();
+        getUserFunctions().clear();
         return std::string("Variables and user functions cleared.");
     }
     else if (cmd == "save")
@@ -96,19 +89,17 @@ COMMAND_HANDLER::execute(std::string_view input) -> std::expected<std::string, s
     }
     else if (cmd == "undef")
     {
-        std::vector<std::string> names;
-        if (!arg.empty())
-        {
-            std::string args_str(arg);
-            std::istringstream iss(args_str);
-            std::string name;
-            while (iss >> name)
-            {
-                names.push_back(name);
-            }
-        }
+        if (arg.empty())
+            return std::unexpected(std::string("Usage: undef <function-name> [...]"));
 
-        auto result = getFunctions().removeFunctions(std::span(names));
+        std::vector<std::string> names;
+        std::string args_str(arg);
+        std::istringstream iss(args_str);
+        std::string name;
+        while (iss >> name)
+            names.push_back(name);
+
+        auto result = getUserFunctions().remove(std::span(names));
         if (!result.has_value())
             return std::unexpected(getFormatter().formatError(result.error().message));
 

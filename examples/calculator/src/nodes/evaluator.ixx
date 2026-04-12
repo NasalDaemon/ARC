@@ -15,6 +15,8 @@ export struct Evaluator
         Uses<Variables, Functions>
     {
         auto evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>;
+    private:
+        auto evaluateExpr(Expression const& expr) -> std::expected<EvalResult, EvalError>;
     };
 };
 

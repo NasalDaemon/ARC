@@ -26,7 +26,7 @@ FILE_PERSISTENCE::save(std::string_view path) -> std::expected<void, std::string
     }
 
     // Write user-defined functions
-    auto userFuncs = getFunctions().listUserFunctions();
+    auto userFuncs = getUserFunctions().list();
     for (auto const& [name, func] : userFuncs)
     {
         if (func)
@@ -58,7 +58,7 @@ FILE_PERSISTENCE::load(std::string_view path) -> std::expected<void, std::string
         return std::unexpected(std::format("Cannot open file for reading: {}", path));
 
     getVariables().clear();
-    getFunctions().clearUserFunctions();
+    getUserFunctions().clear();
 
     std::string line;
     std::vector<FunctionDefinition> functionDefs;
@@ -138,7 +138,7 @@ FILE_PERSISTENCE::load(std::string_view path) -> std::expected<void, std::string
 
     if (!functionDefs.empty())
     {
-        auto result = getFunctions().define(std::span{functionDefs});
+        auto result = getUserFunctions().define(std::span{functionDefs});
         if (!result)
             return std::unexpected(result.error().message);
     }

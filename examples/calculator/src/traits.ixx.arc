@@ -35,24 +35,35 @@ trait Variables
         post(_: self.list().empty())
 }
 
-trait Functions
+// Builtin function dispatch and listing.
+trait BuiltinFunctions
 {
+    // call() returns the result for known builtins, or an error if the name/arity is unknown or mismatched
     call(std::string_view name, std::span<double const> args) const -> std::expected<double, EvalError>
         pre(not name.empty())
-    listBuiltins() const -> std::vector<std::string>
+    list() const -> std::vector<std::string>
+}
+
+// User-defined function registry: definition, removal, and inspection.
+trait UserFunctions
+{
     define(std::span<FunctionDefinition const> functions) -> std::expected<void, EvalError>
         pre(not functions.empty())
     define(std::string name, std::vector<std::string> params, ExprPtr body, std::string source) -> std::expected<void, EvalError>
         pre(not name.empty())
         pre(body != nullptr)
-    removeFunctions(std::span<std::string const> names) -> std::expected<void, EvalError>
-        pre(not names.empty())
-    getUserFunction(std::string_view name, std::size_t arity) const -> UserFunction const*
+
+    list() const -> std::vector<std::pair<std::string, UserFunction const*>>
+    get(std::string_view name, std::size_t arity) const -> UserFunction const*
         pre(not name.empty())
-    listUserFunctions() const -> std::vector<std::pair<std::string, UserFunction const*>>
-    clearUserFunctions() -> void
-        post(_: self.listUserFunctions().empty())
+
+    remove(std::span<std::string const> names) -> std::expected<void, EvalError>
+        pre(not names.empty())
+    clear() -> void
+        post(_: self.list().empty())
 }
+
+trait Functions = BuiltinFunctions + UserFunctions
 
 trait Formatter
 {
@@ -63,9 +74,7 @@ trait Formatter
     formatAssignment(std::string_view name, double value) const -> std::string
         pre(not name.empty())
     formatVariables(std::span<std::pair<std::string, double> const> vars) const -> std::string
-        pre(not vars.empty())
     formatFunctions(std::span<std::string const> builtins, std::span<std::pair<std::string, UserFunction const*> const> userFuncs) const -> std::string
-        pre(not builtins.empty() or not userFuncs.empty())
     formatFunctionDef(std::string_view name, std::span<std::string const> params) const -> std::string
         pre(not name.empty())
 }
