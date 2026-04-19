@@ -8,9 +8,11 @@
 #include "arc/key.hpp"
 #include "arc/macros.hpp"
 #include "arc/no_trait.hpp"
+#include "arc/protocol.hpp"
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
+#include <concepts>
 #include <functional>
 #include <type_traits>
 #endif
@@ -94,7 +96,7 @@ private:
 // Presents a view over a trait implementation, where only the trait trait functions are accessible
 ARC_MODULE_EXPORT
 template<IsTrait Trait, class ImplAlias, class Types_ /*= EmptyTypes*/>
-struct TraitView final : Trait::Meta::Methods
+struct TraitView final : Trait::Meta::Methods, Trait::Meta::DefaultImpl
 {
     ARC_INLINE constexpr TraitView(Trait, ImplAlias alias, std::type_identity<Types_>)
         : alias(alias)
@@ -117,6 +119,12 @@ struct TraitView final : Trait::Meta::Methods
     {
         return TraitView<SubTrait, ImplAlias, Types_>({}, self.alias, {});
     }
+    template<class Protocol, bool Fallback = false>
+    ARC_INLINE constexpr auto asTrait(this auto&& self, Protocol = {}, std::bool_constant<Fallback> = {})
+        requires HasProtocol<Trait> and std::same_as<arc::Protocol<Trait>, Protocol>
+    {
+        return TraitView<arc::Protocol<Trait>, ImplAlias, Types_>({}, self.alias, {});
+    }
     template<class SubTrait, bool Fallback = false>
     constexpr TraitView asTrait(this auto&& self, SubTrait = {}, std::bool_constant<Fallback> = {})
     {
@@ -136,9 +144,12 @@ struct TraitView final : Trait::Meta::Methods
 
     template<IsMethodOf<Trait> Method>
     ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method method, auto&&... args)
-        requires requires { self.alias.get().impl(method, ARC_FWD(args)...); }
+        requires requires { self.alias.get().impl(method, ARC_FWD(args)...); } or requires { self.DefaultImpl::impl(method, ARC_FWD(args)...); }
     {
-        return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
+        if constexpr (requires { self.alias.get().impl(method, ARC_FWD(args)...); })
+            return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
+        else
+            return self.DefaultImpl::impl(method, ARC_FWD(args)...);
     }
 
     template<class Self, IsMethodOf<Trait> Method>

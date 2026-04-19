@@ -88,13 +88,9 @@ struct Cluster
     }
 
     template<IsTrait Trait, class Self>
-    constexpr auto canGetNode(this Self const&, Trait = {})
+    constexpr auto canGetNode(this Self const&, Trait = {}) -> std::bool_constant<CanResolve<Self, Trait>>
     {
-        constexpr bool value =
-            requires (Self c, Trait trait) {
-                detail::getContextParameter(c).getNode(c, trait);
-            };
-        return std::bool_constant<value>{};
+        return {};
     }
 
     template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>

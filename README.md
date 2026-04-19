@@ -9,6 +9,7 @@
 - **Blazing Build Speed:** Each node can compile independently (even when building with C++ modules), so you never pay for modularity with slow builds.
 - **Testability by Default:** Swap in mocks or stubs anywhere, with full compile-time safety and zero runtime cost.
 - **Group Access Policy Control:** Enforce strict segregation between nodes at compile time. Ideal for safety-critical standards where architectural boundaries must be guaranteed with zero runtime overhead.
+- **Protocol Contracts:** Attach a protocol state machine to any trait to enforce legal state transitions and invariants at every call site—catching violations at the boundary, not as silent downstream corruption. Elided entirely in release builds by default.
 - **Thread Safety by Design:** Thread affinity of nodes can be enforced at compile time, eliminating entire classes of concurrency bugs before they start.
 - **Hybrid Static & Dynamic Dispatch:** Use static wiring everywhere for maximum performance; selectively enable runtime polymorphism only where you need it—effortlessly.
 - **Monolith & Microservice, Unified:** Enjoy the modularity of microservices within an entirely in-process application, and transition to distributed microservices and back without changing your architectural graph.
@@ -297,6 +298,7 @@ int main()
 - [ARC cluster: syntax](docs/cluster-syntax.md)
 - [ARC domain: scalable clusters](docs/domain-syntax.md)
 - [ARC trait: syntax](docs/trait-syntax.md)
+- [ARC protocol: lifecycle contracts](docs/protocol-syntax.md)
 - [ARC policy: access control syntax for safety-critical systems](docs/policies.md)
 - [Embedding ARC DSL into source files](docs/arc-embed.md)
 - [Selective runtime polymorphism](docs/runtime-polymorphism.md)

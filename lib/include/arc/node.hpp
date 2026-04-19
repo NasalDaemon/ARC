@@ -91,13 +91,9 @@ struct Node
     }
 
     template<IsTrait Trait, class Self>
-    constexpr auto canGetNode(this Self&, Trait = {})
+    constexpr auto canGetNode(this Self&, Trait = {}) -> std::bool_constant<arc::CanResolve<Self, Trait>>
     {
-        constexpr bool value =
-            requires (ContextOf<Self> c, ContextToNode<ContextOf<Self>> n, Trait trait) {
-                c.getNode(n, trait);
-            };
-        return std::bool_constant<value>{};
+        return {};
     }
 
     template<IsTrait Trait, class Self, class Key = ContextOf<Self>::Info::DefaultKey>

@@ -171,21 +171,23 @@
         { \
             METHOD_LIST(ARC_NAMED_METHOD_IMPL_DISABLE) \
         }; \
-        struct Impl : protected DisableImpl \
+        struct DefaultImpl { static void impl() = delete; }; \
+        struct Impl : DefaultImpl, protected DisableImpl \
         { \
             struct TraitName : MethodTags \
             { \
                 using Disable = DisableImpl; \
             }; \
+            using DefaultImpl::impl; \
             METHOD_LIST(ARC_NAMED_METHOD_IMPL) \
         }; \
-        struct ImplQualified : Methods \
+        struct ImplQualified : DefaultImpl, Methods \
         { \
             struct TraitName : MethodTags \
             { \
                 using Impl = Methods; \
             }; \
-            static void impl() = delete; \
+            using DefaultImpl::impl; \
         }; \
         struct Resolver \
         { \
@@ -240,7 +242,7 @@
 
 #define ARC_SIGNATURE_METHOD(method) \
     ARC_AS_FUNCTOR_METHOD(method) \
-    template<::arc::IsTraitViewOrNode Self, class... Args> \
+    template<class Self, class... Args> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
         requires requires { self.impl(method ## _c, ARC_FWD(args)...); } \
     { \

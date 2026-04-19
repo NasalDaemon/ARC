@@ -12,68 +12,48 @@ import std;
 
 namespace examples::calculator::node {
 
-auto extractDouble(EvalResult const& r) -> double
+EVALUATOR::evalExpr(Expression const& expr) -> std::expected<double, EvalError>
 {
-    return std::visit([]<class T>(T const& v) -> double {
-        if constexpr (std::is_same_v<T, FuncDefResult>)
-            return 0.0;
-        else
-            return v.value;
-    }, r);
-}
-
-EVALUATOR::evaluateExpr(Expression const& expr) -> std::expected<EvalResult, EvalError>
-{
-    return std::visit([this]<class T>(T const& e) -> std::expected<EvalResult, EvalError> {
+    return std::visit([this]<class T>(T const& e) -> std::expected<double, EvalError> {
         if constexpr (std::is_same_v<T, NumberExpr>)
         {
-            return NumberResult{e.value};
+            return e.value;
         }
         else if constexpr (std::is_same_v<T, VariableExpr>)
         {
             std::optional<double> val = getVariables().get(e.name);
             if (!val)
                 return std::unexpected(EvalError{std::format("undefined variable: {}", e.name)});
-            return NumberResult{*val};
+            return *val;
         }
         else if constexpr (std::is_same_v<T, UnaryExpr>)
         {
-            auto operand = evaluateExpr(*e.operand);
+            auto operand = evalExpr(*e.operand);
             if (!operand) return operand;
             switch (e.op)
             {
-                case UnaryOp::Negate: return NumberResult{-extractDouble(*operand)};
+                case UnaryOp::Negate: return -*operand;
             }
             return std::unexpected(EvalError{"unknown unary operator"});
         }
         else if constexpr (std::is_same_v<T, BinaryExpr>)
         {
-            auto left = evaluateExpr(*e.left);
+            auto left = evalExpr(*e.left);
             if (!left) return left;
-            auto right = evaluateExpr(*e.right);
+            auto right = evalExpr(*e.right);
             if (!right) return right;
-            double lv = extractDouble(*left);
-            double rv = extractDouble(*right);
             switch (e.op)
             {
-                case BinaryOp::Add: return NumberResult{lv + rv};
-                case BinaryOp::Sub: return NumberResult{lv - rv};
-                case BinaryOp::Mul: return NumberResult{lv * rv};
+                case BinaryOp::Add: return *left + *right;
+                case BinaryOp::Sub: return *left - *right;
+                case BinaryOp::Mul: return *left * *right;
                 case BinaryOp::Div:
-                    if (rv == 0.0)
+                    if (*right == 0.0)
                         return std::unexpected(EvalError{"division by zero"});
-                    return NumberResult{lv / rv};
-                case BinaryOp::Pow: return NumberResult{std::pow(lv, rv)};
+                    return *left / *right;
+                case BinaryOp::Pow: return std::pow(*left, *right);
             }
             return std::unexpected(EvalError{"unknown binary operator"});
-        }
-        else if constexpr (std::is_same_v<T, AssignExpr>)
-        {
-            auto val = evaluateExpr(*e.value);
-            if (!val) return val;
-            double dv = extractDouble(*val);
-            getVariables().set(e.name, dv);
-            return AssignResult{e.name, dv};
         }
         else if constexpr (std::is_same_v<T, CallExpr>)
         {
@@ -81,15 +61,15 @@ EVALUATOR::evaluateExpr(Expression const& expr) -> std::expected<EvalResult, Eva
             args.reserve(e.args.size());
             for (auto const& argExpr : e.args)
             {
-                auto argVal = evaluateExpr(*argExpr);
+                auto argVal = evalExpr(*argExpr);
                 if (!argVal) return argVal;
-                args.push_back(extractDouble(*argVal));
+                args.push_back(*argVal);
             }
 
             // Try builtin dispatch first.
             auto builtinResult = getBuiltinFunctions().call(e.name, args);
             if (builtinResult)
-                return NumberResult{*builtinResult};
+                return *builtinResult;
 
             // Fall back to user-defined function.
             auto const* userFunc = getUserFunctions().get(e.name, args.size());
@@ -115,9 +95,25 @@ EVALUATOR::evaluateExpr(Expression const& expr) -> std::expected<EvalResult, Eva
                 }
             });
 
-            auto bodyResult = evaluateExpr(*userFunc->body);
-            if (!bodyResult) return bodyResult;
-            return NumberResult{extractDouble(*bodyResult)};
+            return evalExpr(*userFunc->body);
+        }
+        else
+        {
+            return std::unexpected(EvalError{"unexpected expression type"});
+        }
+    }, static_cast<Expression::variant const&>(expr));
+}
+
+EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>
+{
+    return std::visit([this, &expr]<class T>(T const& e) -> std::expected<EvalResult, EvalError> {
+        if constexpr (std::is_same_v<T, AssignExpr>)
+        {
+            auto val = evalExpr(*e.value);
+            if (!val) return std::unexpected(val.error());
+            getVariables().set(e.name, *val);
+            getVariables().set(std::string{"ans"}, *val);
+            return AssignResult{e.name, *val};
         }
         else if constexpr (std::is_same_v<T, FuncDefExpr>)
         {
@@ -126,20 +122,14 @@ EVALUATOR::evaluateExpr(Expression const& expr) -> std::expected<EvalResult, Eva
                 return std::unexpected(result.error());
             return FuncDefResult{e.name, e.params};
         }
+        else
+        {
+            auto val = evalExpr(expr);
+            if (!val) return std::unexpected(val.error());
+            getVariables().set(std::string{"ans"}, *val);
+            return NumberResult{*val};
+        }
     }, static_cast<Expression::variant const&>(expr));
-}
-
-EVALUATOR::evaluate(Expression const& expr) -> std::expected<EvalResult, EvalError>
-{
-    auto result = evaluateExpr(expr);
-    if (result)
-    {
-        std::visit([this]<class T>(T const& r) {
-            if constexpr (std::is_same_v<T, NumberResult> || std::is_same_v<T, AssignResult>)
-                getVariables().set(std::string{"ans"}, r.value);
-        }, *result);
-    }
-    return result;
 }
 
 } // namespace examples::calculator::node

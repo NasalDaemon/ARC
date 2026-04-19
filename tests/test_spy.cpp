@@ -85,7 +85,7 @@ struct Root
         {
             static_assert(std::is_same_v<Method, trait::SomethingElse::doSomethingElse>);
             // Test chain of spies
-            if constexpr (arc::CanResolve<Self, arc::trait::SpyOnly<Method>>)
+            if constexpr (self.canGetNode(arc::trait::spyOnly<Method>))
             {
                 return self.getNode(arc::trait::spyOnly<Method>).intercept(method, f, x, y);
             }

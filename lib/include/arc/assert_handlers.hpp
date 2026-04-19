@@ -83,7 +83,7 @@ namespace detail {
     private:
         [[noreturn]] ARC_COLD static constexpr void handleViolation(const char* message) noexcept(Abort)
         {
-            std::cerr << message << "\n";
+            std::cerr << message << "\n" << std::flush;
             #if ARC_STACKTRACE_ENABLED
             if constexpr (Abort)
                 std::cerr << "Stack trace:\n" << std::stacktrace::current(3) << "\n" << std::flush;

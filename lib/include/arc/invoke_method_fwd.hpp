@@ -17,6 +17,9 @@ struct NoConstraints
 {
     ARC_INLINE static constexpr void pre(auto const&, auto, auto&&...) {}
     ARC_INLINE static constexpr void post(auto const&, auto, auto&&) {}
+    struct NoProtoSnap {};
+    ARC_INLINE static constexpr NoProtoSnap preProto(auto const&, auto, auto&&...) { return {}; }
+    ARC_INLINE static constexpr void postProto(auto const&, auto, auto const&, NoProtoSnap&) {}
 };
 
 ARC_MODULE_EXPORT
@@ -69,29 +72,43 @@ namespace detail {
         {
             using Context = ContextOf<typename TraitView::Node>;
             if constexpr (Context::Info::ContractAssert.enabled)
-                Self::Constraints::pre(Context::Info::ContractAssert, traitView.asTrait(traitOf(method), std::true_type{}), args...);
-
-            using T = decltype(self.invokeImpl(traitView, method, ARC_FWD(args)...));
-            if constexpr (std::is_void_v<T>)
             {
-                self.invokeImpl(traitView, method, ARC_FWD(args)...);
+                auto const tvNarrow = traitView.asTrait(traitOf(method), std::true_type{});
+                auto snap = Self::Constraints::preProto(Context::Info::ContractAssert, tvNarrow, args...);
+                Self::Constraints::pre(Context::Info::ContractAssert, tvNarrow, args...);
 
-                if constexpr (Context::Info::ContractAssert.enabled)
-                    Self::Constraints::post(Context::Info::ContractAssert, traitView.asTrait(traitOf(method), std::true_type{}), nullptr);
+                using T = decltype(self.invokeImpl(traitView, method, ARC_FWD(args)...));
+                if constexpr (std::is_void_v<T>)
+                {
+                    self.invokeImpl(traitView, method, ARC_FWD(args)...);
+                    Self::Constraints::post(Context::Info::ContractAssert, tvNarrow, nullptr);
+                    Self::Constraints::postProto(Context::Info::ContractAssert, tvNarrow, nullptr, snap);
+                }
+                else
+                {
+                    decltype(auto) value = self.invokeImpl(traitView, method, ARC_FWD(args)...);
+                    Self::Constraints::post(Context::Info::ContractAssert, tvNarrow, value);
+                    Self::Constraints::postProto(Context::Info::ContractAssert, tvNarrow, value, snap);
+                    if constexpr (std::is_rvalue_reference_v<T>)
+                        return std::move(value);
+                    else
+                        return value;
+                }
             }
             else
             {
-                decltype(auto) value = self.invokeImpl(traitView, method, ARC_FWD(args)...);
-
-                if constexpr (Context::Info::ContractAssert.enabled)
-                    Self::Constraints::post(Context::Info::ContractAssert, traitView.asTrait(traitOf(method), std::true_type{}), value);
-
-                if constexpr (std::is_rvalue_reference_v<T>)
-                    return std::move(value);
+                using T = decltype(self.invokeImpl(traitView, method, ARC_FWD(args)...));
+                if constexpr (std::is_void_v<T>)
+                    self.invokeImpl(traitView, method, ARC_FWD(args)...);
                 else
-                    return value;
+                {
+                    decltype(auto) value = self.invokeImpl(traitView, method, ARC_FWD(args)...);
+                    if constexpr (std::is_rvalue_reference_v<T>)
+                        return std::move(value);
+                    else
+                        return value;
+                }
             }
-
         }
     };
 
@@ -114,28 +131,29 @@ private:
 };
 
 ARC_MODULE_EXPORT
-template<bool Const, class Constraints_, class R, class... NormalArgs>
+template<bool Const, class Constraints_, class ReturnType_, class... NormalArgs>
 struct InvokeMethodR : detail::InvokeMethodBase
 {
+    using ReturnType = ReturnType_;
     using Normaliser = NormalInvoker<NormalArgs...>;
     using Constraints = Constraints_;
 
 private:
     friend detail::InvokeMethodBase;
 
-    ARC_INLINE static constexpr R invokeImpl(IsTraitView auto traitView, auto method, auto&&... args)
+    ARC_INLINE static constexpr ReturnType invokeImpl(IsTraitView auto traitView, auto method, auto&&... args)
     {
-        if constexpr (std::is_void_v<R>)
+        if constexpr (std::is_void_v<ReturnType>)
         {
             arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
         }
         else
         {
             using T = decltype(arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...));
-            if constexpr (std::is_convertible_v<T, R>)
+            if constexpr (std::is_convertible_v<T, ReturnType>)
                 return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
             else if constexpr (std::is_same_v<T, test::detail::MockReturn>)
-                return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...).operator R&&();
+                return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...).operator ReturnType&&();
         }
     }
 };

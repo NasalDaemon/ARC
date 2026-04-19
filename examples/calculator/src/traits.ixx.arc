@@ -32,7 +32,7 @@ trait Variables
         pre(not name.empty())
     list() const -> std::vector<std::pair<std::string, double>>
     clear()
-        post(_: self.list().empty())
+        post(self.list().empty())
 }
 
 // Builtin function dispatch and listing.
@@ -60,7 +60,7 @@ trait UserFunctions
     remove(std::span<std::string const> names) -> std::expected<void, EvalError>
         pre(not names.empty())
     clear() -> void
-        post(_: self.list().empty())
+        post(self.list().empty())
 }
 
 trait Functions = BuiltinFunctions + UserFunctions

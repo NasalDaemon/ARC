@@ -13,9 +13,15 @@
 
 namespace arc {
 
+ARC_MODULE_EXPORT
+struct TraitViewBase {};
+
 namespace detail {
     template<class T>
     inline constexpr bool isTraitView = false;
+    template<class T>
+    requires std::is_base_of_v<TraitViewBase, T>
+    constexpr bool isTraitView<T> = true;
 }
 
 ARC_MODULE_EXPORT

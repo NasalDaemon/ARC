@@ -32,6 +32,7 @@ struct Trait
         struct Applicable{};
         struct Methods{};
         struct DuckMethods{};
+        struct DefaultImpl { static void impl() = delete; };
         struct Impl{};
         struct ImplQualified{};
         struct Resolver{};
@@ -63,6 +64,7 @@ concept IsTrait = requires (T trait) {
     requires IsStateless<typename T::Meta::Applicable>;
     requires IsStateless<typename T::Meta::Methods>;
     requires IsStateless<typename T::Meta::DuckMethods>;
+    requires IsStateless<typename T::Meta::DefaultImpl>;
     requires IsStateless<typename T::Meta::Impl>;
     requires IsStateless<typename T::Meta::ImplQualified>;
     requires IsStateless<typename T::Meta::Resolver>;
@@ -134,6 +136,10 @@ struct JoinedTrait : Traits...
         struct SignaturesByTag : Traits::Meta::SignaturesByTag...
         {
             using Traits::Meta::SignaturesByTag::impl...;
+        };
+        struct DefaultImpl : Traits::Meta::DefaultImpl...
+        {
+            using Traits::Meta::DefaultImpl::impl...;
         };
         struct Impl : Traits::Meta::Impl...
         {

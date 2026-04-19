@@ -26,6 +26,7 @@ add_executable(arc_tests_module
     test_null_trait.cpp
     test_datastore/test_datastore.cpp
     test_datastore/test_single_listener.cpp
+    test_protocol.cpp
     test_spy.cpp
     test_union.cpp
     test_virtual.cpp
@@ -65,14 +66,12 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION
 endif()
 
 if(ARC_BUILD_LTO)
-    set_property(TARGET arc_tests_headers arc_tests_module
-        PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-
     # Some things can't link with GCC-14+LTO
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.1.0")
-        set_property(TARGET arc_tests_mock
+        set_property(TARGET arc_tests_headers arc_tests_module arc_tests_mock arc_tests_thread
             PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-        set_property(TARGET arc_tests_thread
+    else()
+        set_property(TARGET arc_tests_headers
             PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
 endif()
@@ -97,6 +96,7 @@ target_generate_arc_modules(arc_tests_module
         test_joined_trait.cpp
         test_node_count.cpp
         test_null_trait.cpp
+        test_protocol.cpp
         test_spy.cpp
         test_virtual.cpp
 )

@@ -17,15 +17,50 @@ INCLUDE_GLOBAL_FILE: "#include <" /[^\r\n>]+/ ">"
 
 namespace: "namespace" NAMESPACE "{" (scope)+ "}"
 
-scope: [template_params] CLUSTER cluster_scope -> cluster
-     | [template_params] DOMAIN  cluster_scope -> domain
-     | [template_params] TRAIT   trait_scope   -> trait
-     |                   POLICY  policy_scope  -> policy
+scope: [template_params] CLUSTER  cluster_scope  -> cluster
+     | [template_params] DOMAIN   cluster_scope  -> domain
+     | [template_params] TRAIT    trait_scope    -> trait
+     |                   PROTOCOL protocol_scope -> protocol
+     |                   POLICY   policy_scope   -> policy
 
-CLUSTER: "cluster"
-DOMAIN: "domain"
-POLICY: "policy"
-TRAIT: "trait"
+CLUSTER:  "cluster"
+DOMAIN:   "domain"
+TRAIT:    "trait"
+PROTOCOL: "protocol"
+POLICY:   "policy"
+
+protocol_scope: FQNAME "{" protocol_body+ "}"
+
+?protocol_body: proto_state_def
+              | proto_per_def
+              | NAME cpp_func_params INVARIANT invariant_target -> proto_pred_with_params
+              | NAME                 INVARIANT invariant_target -> proto_pred
+              | proto_state_trans                              -> proto_state_trans_top
+
+?per_body: proto_state_def
+         | NAME cpp_func_params INVARIANT invariant_target -> proto_pred_with_params
+         | NAME                 INVARIANT invariant_target -> proto_pred
+         | proto_state_trans                              -> proto_state_trans_top
+
+proto_state_def: STATE NAME "{" (proto_state_trans | proto_variant_invariant)+ "}"
+proto_per_def:   PER  cpp_func_params "{" per_body+ "}"
+
+proto_variant_invariant: NAME INVARIANT invariant_target
+
+invariant_target: "(" bracket_content ")" -> invariant_expr
+                | proto_bare_ref           -> invariant_bare_ref
+
+STATE.2:    "state"
+PER.2:      "per"
+INVARIANT.2: "implies" | "iff"
+
+proto_state_trans: proto_state_set (proto_state_arrow proto_state_set)+
+
+proto_state_arrow: R_RARROW  -> state_arrow_r
+                 | B_RARROW  -> state_arrow_b
+                 | L_RARROW  -> state_arrow_l
+
+proto_state_set: NAME ("|" NAME)*
 
 cluster_scope:  FQNAME [cluster_annotations] "{" node+ connection_block* "}"
 policy_scope:   FQNAME                       "{" group+ group_connection+ "}"
@@ -66,8 +101,10 @@ cluster_annotations: "[" cluster_annotation ["," cluster_annotation] "]"
 cluster_annotation: [NAME "="] CLUSTER_ANNOTATION_NAME
 CLUSTER_ANNOTATION_NAME.1: "Context" | "Root" | "Info"
 
-trait_annotations: "[" trait_annotation ["," trait_annotation] "]"
+trait_annotations: "[" trait_annotation_item ("," trait_annotation_item)* "]"
+?trait_annotation_item: trait_annotation | trait_protocol_annotation
 trait_annotation: [NAME "="] TRAIT_ANNOTATION_NAME
+trait_protocol_annotation: "Protocol" "=" FQNAME
 TRAIT_ANNOTATION_NAME.1: "Types" | "Root" | "Info" | "Impl"
 
 trait_body: trait_type | trait_root | trait_info | trait_requires | trait_method
@@ -88,10 +125,18 @@ trait_requires_block: "requires" [cpp_func_params] "{" cpp_requires_statement "}
                        | "{" cpp_expr "}" ["->" cpp_type] [SEMICOLON]
 
 trait_method: NAME "(...)" -> trait_method_elipsis
-            | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] (pre_contract | post_contract)* -> trait_method_signature
+            | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] (pre_contract | post_contract | is_clause | if_clause | to_clause)* -> trait_method_signature
 
-pre_contract:  "pre"  "("          bracket_content ")"
-post_contract: "post" "(" NAME ":" bracket_content ")"
+pre_contract:  "pre"  "(" bracket_content ")"
+post_contract: "post" "(" bracket_content ")"
+
+is_clause: "is" proto_clause_body ["then" proto_clause_body]
+if_clause: "if" proto_clause_body  "then" proto_clause_body
+to_clause: "to" proto_clause_body
+
+proto_clause_body: "(" bracket_content ")" -> clause_paren
+                 | proto_bare_ref
+proto_bare_ref: NAME ["(" bracket_content ")"]
 
 # Bracket-symmetric C++ expression content.
 # Accepts any sequence of non-bracket tokens and recursively balanced () [] {}.

@@ -10,6 +10,7 @@ from lark import Lark, Tree, Token, UnexpectedInput
 from lark.visitors import Visitor_Recursive
 from lark.reconstruct import Reconstructor
 from pathlib import Path
+import re
 
 
 dir_path = Path(__file__).resolve().parent
@@ -87,7 +88,7 @@ with open(input_file, 'r') as file:
 
     def on_parse_error(e: UnexpectedInput) -> bool:
         line, col = get_line(e.line, e.column)
-        print(f"{input_path}:{line}:{col} parse error:\n{e.get_context(text)}")
+        print(f"{input_file}:{line}:{col} parse error:\n{e.get_context(text)}")
         return False
 
     parsed = arc_parser.parse(text, on_error=on_parse_error)
@@ -97,16 +98,61 @@ def imported(lark_rule: str):
     return f'arc__{lark_rule}'
 
 
-def get_pos(t: Tree | Token | None) -> str:
+def get_pos(t: Tree | Token | None, full_path: bool = True) -> str:
     if t is None:
-        return str(input_path)
+        return str(input_path) if full_path else input_file
     if isinstance(t, Token):
         line, col = get_line(t.line, t.column)
-        return f"{input_path}:{line}:{col}"
+        return f"{str(input_path) if full_path else input_file}:{line}:{col}"
     if isinstance(t, Tree):
-        return get_pos(t.children[0])
+        return get_pos(t.children[0], full_path=full_path)
     else:
         raise TypeError(f"Expected Tree or Token, got {type(t)}")
+
+
+_NAMED_EXPR_RE = re.compile(r'^([A-Za-z_]\w*)\s*:\s*(.+)$', re.DOTALL)
+
+def _parse_named_expr(text: str) -> tuple[str, str]:
+    m = _NAMED_EXPR_RE.match(text)
+    if m:
+        return m.group(1), m.group(2).strip()
+    return "_", text
+
+
+def _expand_clause_body(tree) -> str:
+    """Expand a proto_clause_body tree to a C++ expression string.
+    Handles both the paren form '(expr)' and the bare proto ref 'Variant(args)'."""
+    if tree.data == imported('proto_clause_body'):
+        tree = tree.children[0]
+    if tree.data == imported('clause_paren'):
+        return reconstruct(tree.children[0]).strip()
+    # proto_bare_ref: NAME ["(" [bracket_content] ")"]
+    name = str(tree.children[0])
+    if len(tree.children) > 1:
+        args = reconstruct(tree.children[1]).strip()
+        return f"proto.{name}({args})"
+    return f"proto.{name}()"
+
+
+_PROTO_CALL_RE = re.compile(r'\bproto\.(\w+)\s*\(')
+
+def extract_proto_calls(expr: str) -> list[str]:
+    """Return all proto.method(...) substrings found in expr (paren-balanced)."""
+    calls = []
+    pos = 0
+    while m := _PROTO_CALL_RE.search(expr, pos):
+        paren = m.end() - 1
+        depth = 1
+        i = paren + 1
+        while i < len(expr) and depth > 0:
+            if expr[i] == '(':
+                depth += 1
+            elif expr[i] == ')':
+                depth -= 1
+            i += 1
+        calls.append(expr[m.start():i])
+        pos = i
+    return calls
 
 
 class AddColonToRequiresStatements(Visitor_Recursive):
@@ -807,7 +853,8 @@ class Domain(Cluster):
 class Method:
     __reserved_names__ = ['impl', 'isTrait']
 
-    def __init__(self):
+    def __init__(self, trait: "Trait"):
+        self.trait = trait
         self.name: str = "<unknown>"
         self.templates: list[tuple[CppType, str]] = []
         self.return_type: CppType = CppType("decltype(auto)", is_auto=True)
@@ -816,6 +863,34 @@ class Method:
         self.optional: bool = False
         self.pre_exprs: list[tuple[str, str]] = []
         self.post_exprs: list[tuple[str, str, str]] = []
+        # Protocol clauses — use the preProto/postProto path with entry snapshotting
+        self.proto_pre_exprs: list[tuple[str, str]] = []           # (pos, expr)  — `is (P)`
+        self.proto_post_exprs: list[tuple[str, str, str]] = []     # (pos, name, expr) — `is (P) then (Q)` / `to (Q)`
+        self.proto_if_exprs: list[tuple[str, str, str, str]] = []  # (pos, name, cond, then) — `if (P) then (Q)`
+        self.implies: ImpliesData | None = None
+
+    @property
+    def has_proto_contracts(self) -> bool:
+        return bool(self.proto_pre_exprs or self.proto_post_exprs or self.proto_if_exprs or self.implies)
+
+    @property
+    def has_contracts(self) -> bool:
+        return bool(self.pre_exprs or self.post_exprs or self.has_proto_contracts)
+
+    @cached_property
+    def proto_snap_calls(self) -> list[str]:
+        """Unique proto.method(...) calls to invoke in preProto for entry snapping."""
+        seen: set[str] = set()
+        result: list[str] = []
+        for expr in (
+            [e for _, _, e in self.proto_post_exprs]
+            + [t for _, _, _, t in self.proto_if_exprs]
+        ):
+            for call in extract_proto_calls(expr):
+                if call not in seen:
+                    seen.add(call)
+                    result.append(call)
+        return result
 
     def add_template(self, children):
         for c in children:
@@ -864,11 +939,31 @@ class Method:
             elif c.data == imported('pre_contract'):
                 if len(self.params) == 0:
                     raise SyntaxError(f"{get_pos(c)} Pre-contracts cannot be specified on methods with no parameters")
-                self.pre_exprs.append((get_pos(c), reconstruct(c.children[0])))
+                self.pre_exprs.append((get_pos(c, False), reconstruct(c.children[0])))
             elif c.data == imported('post_contract'):
-                if self.return_type.str == "void" and c.children[0] != "_":
+                name, expr = _parse_named_expr(reconstruct(c.children[0]).strip())
+                if self.return_type.str == "void" and name != "_":
                     raise SyntaxError(f"{get_pos(c)} Post-contracts cannot bind void to a name, use '_' instead")
-                self.post_exprs.append((get_pos(c.children[0]), c.children[0], reconstruct(c.children[1])))
+                self.post_exprs.append((get_pos(c, False), name, expr))
+            elif c.data == imported('is_clause'):
+                if not self.trait.has_protocol:
+                    raise SyntaxError(f"{get_pos(c)} 'is' contracts can only be used in traits with a protocol annotation")
+                pre_expr = _expand_clause_body(c.children[0])
+                self.proto_pre_exprs.append((get_pos(c, False), pre_expr))
+                if len(c.children) > 1:
+                    post_name, post_expr = _parse_named_expr(_expand_clause_body(c.children[1]))
+                    self.proto_post_exprs.append((get_pos(c, False), post_name, post_expr))
+            elif c.data == imported('if_clause'):
+                if not self.trait.has_protocol:
+                    raise SyntaxError(f"{get_pos(c)} 'if' contracts can only be used in traits with a protocol annotation")
+                cond_expr = _expand_clause_body(c.children[0])
+                then_name, then_expr = _parse_named_expr(_expand_clause_body(c.children[1]))
+                self.proto_if_exprs.append((get_pos(c, False), then_name, cond_expr, then_expr))
+            elif c.data == imported('to_clause'):
+                if not self.trait.has_protocol:
+                    raise SyntaxError(f"{get_pos(c)} 'to' contracts can only be used in traits with a protocol annotation")
+                post_name, post_expr = _parse_named_expr(_expand_clause_body(c.children[0]))
+                self.proto_post_exprs.append((get_pos(c, False), post_name, post_expr))
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown method entity: {c.data}')
 
@@ -888,12 +983,25 @@ class Trait:
         self.has_const_requires = False
         self.has_mutable_requires = False
         self.templates: list[tuple[CppType, str]] = []
+        self.protocol_name: str | None = None
+        self.is_protocol: bool = False
+        self.state_groups: list[StateGroup] = []
+
+    @property
+    def wrapping_namespace(self) -> str:
+        return "inline namespace trait"
+
+    @property
+    def has_protocol(self) -> bool:
+        return not self.is_protocol and self.protocol_name is not None
 
     def walk(self, children):
         for c in children:
             if c.data == imported('trait_annotations'):
                 for ann in c.children:
-                    if ann.children[-1].value == "Types":
+                    if ann.data == imported('trait_protocol_annotation'):
+                        self.protocol_name = ann.children[0].value
+                    elif ann.children[-1].value == "Types":
                         self.types_name = ann.children[0].value
                     elif ann.children[-1].value == "Root":
                         self.root_name =  ann.children[0].value
@@ -919,11 +1027,11 @@ class Trait:
                         self.info_name = "Info_T_" # use ugly name if not specified to avoid shadowing
                     self.requires.append(f"typename {self.info_name}::{c.children[0].value};")
                 elif c.data == imported('trait_method_signature'):
-                    method = Method()
+                    method = Method(self)
                     method.walk(c.children)
                     self.methods.append(method)
                 elif c.data == imported('trait_method_elipsis'):
-                    method = Method()
+                    method = Method(self)
                     method.name = c.children[0].value
                     method.params.append((CppType("auto&&...", is_auto=True), "args"))
                     self.methods.append(method)
@@ -997,7 +1105,7 @@ class Policy:
                         def addConnection(source: str | Group, target: str | Group, write: bool):
                             if not isinstance(target, Group) and target != NO_GROUP_NAME:
                                 raise SyntaxError(f"{pos} Cannot target external group '{target}' in policy '{self.name}'. "
-                                                  f"External groups can only gain access to the groups in the current policy '{self.name}'."
+                                                  f"External groups can only gain access to the groups in the current policy '{self.name}'. "
                                                   f"To allow access to {target}, a connection must be added in the target's policy.")
                             if not isinstance(source, Group) and not isinstance(target, Group):
                                 raise SyntaxError(f"{pos} Cannot connect two aliases '{source}' and '{target}' in group '{self.name}'")
@@ -1050,6 +1158,374 @@ class Policy:
             g.connectionsFrom = sorted(connectionsFrom.items(), key=lambda v: v[0])
 
 
+class StateTransition:
+    def __init__(self, from_states: list[str], to_states: list[str], bidirectional: bool):
+        self.from_states = from_states
+        self.to_states = to_states
+        self.bidirectional = bidirectional
+
+
+class StateGroup:
+    def __init__(self, name: str, params: list[tuple[CppType, str]], is_top_level: bool = False):
+        self.name = name
+        self.params = params
+        self.variants: list[str] = []
+        self.transitions: list[StateTransition] = []
+        self.is_top_level = is_top_level
+
+    def matching_param_names(self, method_params: list[tuple[CppType, str]]) -> list[str] | None:
+        """Return method param names matching this group's param types in order, or None if not all match."""
+        if not self.params:
+            return []
+        group_types = [str(t) for t, _ in self.params]
+        result = []
+        gi = 0
+        for mt, mn in method_params:
+            if gi < len(group_types) and str(mt) == group_types[gi]:
+                result.append(mn)
+                gi += 1
+            if gi == len(group_types):
+                break
+        return result if gi == len(group_types) else None
+
+    @property
+    def has_edges(self) -> bool:
+        return bool(self.transitions)
+
+    def adjacency(self) -> dict[str, set[str]]:
+        adj: dict[str, set[str]] = {}
+        for t in self.transitions:
+            for f in t.from_states:
+                for to in t.to_states:
+                    if f != to:
+                        adj.setdefault(f, set()).add(to)
+                    if t.bidirectional:
+                        adj.setdefault(to, set()).add(f)
+        return adj
+
+    def reachable_from(self, start: str) -> set[str]:
+        visited: set[str] = set()
+        stack = [start]
+        adj = self.adjacency()
+        while stack:
+            node = stack.pop()
+            if node in visited:
+                continue
+            visited.add(node)
+            for neighbor in adj.get(node, set()):
+                if neighbor not in visited:
+                    stack.append(neighbor)
+        return visited
+
+    def validate_reachability(self, pos: str):
+        if not self.variants:
+            return
+        default = self.variants[0]
+        reachable = self.reachable_from(default)
+        unreachable = set(self.variants) - reachable
+        if unreachable:
+            raise SyntaxError(f"{pos} state{'s' if len(unreachable) > 1 else ''} {', '.join(sorted(unreachable))} not reachable from default state '{default}' in {self.name}")
+
+
+class StatePred:
+    def __init__(self, name: str, params: list[tuple[CppType, str]], pos: str):
+        self.name = name
+        self.params = params
+        self.implies_expr: str | None = None
+        self.kind: str = 'implies'
+        self.pos = pos
+
+
+class ImpliesData:
+    def __init__(self, assert_msg: str, expr: str, kind: str = 'implies'):
+        self.assert_msg = assert_msg
+        self.expr = expr
+        self.kind = kind
+
+
+class VariantInvariant:
+    """Cross-group invariant on a state variant.
+
+    `Left implies On`  -> kind='implies'; when source group is in Left, target group must be in On.
+    `Right iff Off`    -> kind='iff';     both directions: source==Right iff target==Off.
+
+    `target_expr`  — the C++ expression text to call/evaluate for the target. For bare
+                     targets resolved to a variant or predicate, this is `proto.<name>(...)`.
+    `params_names` — names bound in scope (from enclosing per blocks), used as call args.
+    """
+    def __init__(self, source_group: str, source_variant: str, kind: str,
+                 target_expr: str, pos: str, params_names: list[str] | None = None):
+        assert kind in ('implies', 'iff')
+        self.source_group = source_group
+        self.source_variant = source_variant
+        self.kind = kind
+        self.target_expr = target_expr
+        self.pos = pos
+        self.params_names = list(params_names or [])
+        self.source_group_ref: "StateGroup | None" = None
+        # Set during validation for iff invariants whose target is a bare state variant.
+        self.target_variant: str | None = None
+        self.target_group_ref: "StateGroup | None" = None
+
+    @property
+    def target_group(self) -> str | None:
+        return self.target_group_ref.name if self.target_group_ref else None
+
+    @property
+    def has_target_group(self) -> bool:
+        """True for iff invariants where target is a known variant with same-typed params as source."""
+        if (self.kind != 'iff'
+                or self.target_group_ref is None
+                or self.source_group_ref is None):
+            return False
+        src_types = [str(t) for t, _ in self.source_group_ref.params]
+        tgt_types = [str(t) for t, _ in self.target_group_ref.params]
+        return src_types == tgt_types
+
+
+class Protocol(Trait):
+    def __init__(self, name: str, namespace_name: str = ""):
+        super().__init__(name)
+        self.is_protocol = True
+        self.namespace_name = namespace_name
+        self._top_group: StateGroup | None = None
+        # Cross-group variant invariants (Left implies On, Right iff Off)
+        self.variant_invariants: list[VariantInvariant] = []
+        # Raw (pre-resolution) records of bare-name targets to resolve after walk.
+        # Each entry: (invariant_or_pred, target_name, pos, scope_param_names)
+        self._pending_bare_targets: list[tuple[object, str, str, list[str]]] = []
+
+    @property
+    def predicate_methods(self) -> list[Method]:
+        group_names = {'proto' + g.name for g in self.state_groups}
+        variant_names = set()
+        for g in self.state_groups:
+            variant_names.update(g.variants)
+        non_pred_names = group_names.union(variant_names)
+        return [m for m in self.methods if m.name not in non_pred_names]
+
+    @property
+    def wrapping_namespace(self) -> str:
+        return "namespace protocol"
+
+    def _parse_state_set(self, tree) -> list[str]:
+        return [c.value for c in tree.children if isinstance(c, Token)]
+
+    def _add_variants(self, group: StateGroup, names: list[str]):
+        for name in names:
+            if name not in group.variants:
+                if name[0].islower():
+                    raise SyntaxError(f"State name '{name}' must start with an uppercase letter")
+                group.variants.append(name)
+
+    def _apply_trans(self, group: StateGroup, arrow: Tree, lset: list[str], rset: list[str]):
+        if arrow.data == imported('state_arrow_r'):
+            froms, tos, bi = lset, rset, False
+        elif arrow.data == imported('state_arrow_b'):
+            froms, tos, bi = lset, rset, True
+        elif arrow.data == imported('state_arrow_l'):
+            froms, tos, bi = rset, lset, False
+        else:
+            raise SyntaxError(f'Unknown state arrow: {arrow.data}')
+        self._add_variants(group, froms + tos)
+        group.transitions.append(StateTransition(froms, tos, bi))
+
+    def _parse_invariant_target(self, host, tree, pos: str, scope_param_names: list[str]) -> str:
+        """Parse an invariant_target tree. Bracketed returns reconstructed text.
+        Bare names are registered for post-walk resolution; a placeholder is stored
+        and returned; resolution overwrites `target_expr` on the host object."""
+        if tree.data == imported('invariant_bare_ref'):
+            bare_ref = tree.children[0]  # proto_bare_ref tree
+            name = str(bare_ref.children[0])
+            if len(bare_ref.children) > 1:
+                args = reconstruct(bare_ref.children[1]).strip()
+                return f"proto.{name}({args})"
+            placeholder = f"__ARC_BARE__{name}"
+            self._pending_bare_targets.append((host, name, pos, list(scope_param_names)))
+            return placeholder
+        elif tree.data == imported('invariant_expr'):
+            return reconstruct(tree.children[0]).strip()
+        else:
+            raise SyntaxError(f'{pos} Unknown invariant_target: {tree.data}')
+
+    def _parse_transitions(self, children, target_group: StateGroup, scope_param_names: list[str]):
+        for c in children:
+            if c.data == imported('proto_state_trans'):
+                for i in range(0, len(c.children) - 1, 2):
+                    self._apply_trans(target_group, c.children[i + 1],
+                                      self._parse_state_set(c.children[i]),
+                                      self._parse_state_set(c.children[i + 2]))
+            elif c.data == imported('proto_variant_invariant'):
+                kind = str(c.children[1])
+                src = c.children[0].value
+                pos = get_pos(c, False)
+                inv = VariantInvariant(target_group.name, src, kind, "", pos, scope_param_names)
+                target_expr = self._parse_invariant_target(inv, c.children[2], pos, scope_param_names)
+                inv.target_expr = target_expr
+                self.variant_invariants.append(inv)
+            else:
+                raise SyntaxError(f'{get_pos(c)} Unknown proto_state_body: {c.data}')
+
+    def walk(self, children, inherited_params=None):
+        if inherited_params is None:
+            inherited_params = []
+            self._temp_predicates: list[StatePred] = []
+            self._scope_state_names: list[set[str]] = [set()]
+            self._all_state_names: set[str] = set()
+
+        scope_vars: set[str] = set()
+        self._scope_state_names.append(scope_vars) if inherited_params else None
+
+        scope_param_names = [n for _, n in inherited_params]
+        for c in children:
+            if c.data == imported('proto_state_def'):
+                state_name = c.children[1].value
+                if state_name in self._all_state_names:
+                    raise SyntaxError(f'{get_pos(c)} state group name "{state_name}" duplicated; state names must be unique across the protocol')
+                if state_name[0].islower():
+                    raise SyntaxError(f'{get_pos(c)} state group name "{state_name}" must start with an uppercase letter')
+                self._all_state_names.add(state_name)
+                group = StateGroup(state_name, list(inherited_params))
+                self.state_groups.append(group)
+                self._parse_transitions(c.children[2:], group, scope_param_names)
+                for v in group.variants:
+                    if v in scope_vars:
+                        raise SyntaxError(f'{get_pos(c)} variant name "{v}" duplicated at same scope')
+                    scope_vars.add(v)
+            elif c.data == imported('proto_per_def'):
+                params_tree = c.children[1]
+                params = [(CppType.from_tree(p.children[0]), p.children[1].value)
+                          for p in params_tree.children]
+                self.walk(c.children[2:], inherited_params + params)
+            elif c.data == imported('proto_pred'):
+                pred_name = c.children[0].value
+                kind = str(c.children[1])
+                pred = StatePred(pred_name, list(inherited_params), get_pos(c, False))
+                pred.kind = kind
+                pred.implies_expr = self._parse_invariant_target(pred, c.children[2], get_pos(c, False), scope_param_names)
+                self._temp_predicates.append(pred)
+            elif c.data == imported('proto_pred_with_params'):
+                pred_name = c.children[0].value
+                params_tree = c.children[1]
+                kind = str(c.children[2])
+                params = [(CppType.from_tree(p.children[0]), p.children[1].value)
+                          for p in params_tree.children]
+                pred = StatePred(pred_name, inherited_params + params, get_pos(c, False))
+                pred.kind = kind
+                pred_scope = scope_param_names + [n for _, n in params]
+                pred.implies_expr = self._parse_invariant_target(pred, c.children[3], get_pos(c, False), pred_scope)
+                self._temp_predicates.append(pred)
+            elif c.data == imported('proto_state_trans_top'):
+                default_name = 'State'
+                if default_name not in self._all_state_names:
+                    self._all_state_names.add(default_name)
+                    group = StateGroup(default_name, list(inherited_params), is_top_level=True)
+                    self.state_groups.append(group)
+                else:
+                    group = next(g for g in self.state_groups if g.name == default_name)
+                trans = c.children[0]
+                for i in range(0, len(trans.children) - 1, 2):
+                    self._apply_trans(group, trans.children[i + 1],
+                                      self._parse_state_set(trans.children[i]),
+                                      self._parse_state_set(trans.children[i + 2]))
+                for v in group.variants:
+                    if v in scope_vars and v not in self._all_state_names:
+                        pass
+                    scope_vars.add(v)
+            else:
+                raise SyntaxError(f'{get_pos(c)} Unknown protocol body: {c.data}')
+
+        if inherited_params:
+            return
+
+        # Resolve bare invariant-target names to variant or predicate methods.
+        variant_to_group: dict[str, StateGroup] = {}
+        for g in self.state_groups:
+            for v in g.variants:
+                variant_to_group[v] = g
+        pred_by_name: dict[str, StatePred] = {p.name: p for p in self._temp_predicates}
+
+        for host, name, pos, scope_names in self._pending_bare_targets:
+            if name in variant_to_group:
+                g = variant_to_group[name]
+                group_param_names = [pn for _, pn in g.params]
+                missing = [pn for pn in group_param_names if pn not in scope_names]
+                if missing:
+                    raise SyntaxError(f"{pos} bare target '{name}' requires parameters {missing} not in scope; use bracketed form")
+                args = ", ".join(group_param_names)
+                resolved = f"proto.{name}({args})"
+                if isinstance(host, VariantInvariant) and host.kind == 'iff':
+                    host.target_variant = name
+            elif name in pred_by_name:
+                p = pred_by_name[name]
+                pred_param_names = [pn for _, pn in p.params]
+                missing = [pn for pn in pred_param_names if pn not in scope_names]
+                if missing:
+                    raise SyntaxError(f"{pos} bare target '{name}' requires parameters {missing} not in scope; use bracketed form")
+                args = ", ".join(pred_param_names)
+                resolved = f"proto.{name}({args})"
+            else:
+                raise SyntaxError(f"{pos} bare invariant target '{name}' is not a known state variant or predicate in protocol '{self.name}'")
+
+            placeholder = f"__ARC_BARE__{name}"
+            if isinstance(host, VariantInvariant):
+                host.target_expr = host.target_expr.replace(placeholder, resolved)
+            elif isinstance(host, StatePred):
+                host.implies_expr = host.implies_expr.replace(placeholder, resolved)
+            else:
+                raise AssertionError(f"Unexpected bare-target host type: {type(host)}")
+
+        # Validate variant invariants: source variant must exist in its declared group.
+        group_by_name = {g.name: g for g in self.state_groups}
+        for inv in self.variant_invariants:
+            g = group_by_name[inv.source_group]
+            if inv.source_variant not in g.variants:
+                raise SyntaxError(f"{inv.pos} invariant source '{inv.source_variant}' is not a variant of state '{inv.source_group}'")
+            inv.source_group_ref = g
+            if inv.target_variant is not None:
+                tg = variant_to_group.get(inv.target_variant)
+                if tg is not None:
+                    src_types = [str(t) for t, _ in g.params]
+                    tgt_types = [str(t) for t, _ in tg.params]
+                    if src_types == tgt_types:
+                        inv.target_group_ref = tg
+
+        for group in self.state_groups:
+            group.validate_reachability(f"{self.namespace_name}::protocol::{self.name}")
+            method = Method(self)
+            method.name = 'proto' + group.name
+            method.params = list(group.params)
+            method.is_const = True
+            method.return_type = CppType(f"Meta::States::{group.name}")
+            self.methods.append(method)
+            for variant in group.variants:
+                vm = Method(self)
+                vm.name = variant
+                vm.params = list(group.params)
+                vm.is_const = True
+                vm.return_type = CppType("bool")
+                self.methods.append(vm)
+
+        for pred in self._temp_predicates:
+            method = Method(self)
+            method.name = pred.name
+            method.params = list(pred.params)
+            method.is_const = True
+            method.return_type = CppType("bool")
+            if pred.implies_expr:
+                method.implies = ImpliesData(
+                    assert_msg=f"{pred.pos} {self.name}::{pred.name} {pred.kind}",
+                    expr=pred.implies_expr,
+                    kind=pred.kind,
+                )
+            self.methods.append(method)
+
+        self.methods.sort(key=lambda v: (v.name, v.params))
+        self.method_names = sorted(set(m.name for m in self.methods))
+        self.has_const_requires = True
+        self.has_mutable_requires = False
+
+
 class Namespace:
     def __init__(self, name: str, repr_: 'Repr'):
         self.name: str = name
@@ -1061,6 +1537,10 @@ class Namespace:
         self.clusters: list[Cluster] = []
         self.policies: list[Policy] = []
 
+    @property
+    def protocols(self) -> list[Protocol]:
+        return [t for t in self.traits if isinstance(t, Protocol)]
+
     def walk(self, children):
         for c in children:
             if c.data == imported('cluster'):
@@ -1069,6 +1549,8 @@ class Namespace:
                 self.repr.visit_cluster(self.name, c, is_domain=True)
             elif c.data == imported('policy'):
                 self.repr.visit_policy(self.name, c)
+            elif c.data == imported('protocol'):
+                self.repr.visit_protocol(self.name, c)
             elif c.data == imported('trait'):
                 # trait node contains [TRAIT token, trait_def or trait_alias]
                 has_template = not isinstance(c.children[0], Token)
@@ -1114,11 +1596,21 @@ class Namespace:
             raise SyntaxError(f'{get_pos(tree)} First character of trait name {name} is not Uppercase')
         self.trait_aliases.append(names)
 
+    def add_protocol(self, name: str, tree: Tree) -> Protocol:
+        if not name[0].isupper():
+            raise SyntaxError(f'{get_pos(tree)} First character of protocol name {name} is not Uppercase')
+        if name in self.trait_names:
+            raise SyntaxError(f"{get_pos(tree)} protocol by name '{name}' already defined in namespace '{self.name}'")
+        self.trait_names.add(name)
+        protocol = Protocol(name, self.name)
+        self.traits.append(protocol)
+        return protocol
+
     def finalise(self):
         self.clusters.sort(key=lambda v: v.name)
         for c in self.clusters:
             c.finalise()
-        self.traits.sort(key=lambda v: v.name)
+        self.traits.sort(key=lambda v: (0 if v.is_protocol else 1, v.name))
 
 
 class Repr:
@@ -1131,6 +1623,7 @@ class Repr:
         self.namespaces_dict: dict[str, Namespace] = {}
         self.has_cluster = False
         self.has_trait = False
+        self.has_protocol = False
         self.walk(parsed)
         self.finalise()
 
@@ -1156,6 +1649,8 @@ class Repr:
                 self.visit_cluster("", t, is_domain=True)
             elif t.data == imported('policy'):
                 self.visit_policy("", t)
+            elif t.data == imported('protocol'):
+                self.visit_protocol("", t)
             elif t.data == imported('trait'):
                 has_template = not isinstance(t.children[0], Token)
                 trait_scope = t.children[-1]  # Skip token
@@ -1201,6 +1696,13 @@ class Repr:
             names.append(reconstruct(rhs))
         namespace.add_trait_alias(names, tree)
 
+    def visit_protocol(self, source_ns: str, tree: Tree):
+        # tree is protocol node with [PROTOCOL token, protocol_scope] children
+        scope = tree.children[-1]  # Skip PROTOCOL token, get protocol_scope
+        name, namespace = self.split_namespace(tree, source_ns, scope.children[0].value)
+        protocol = namespace.add_protocol(name, scope.children[0])
+        protocol.walk(scope.children[1:])
+
     def split_namespace(self, tree: Tree, source_ns: str, fq_name: str) -> tuple[str, Namespace]:
         pos = fq_name.rfind("::")
         if pos == -1:
@@ -1229,6 +1731,7 @@ class Repr:
             n.finalise()
         self.has_cluster = any(len(namespace.clusters) != 0 for namespace in self.namespaces)
         self.has_trait = any(len(namespace.traits) != 0 for namespace in self.namespaces)
+        self.has_protocol = any(len(namespace.protocols) != 0 for namespace in self.namespaces)
 
 
 template_loader = jinja2.FileSystemLoader(searchpath=dir_path)

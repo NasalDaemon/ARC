@@ -63,7 +63,7 @@ REPL::run(int argc, char* argv[]) -> int
     else
     {
         std::println("In-Memory Filesystem REPL");
-        std::println("Commands: ls, cat, write, mkdir, rm, tree, {}help, exit", arc::CanResolve<Node, DirectorySync> ? "load, dump, " : "");
+        std::println("Commands: ls, cat, write, mkdir, rm, tree, {}help, exit", arc::CanGetNode<Node, DirectorySync> ? "load, dump, " : "");
         std::println("Navigation: ↑/↓ history, ←/→ cursor, Backspace/Delete edit, Tab completion");
         std::println("");
     }
@@ -100,7 +100,7 @@ REPL::runCommand(std::span<std::string_view> args) -> bool
     if (cmd == "exit" || cmd == "quit" || cmd == "q")
         return false;
 
-    if constexpr (arc::CanResolve<Node, DirectorySync>)
+    if constexpr (arc::CanGetNode<Node, DirectorySync>)
     {
         auto sync = getNode(directorySync);
 

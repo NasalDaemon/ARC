@@ -291,6 +291,17 @@ export namespace arc {
         using trait::Peer;
         using trait::peer;
     }
+    // protocol.hpp
+    using arc::IsProtocol;
+    using arc::HasProtocol;
+    using arc::States;
+    using arc::Protocol;
+    using arc::protocol;
+    using arc::ProtocolStates;
+    using arc::ProtocolStateLog;
+    using arc::StateTransitionLog;
+    using arc::ProtoSnap;
+    using arc::checkTransition;
     // nodes/repeater.hpp
     namespace key {
         using key::RepeaterIndex;
@@ -352,6 +363,7 @@ export namespace arc {
         using node::OnDynThread;
     }
     // trait_view.hpp
+    using arc::TraitViewBase;
     using arc::IsTraitView;
     using arc::IsTraitViewOrNode;
     using arc::IsTraitViewOf;

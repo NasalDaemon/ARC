@@ -10,6 +10,11 @@ module;
 #if !ARC_IMPORT_STD
 #include <concepts>
 #include <type_traits>
+{% if repr.has_protocol %}
+#include <ranges>
+#include <optional>
+#include <vector>
+{% endif %}
 #endif
 {% endif %}
 

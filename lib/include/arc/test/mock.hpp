@@ -3,6 +3,7 @@
 
 #include "arc/circular_buffer.hpp"
 #include "arc/context_fwd.hpp"
+#include "arc/detail/cast.hpp"
 #include "arc/type_name.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/function.hpp"
@@ -365,6 +366,9 @@ namespace detail {
         UniversalFn con, mut;
     };
 
+    template<IsTrait Trait>
+    struct MockBaseWithDefault;
+
     struct MockBase : arc::test::TestOnlyNode
     {
         explicit MockBase(MockParams params = {})
@@ -570,16 +574,42 @@ namespace detail {
             if (auto const retIt = self.returnsMap.find(methodType<Method>()); retIt != self.returnsMap.end())
                 return std::as_const(retIt->second);
 
-            MockReturn result;
-            switch (self.defaultBehaviour)
+            auto& combined = arc::detail::downCast<MockBaseWithDefault<TraitOf<Method>>>(arc::detail::upCast<MockBase>(self));
+            if constexpr (requires { combined.DefaultImpl::impl(method, ARC_FWD(args)...); })
             {
-            case MockDefault::ReturnDefault:
-                result.setReturnDefault();
-                break;
-            case MockDefault::ThrowIfMissing:
-                throw std::runtime_error(notDefinedError<Self, Method, Args...>());
+                using R = decltype(combined.DefaultImpl::impl(method, ARC_FWD(args)...));
+                if constexpr (std::is_same_v<MockReturn, R>)
+                {
+                    return combined.DefaultImpl::impl(method, ARC_FWD(args)...);
+                }
+                else
+                {
+                    MockReturn result;
+                    if constexpr (std::is_same_v<R, void>)
+                    {
+                        combined.DefaultImpl::impl(method, ARC_FWD(args)...);
+                        result.reset();
+                    }
+                    else
+                    {
+                        result.emplace<R>(combined.DefaultImpl::impl(method, ARC_FWD(args)...));
+                    }
+                    return result;
+                }
             }
-            return result;
+            else
+            {
+                MockReturn result;
+                switch (self.defaultBehaviour)
+                {
+                case MockDefault::ReturnDefault:
+                    result.setReturnDefault();
+                    break;
+                case MockDefault::ThrowIfMissing:
+                    throw std::runtime_error(notDefinedError<Self, Method, Args...>());
+                }
+                return result;
+            }
         }
 
         template<class... Fs>
@@ -715,7 +745,7 @@ namespace detail {
                     implType_,
                     std::move(argVisitor),
                     self.callLog.end_id(),
-                    std::array{&implTracker, &methodTracker, &traitTracker},
+                    std::array<CallTracker*, 3>{&implTracker, &methodTracker, &traitTracker},
                     std::is_const_v<Self>);
             }
         }
@@ -1055,6 +1085,12 @@ namespace detail {
         mutable std::unordered_map<TypeId, MockReturn> returnsMap;
         mutable std::unordered_map<TypeId, CallTracker> trackerMap;
         mutable CircularBuffer<CallDesc> callLog;
+    };
+
+    template<IsTrait Trait>
+    struct MockBaseWithDefault : MockBase, Trait::Meta::DefaultImpl
+    {
+        using MockBase::impl;
     };
 
 } // namespace detail

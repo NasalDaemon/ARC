@@ -15,6 +15,17 @@ namespace examples::calculator::node {
 
 TERMINAL_LINE_READER::readLine(std::string_view prompt) -> std::optional<std::string>
 {
+    // Non-TTY fallback (piped input, redirected stdin): use plain line-buffered reads.
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+    {
+        std::print("{}", prompt);
+        std::fflush(stdout);
+        std::string line;
+        if (std::getline(std::cin, line))
+            return line;
+        return std::nullopt;
+    }
+
     // Print the prompt
     std::print("{}", prompt);
     std::fflush(stdout);
@@ -60,19 +71,55 @@ TERMINAL_LINE_READER::readLine(std::string_view prompt) -> std::optional<std::st
 
         if (ch == EOF)
         {
-            // Ctrl+D at empty line = EOF; mid-line = submit
+            // stdin closed: treat empty line as EOF, otherwise submit
             if (line.empty())
-            {
                 gotEof = true;
-                break;
-            }
-            // Treat as end-of-line submit when there is content
             break;
         }
 
         if (ch == '\n' || ch == '\r')
         {
             break;
+        }
+
+        // Ctrl+D (EOT, 0x04 in raw mode): EOF on empty line, forward-delete mid-line
+        if (ch == 4)
+        {
+            if (line.empty())
+            {
+                gotEof = true;
+                break;
+            }
+            if (cursorPos < line.size())
+            {
+                line.erase(cursorPos, 1);
+                redraw_line(line);
+            }
+            continue;
+        }
+
+        // Ctrl+A: move cursor to start of line
+        if (ch == 1)
+        {
+            if (cursorPos > 0)
+            {
+                std::print("\x1b[{}D", cursorPos);
+                std::fflush(stdout);
+                cursorPos = 0;
+            }
+            continue;
+        }
+
+        // Ctrl+E: move cursor to end of line
+        if (ch == 5)
+        {
+            if (cursorPos < line.size())
+            {
+                std::print("\x1b[{}C", line.size() - cursorPos);
+                std::fflush(stdout);
+                cursorPos = line.size();
+            }
+            continue;
         }
 
         // Backspace (127 = DEL sent by most terminals as backspace)
@@ -87,7 +134,7 @@ TERMINAL_LINE_READER::readLine(std::string_view prompt) -> std::optional<std::st
             continue;
         }
 
-        // Escape sequence (arrow keys, Delete key)
+        // Escape sequence (arrow keys, Home/End, Delete key)
         if (ch == 27)
         {
             int next = std::getchar();
@@ -130,6 +177,24 @@ TERMINAL_LINE_READER::readLine(std::string_view prompt) -> std::optional<std::st
                         ++cursorPos;
                         std::print("\x1b[C");
                         std::fflush(stdout);
+                    }
+                }
+                else if (seq == 'H') // Home
+                {
+                    if (cursorPos > 0)
+                    {
+                        std::print("\x1b[{}D", cursorPos);
+                        std::fflush(stdout);
+                        cursorPos = 0;
+                    }
+                }
+                else if (seq == 'F') // End
+                {
+                    if (cursorPos < line.size())
+                    {
+                        std::print("\x1b[{}C", line.size() - cursorPos);
+                        std::fflush(stdout);
+                        cursorPos = line.size();
                     }
                 }
                 else if (seq == '3') // Delete key (ESC [ 3 ~)

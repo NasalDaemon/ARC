@@ -20,7 +20,10 @@ FILE_PERSISTENCE::save(std::string_view path) -> std::expected<void, std::string
     auto const vars = getVariables().list();
     for (auto const& [name, value] : vars)
     {
-        file << name << '=' << value << '\n';
+        if (std::isfinite(value) && value == std::trunc(value) && std::abs(value) < 1e15)
+            file << name << '=' << static_cast<long long>(value) << '\n';
+        else
+            file << name << '=' << value << '\n';
         if (file.fail())
             return std::unexpected(std::format("Write error while saving to: {}", path));
     }

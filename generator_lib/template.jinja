@@ -83,18 +83,18 @@ struct policy::{{ policy.name }}::{{ classification.name }} : ::arc::Group
 {% endfor %}
 {% for trait in namespace.traits %}
 
-{{ export }}inline namespace trait {
+{{ export }}{{ trait.wrapping_namespace }} {
 {% if trait.templates %}
 {{ template(trait.templates) }}
 struct {{ trait.name }};
 {% else %}
 struct {{ trait.name }};
 {% endif %}
-} // inline namespace trait
+} // {{ trait.wrapping_namespace }}
 {% endfor %}
 {% for trait in namespace.traits %}
 
-{{ export }}inline namespace trait {
+{{ export }}{{ trait.wrapping_namespace }} {
 {% if trait.templates %}
 {{ template(trait.templates) }}
 {% endif %}
@@ -110,6 +110,9 @@ struct {{ trait.name }} : ::arc::Trait
     struct Meta
     {
         using ARC_This_Trait = {{ trait.name }};
+        {% if trait.has_protocol %}
+        using Protocol = {{ trait.protocol_name }};
+        {% endif %}
         // List of method tags
         struct MethodTags
         {
@@ -124,17 +127,277 @@ struct {{ trait.name }} : ::arc::Trait
             ARC_METHOD_TAG_APPLICABLE({{ method_name }})
             {% endfor %}
         };
+        {% if trait.is_protocol %}
+        struct States
+        {
+            {% for group in trait.state_groups %}
+            enum class {{ group.name }}
+            {
+                {% for variant in group.variants %}
+                {{ variant }},
+                {% endfor %}
+            };
+            friend constexpr std::string_view toString({{ group.name }} e)
+            {
+                switch (e)
+                {
+                {% for var in group.variants %}
+                case {{ group.name }}::{{ var }}: return "{{ var }}";
+                {% endfor %}
+                }
+                return "<Unknown>";
+            }
+            friend constexpr bool isValidTransition({{ group.name }} from, {{ group.name }} to)
+            {
+                if (from == to) return true;
+                {% if group.has_edges %}
+                switch (from)
+                {
+                {% for from_var, to_set in group.adjacency().items() %}
+                case {{ group.name }}::{{ from_var }}:
+                    return {% for v in to_set | sort %}to == {{ group.name }}::{{ v }}{% if not loop.last %} || {% endif %}{% endfor %};
+                {% endfor %}
+                default: return false;
+                }
+                {% endif %}
+                return false;
+            }
+            {% endfor %}
+        };
+        struct StateTransitionLog
+        {
+            {% for group in trait.state_groups %}
+            {% if group.params %}
+            std::vector<::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{{ type.pack }}{% endfor %}>> {{ decapitalise(group.name) }}{};
+            {% else %}
+            std::optional<ARC_This_Trait::Meta::States::{{ group.name }}> {{ decapitalise(group.name) }}Entry{}, {{ decapitalise(group.name) }}Exit{};
+            {% endif %}
+            {% endfor %}
+
+            {% if trait.variant_invariants %}
+            template<class Assert, class Self, class ProtoView>
+            static constexpr void checkInvariants(Assert& _arc_assert_, Self const& self, ProtoView const& proto, StateTransitionLog const& log)
+            {
+                {% set src_groups = trait.variant_invariants | groupby('source_group') %}
+                {% for group_name, group_invs in src_groups %}
+                {% set src = group_invs[0].source_group_ref %}
+                {% if src.params %}
+                for (auto const& _arc_e_ : log.{{ decapitalise(group_name) }})
+                {
+                    std::apply([&]({% for type, name in src.params %}{{ type }}{{ type.pack }} const& {{ name }}{{ type.pack }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+                        {% for inv in group_invs %}
+                        {
+                            bool _arc_src_ = proto.{{ inv.source_variant }}({% for _t, pn in src.params %}{{ pn }}{% if not loop.last %}, {% endif %}{% endfor %});
+                            bool _arc_tgt_ = static_cast<bool>({{ inv.target_expr }});
+                            {% if inv.kind == 'iff' %}
+                            _arc_assert_(self, ARC_ASSERT_ARGS("{{ inv.pos }} iff", _arc_src_ == _arc_tgt_));
+                            {% else %}
+                            _arc_assert_(self, ARC_ASSERT_ARGS("{{ inv.pos }} implies", !_arc_src_ || _arc_tgt_));
+                            {% endif %}
+                        }
+                        {% endfor %}
+                    }, _arc_e_.key);
+                }
+                {% else %}
+                {
+                    {% for inv in group_invs %}
+                    {
+                        bool _arc_src_ = proto.{{ inv.source_variant }}();
+                        bool _arc_tgt_ = static_cast<bool>({{ inv.target_expr }});
+                        {% if inv.kind == 'iff' %}
+                        _arc_assert_(self, ARC_ASSERT_ARGS("{{ inv.pos }} iff", _arc_src_ == _arc_tgt_));
+                        {% else %}
+                        _arc_assert_(self, ARC_ASSERT_ARGS("{{ inv.pos }} implies", !_arc_src_ || _arc_tgt_));
+                        {% endif %}
+                    }
+                    {% endfor %}
+                }
+                {% endif %}
+                {% endfor %}
+                {% for tgt_group_name, group_invs in trait.variant_invariants | selectattr('has_target_group') | groupby('target_group') %}
+                {% if tgt_group_name not in src_groups %}
+                {% set tgt_grp = group_invs[0].target_group_ref %}
+                {% if tgt_grp.params %}
+                for (auto const& _arc_e_ : log.{{ decapitalise(tgt_group_name) }})
+                {
+                    if (std::ranges::find_if(log.{{ decapitalise(group_invs[0].source_group) }}, [&](auto const& _arc_s_) { return _arc_s_.key == _arc_e_.key; }) == log.{{ decapitalise(group_invs[0].source_group) }}.end())
+                    {
+                        std::apply([&]({% for type, name in tgt_grp.params %}{{ type }}{{ type.pack }} const& {{ name }}{{ type.pack }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+                            {% for inv in group_invs %}
+                            {
+                                bool _arc_src_ = proto.{{ inv.source_variant }}({% for _t, pn in tgt_grp.params %}{{ pn }}{% if not loop.last %}, {% endif %}{% endfor %});
+                                bool _arc_tgt_ = static_cast<bool>({{ inv.target_expr }});
+                                _arc_assert_(self, ARC_ASSERT_ARGS("{{ inv.pos }} iff", _arc_src_ == _arc_tgt_));
+                            }
+                            {% endfor %}
+                        }, _arc_e_.key);
+                    }
+                }
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+            }
+            {% else %}
+            ARC_INLINE static constexpr void checkInvariants(auto&&...) {}
+            {% endif %}
+
+            template<class Assert, class Self, class ProtoReal>
+            static constexpr void checkTransitions(Assert& _arc_assert_, Self const& self, ProtoReal const& real, StateTransitionLog const& log)
+            {
+                {% for group in trait.state_groups %}
+                {% if group.params %}
+                for (auto const& e : log.{{ decapitalise(group.name) }})
+                {
+                    std::apply([&](auto const&... k) {
+                        ::arc::checkTransition(
+                            _arc_assert_, self, e.entry, e.exit,
+                            "ARC protocol transition violation: {{ group.name }}",
+                            "ARC unannounced transition: {{ group.name }}",
+                            real,
+                            proto{{ group.name }}_c,
+                            k...
+                        );
+                    }, e.key);
+                }
+                {% else %}
+                if (log.{{ decapitalise(group.name) }}Entry.has_value())
+                {
+                    ::arc::checkTransition(
+                        _arc_assert_, self, *log.{{ decapitalise(group.name) }}Entry, log.{{ decapitalise(group.name) }}Exit,
+                        "ARC protocol transition violation: {{ group.name }}",
+                        "ARC unannounced transition: {{ group.name }}",
+                        real,
+                        proto{{ group.name }}_c
+                    );
+                }
+                {% endif %}
+                {% endfor %}
+            }
+        };
+        {% endif %}
         // Contracts and return type constraints of method signatures
         struct Constraints
         {
+            {% if trait.has_protocol and trait.methods|selectattr("has_contracts", "eq", False)|list %}
+            struct ProtoOnly : ::arc::NoConstraints
+            {
+                using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, 0>;
+                static constexpr auto preProto(auto& _arc_assert_, auto _arc_self_, auto const&...) -> ProtoSnap
+                {
+                    static_assert(_arc_assert_.enabled);
+                    ProtoSnap snap{};
+                    ARC_This_Trait::Meta::Protocol::Meta::RecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), snap.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, snap.log);
+                    return snap;
+                }
+                static constexpr void postProto(auto& _arc_assert_, auto _arc_self_, auto const&, auto& _arc_snap_)
+                {
+                    static_assert(_arc_assert_.enabled);
+                    ARC_This_Trait::Meta::Protocol::Meta::PostRecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, _arc_self_, _arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, _arc_snap_.log);
+                }
+            };
+            {% endif %}
             {% for method in trait.methods %}
-            {% if method.pre_exprs or method.post_exprs or (method.return_type.is_auto and method.return_type.str != "decltype(auto)") %}
+            {% if method.has_contracts or (method.return_type.is_auto and method.return_type.str != "decltype(auto)") %}
             struct {{ capitalise(method.name) }}{{ loop.index }} : ::arc::NoConstraints
             {
                 {% if method.return_type.is_auto and method.return_type.str != "decltype(auto)" %}
                 template<class T, class {{ trait.types_name or "" }}>
                 static consteval {{ method.return_type.str }} Return() { return ARC_DECLVAL(T); }
                 static constexpr bool DecltypeAuto = {{ cppbool(method.return_type.str.endswith("decltype(auto)")) }};
+                {% endif %}
+                {% if trait.has_protocol or method.has_proto_contracts %}
+                {% if trait.has_protocol %}
+                template<class... Args>
+                using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, {{ method.proto_if_exprs | length }}, Args...>;
+                {% else %}
+                template<class... Args>
+                using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, {{ method.proto_if_exprs | length }}, Args...>;
+                {% endif %}
+                static constexpr auto preProto(auto& _arc_assert_, auto _arc_self_
+                    {%- for type, name in method.params -%}
+                    , [[maybe_unused]] auto const& {{ name }}{{ type.pack }}
+                    {%- endfor -%}
+                )
+                    -> ProtoSnap<{%- for type, name in method.params -%}std::decay_t<decltype({{ name }})>{{ type.pack }}{%- if not loop.last -%}, {% endif -%}{%- endfor -%}>
+                {
+                    static_assert(_arc_assert_.enabled);
+                    ARC_IF_GCC(::arc::ignoreArgs(
+                    {%- set comma = joiner(", ") -%}
+                    {%- for type, name in method.params -%}
+                    {{ comma() }}{{ name }}
+                    {%- endfor -%}
+                    ));
+                    ::arc::StateTransitionLog<ARC_This_Trait> log{};
+                    {% if trait.has_protocol %}
+                    ARC_This_Trait::Meta::Protocol::Meta::RecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), log);
+                    {% else %}
+                    ARC_This_Trait::Meta::RecordingView proto(_arc_self_, log);
+                    {% endif %}
+                    {% for pos, expr in method.proto_pre_exprs %}
+                    _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
+                    {% endfor %}
+                    {% for pos, name, cond, then in method.proto_if_exprs %}
+                    bool if_{{ loop.index0 }} = static_cast<bool>({{ cond }});
+                    {% endfor %}
+                    {% for call in method.proto_snap_calls %}
+                    (void)({{ call }});
+                    {% endfor %}
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, log);
+                    return {std::make_tuple({%- for type, name in method.params -%}{{ name }}{{ type.pack }}{{ ", " if not loop.last else "" }}{%- endfor -%}), {
+                        {%- for pos, name, cond, then in method.proto_if_exprs -%}
+                        if_{{ loop.index0 }},
+                        {%- endfor -%}
+                        }, std::move(log)};
+                }
+                static constexpr void postProto(auto& _arc_assert_, auto _arc_self_, [[maybe_unused]] auto const& _arc_post_return_contract_value_, auto& _arc_snap_)
+                {
+                    ARC_IF_GCC(::arc::ignoreArgs(_arc_post_return_contract_value_));
+                    static_assert(_arc_assert_.enabled);
+                    {% if method.params %}
+                    [[maybe_unused]] auto const& [{% for type, name in method.params %}{{ name }}{{ type.pack }}{{ ", " if not loop.last else "" }}{% endfor %}] = (_arc_snap_.args);
+                    {% endif %}
+                    {% if trait.has_protocol %}
+                    [[maybe_unused]] ARC_This_Trait::Meta::Protocol::Meta::PostRecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    {% else %}
+                    [[maybe_unused]] ARC_This_Trait::Meta::PostRecordingView proto(_arc_self_, _arc_snap_.log);
+                    {% endif %}
+                    {% if method.implies %}
+                    {% if method.implies.kind == 'iff' %}
+                    _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}",
+                        _arc_post_return_contract_value_ == static_cast<bool>({{ method.implies.expr }})
+                    ));
+                    {% else %}
+                    _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}",
+                        !_arc_post_return_contract_value_ || static_cast<bool>({{ method.implies.expr }})
+                    ));
+                    {% endif %}
+                    {% endif %}
+                    {% for pos, name, expr in method.proto_post_exprs %}
+                    {
+                        {% if name != "_" %}
+                        [[maybe_unused]] auto const& {{ name }} = _arc_post_return_contract_value_;
+                        {% endif %}
+                        _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
+                    }
+                    {% endfor %}
+                    {% for pos, name, cond, then in method.proto_if_exprs %}
+                    {
+                        {% if name != "_" %}
+                        [[maybe_unused]] auto const& {{ name }} = _arc_post_return_contract_value_;
+                        {% endif %}
+                        _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ pos }}", !_arc_snap_.ifs[{{ loop.index0 }}] || ({{ then }})));
+                    }
+                    {% endfor %}
+                    {% if trait.has_protocol %}
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, _arc_self_, _arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    {% else %}
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, _arc_self_, _arc_self_, _arc_snap_.log);
+                    {% endif %}
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, _arc_snap_.log);
+                }
                 {% endif %}
                 {% if method.pre_exprs %}
                 static constexpr void pre(auto& _arc_contract_assert_, auto self
@@ -171,6 +434,8 @@ struct {{ trait.name }} : ::arc::Trait
                 }
                 {% endif %}
             };
+            {% elif trait.has_protocol %}
+            using {{ capitalise(method.name) }}{{ loop.index }} = ProtoOnly;
             {% else %}
             using {{ capitalise(method.name) }}{{ loop.index }} = ::arc::NoConstraints;
             {% endif %}
@@ -204,12 +469,12 @@ struct {{ trait.name }} : ::arc::Trait
             )
             {% if method.return_type.is_auto %}
             {% if method.return_type.str == "decltype(auto)" %}
-                -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% else %}
-                -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% endif %}
             {% else %}
-                -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, typename Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
             {% endif %}
             {% endfor %}
         };
@@ -249,28 +514,180 @@ struct {{ trait.name }} : ::arc::Trait
             ARC_NAMED_METHOD_IMPL_DISABLE({{ method_name }})
             {% endfor %}
         };
+        // Default method implementations as specified in the trait definition
+        struct DefaultImpl
+        {
+            {% for group in trait.state_groups %}
+            {% for variant in group.variants %}
+            ARC_INLINE constexpr bool impl(this auto const& self, ARC_This_Trait::{{ variant }}
+                {%- for type, name in group.params -%}
+                , auto const& {{ name }}
+                {%- endfor -%}
+            )
+            {
+                return self.impl(proto{{ group.name }}_c
+                    {%- for type, name in group.params -%}
+                    , {{ name }}{{ type.pack }}
+                    {%- endfor -%}
+                ) == ARC_This_Trait::Meta::States::{{ group.name }}::{{ variant }};
+            }
+            {% endfor %}
+            {% endfor %}
+            static void impl() = delete;
+        };
         // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
         // Effective only when using arc::NodeImpl<{{ trait.name }}> or arc::Node::Uses<...>::Impl<{{ trait.name }}>
-        struct Impl : protected DisableImpl
+        struct Impl : DefaultImpl, protected DisableImpl
         {
             struct {{ trait.name }} : MethodTags
             {
                 using Disable = DisableImpl;
             };
+            using DefaultImpl::impl;
             {% for method_name in trait.method_names %}
             ARC_NAMED_METHOD_IMPL({{ method_name }})
             {% endfor %}
         };
         // Provides internal node redirection `node.method(...)` --> `node.impl(method, ...)`
         // Effective only when using arc::NodeImpl<{{ trait.name }}*> or arc::Node::Uses<...>::Impl<{{ trait.name }}*>
-        struct ImplQualified : Methods
+        struct ImplQualified : DefaultImpl, Methods
         {
             struct {{ trait.name }} : MethodTags
             {
                 using Impl = Methods;
             };
-            static void impl() = delete;
+            using DefaultImpl::impl;
         };
+        {% if trait.is_protocol %}
+        template<class ProtocolTraitView>
+        struct RecordingView : Methods, DefaultImpl, arc::TraitViewBase
+        {
+            constexpr RecordingView(ProtocolTraitView real_, StateTransitionLog& log_)
+                : real(real_), log(log_)
+            {
+                {% for group in trait.state_groups if not group.params %}
+                (void)this->impl(ARC_This_Trait::proto{{ group.name }}{});
+                {% endfor %}
+            }
+
+            using Node = ProtocolTraitView::Node;
+
+            constexpr auto asTrait(ARC_This_Trait, std::true_type) { return *this; }
+
+            using DefaultImpl::impl;
+            {% for group in trait.state_groups %}
+            ARC_This_Trait::Meta::States::{{ group.name }} impl(ARC_This_Trait::proto{{ group.name }}
+                {%- for type, name in group.params -%}
+                , {{ type }} const& {{ name }}{{ type.pack }}
+                {%- endfor -%}
+            ) const
+            {
+                {% if group.params %}
+                auto key = std::make_tuple({% for type, name in group.params %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %});
+                if (auto it = std::ranges::find(log.{{ decapitalise(group.name) }}, key, &::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{% endfor %}>::key); it != log.{{ decapitalise(group.name) }}.end())
+                    return it->entry;
+                auto v = real.proto{{ group.name }}(
+                    {%- for type, name in group.params -%}
+                    {{ name }}{% if not loop.last %}, {% endif %}
+                    {%- endfor -%}
+                );
+                log.{{ decapitalise(group.name) }}.push_back(
+                    ::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{% endfor %}>{ std::move(key), v }
+                );
+                return v;
+                {% else %}
+                if (log.{{ decapitalise(group.name) }}Entry.has_value())
+                    return *log.{{ decapitalise(group.name) }}Entry;
+                auto v = real.proto{{ group.name }}();
+                log.{{ decapitalise(group.name) }}Entry.emplace(v);
+                return v;
+                {% endif %}
+            }
+            {% endfor %}
+            {% for pred in trait.predicate_methods %}
+            bool impl(ARC_This_Trait::{{ pred.name }}
+                {%- for type, name in pred.params -%}
+                , {{ type }} const& {{ name }}{{ type.pack }}
+                {%- endfor -%}
+            ) const
+            {
+                return real.{{ pred.name }}(
+                    {%- for type, name in pred.params -%}
+                    {{ name }}{{ type.pack }}{% if not loop.last %}, {% endif %}
+                    {%- endfor -%}
+                );
+            }
+            {% endfor %}
+
+        private:
+            ProtocolTraitView real;
+            StateTransitionLog& log;
+        };
+        template<class ProtocolTraitView>
+        RecordingView(ProtocolTraitView, StateTransitionLog&) -> RecordingView<ProtocolTraitView>;
+
+        template<class ProtocolTraitView>
+        struct PostRecordingView : Methods, DefaultImpl, arc::TraitViewBase
+        {
+            constexpr PostRecordingView(ProtocolTraitView real_, StateTransitionLog& log_)
+                : real(real_), log(log_) {}
+
+            using Node = ProtocolTraitView::Node;
+
+            constexpr auto asTrait(ARC_This_Trait, std::true_type) { return *this; }
+
+            using DefaultImpl::impl;
+            {% for group in trait.state_groups %}
+            ARC_This_Trait::Meta::States::{{ group.name }} impl(ARC_This_Trait::proto{{ group.name }}
+                {%- for type, name in group.params -%}
+                , {{ type }} const& {{ name }}{{ type.pack }}
+                {%- endfor -%}
+            ) const
+            {
+                {% if group.params %}
+                auto key = std::make_tuple({% for type, name in group.params %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %});
+                auto it = std::ranges::find(log.{{ decapitalise(group.name) }}, key, &::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{% endfor %}>::key);
+                if (it != log.{{ decapitalise(group.name) }}.end() && it->exit.has_value())
+                    return *it->exit;
+                auto v = real.proto{{ group.name }}(
+                    {%- for type, name in group.params -%}
+                    {{ name }}{% if not loop.last %}, {% endif %}
+                    {%- endfor -%}
+                );
+                if (it != log.{{ decapitalise(group.name) }}.end())
+                    it->exit.emplace(v);
+                return v;
+                {% else %}
+                if (log.{{ decapitalise(group.name) }}Exit.has_value())
+                    return *log.{{ decapitalise(group.name) }}Exit;
+                auto v = real.proto{{ group.name }}();
+                log.{{ decapitalise(group.name) }}Exit.emplace(v);
+                return v;
+                {% endif %}
+            }
+            {% endfor %}
+            {% for pred in trait.predicate_methods %}
+            bool impl(ARC_This_Trait::{{ pred.name }}
+                {%- for type, name in pred.params -%}
+                , {{ type }} const& {{ name }}{{ type.pack }}
+                {%- endfor -%}
+            ) const
+            {
+                return real.{{ pred.name }}(
+                    {%- for type, name in pred.params -%}
+                    {{ name }}{{ type.pack }}{% if not loop.last %}, {% endif %}
+                    {%- endfor -%}
+                );
+            }
+            {% endfor %}
+
+        private:
+            ProtocolTraitView real;
+            StateTransitionLog& log;
+        };
+        template<class ProtocolTraitView>
+        PostRecordingView(ProtocolTraitView, StateTransitionLog&) -> PostRecordingView<ProtocolTraitView>;
+        {% endif %}
         // Provides `node.getSomeTrait()` --> `node.getNode(trait::someTrait)`
         // Effective only when using arc::NodeUses<...> or arc::Node::Uses<...>::Impl<...>
         struct Resolver
@@ -291,7 +708,7 @@ struct {{ trait.name }} : ::arc::Trait
         };
     };
 
-    template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "" }}
+    template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "ARC_Types_" }}
     {%- if trait.root_name -%}
         , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<{{ trait.impl_name }}>>
     {%- endif -%}
@@ -301,6 +718,9 @@ struct {{ trait.name }} : ::arc::Trait
     >
     requires requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_)
     {
+        {% if trait.has_protocol %}
+        requires ::arc::Implements<{{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ trait.protocol_name }}>;
+        {% endif %}
         typename {{ trait.impl_name }}::Traits;
         {% for require in trait.requires %}
         {{ require }}
@@ -339,7 +759,7 @@ inline constexpr {{ trait.name }}<{{ template_params(trait.templates) }}> {{ tra
 {% else %}
 inline constexpr {{ trait.name }} {{ trait.variable }}{};
 {% endif %}
-} // inline namespace trait
+} // {{ trait.wrapping_namespace }}
 {% endfor %}
 {% for alias in namespace.trait_aliases %}
 

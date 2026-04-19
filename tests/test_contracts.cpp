@@ -74,7 +74,7 @@ struct Caller : arc::NodeUses<Calculator>
 };
 
 #define CHECK_CONTRACT_THROWS(expr, expectedExpr, pos) \
-    CHECK_THROWS_WITH_AS(expr, "ARC trait contract failure: " #expectedExpr " (" __FILE__ ":" pos ")", arc::ContractViolation)
+    CHECK_THROWS_WITH_AS(expr, "ARC trait contract failure: " #expectedExpr " (test_contracts.cpp:" pos ")", arc::ContractViolation)
 
 TEST_CASE("arc::IgnoreAssertHandler silently discards all violations")
 {
