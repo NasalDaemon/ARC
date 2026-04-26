@@ -6,9 +6,9 @@
 			"group": "build",
 			"label": "RM build dir",
 			"windows": {
-				"command": "rmdir /s /q build",
+				"command": "rmdir /s /q cmake-build",
 			},
-			"command": "rm -rf build"
+			"command": "rm -rf cmake-build"
 		},
 		{
 			"type": "shell",
@@ -17,7 +17,7 @@
 			"command": "$CONAN_INSTALL=Debug && $CONAN_INSTALL=RelWithDebInfo && $CONAN_INSTALL=Release",
 			"options": {
 				"env": {
-					"CONAN_INSTALL": "conan install . --output-folder=build --build=missing --profile=conanprofile.txt --settings=build_type"
+					"CONAN_INSTALL": "conan install . --output-folder=cmake-build --build=missing --profile=conanprofile.txt --settings=build_type"
 				}
 			},
 			"windows": {
@@ -37,7 +37,7 @@
 			"label": "CMake configure",
 			"command": "cmake .. --preset conan-default -DARC_BUILD_TESTS=$BUILD_TESTS -DCMAKE_COLOR_DIAGNOSTICS=TRUE -DCMAKE_CXX_MODULE_STD=${input:ImportStd} -DARC_COMPRESS_TYPES=$COMPRESS_TYPES -DARC_BUILD_LTO=$ENABLE_LTO -DARC_TESTS_DEBUG_SAN=$ENABLE_SAN -DARC_BUILD_BENCH=$BUILD_BENCH -DARC_BUILD_EXAMPLES=$BUILD_EXAMPLES -DCMAKE_BUILD_TYPE=${input:BuildType}",
 			"options": {
-				"cwd": "${workspaceFolder}/build",
+				"cwd": "${workspaceFolder}/cmake-build",
 				"env": {
 					"COMPRESS_TYPES": "TRUE",
 					"ENABLE_LTO": "FALSE",
@@ -64,7 +64,7 @@
 			"label": "CMake clean",
 			"command": "cmake --build . --target clean",
 			"options": {
-				"cwd": "${workspaceFolder}/build",
+				"cwd": "${workspaceFolder}/cmake-build",
 			},
 		},
 		{
@@ -81,7 +81,7 @@
 				"command": "ptime cmake --build . --config ${input:BuildType} && ctest --build-config ${input:BuildType} --output-on-failure"
 			},
 			"options": {
-				"cwd": "${workspaceFolder}/build",
+				"cwd": "${workspaceFolder}/cmake-build",
 			},
 			"presentation": {
 				"clear": true,

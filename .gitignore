@@ -1,6 +1,11 @@
 .*
-build/
-CMakeUserPresets.json
-
 AGENTS.md
 CLAUDE.md
+
+# Bazel build artifacts
+bazel-*
+*.lock
+
+# CMake build artifacts
+cmake-build/
+CMakeUserPresets.json

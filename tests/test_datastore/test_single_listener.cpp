@@ -1,5 +1,10 @@
 #include <doctest/doctest.h>
+
 #include "arc/macros.hpp"
+
+#if !ARC_IMPORT_STD
+#include <string_view>
+#endif
 
 import arc;
 import arc.tests.datastore.single;
@@ -19,6 +24,8 @@ cluster Cluster [R = Root] {
 
 }
 arc-end */
+
+using namespace std::string_view_literals;
 
 namespace arc::tests::datastore::single {
 
@@ -71,7 +78,7 @@ TEST_CASE("arc::DataStore single listener") {
     REQUIRE(pPrivate == nullptr);
     CHECK(pShared->id == 1);
 
-    graph.store->notify("test", 1);
+    graph.store->notify("test"sv, 1);
 }
 
 } // namespace arc::tests::datastore::single

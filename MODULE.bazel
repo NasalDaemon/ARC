@@ -1,0 +1,31 @@
+module(name = "arc", version = "1.0.0")
+
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_python", version = "1.7.0")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "arc_gen_deps",
+    python_version = "3.12",
+    requirements_lock = "//generator_lib:requirements_lock.txt",
+)
+use_repo(pip, "arc_gen_deps")
+
+# Scans .ixx / .ixx.arc / .cpp sources at workspace-init time and writes
+# @arc_module_deps//:module_deps.bzl with MODULE_DIRECT_DEPS / FILE_DIRECT_DEPS.
+# cpp_module.bzl loads this to pass only the necessary PCMs to each action.
+arc_module_scan = use_repo_rule("//bazel:module_scan.bzl", "arc_module_scan")
+arc_module_scan(name = "arc_module_deps")
+
+arc_std_paths = use_repo_rule("//bazel:std_paths.bzl", "arc_std_paths")
+arc_std_paths(name = "arc_std_paths")
+
+bazel_dep(name = "doctest", version = "2.4.12.bcr.1")
+single_version_override(
+    module_name = "doctest",
+    patches = ["//bazel/patches:doctest_includes.patch"],
+    patch_strip = 1,
+)

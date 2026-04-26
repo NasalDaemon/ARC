@@ -94,10 +94,10 @@ jobs:
         BUILD_TYPE: ${{ matrix.build_type }}
       run: |
         conan profile detect
-        conan install . --output-folder=build --build=missing --profile=conanprofile.txt --settings=build_type=${{ matrix.build_type }}
+        conan install . --output-folder=cmake-build --build=missing --profile=conanprofile.txt --settings=build_type=${{ matrix.build_type }}
 
     - name: Configure CMake ${{ matrix.compiler.std_module }}
-      working-directory: ${{ github.workspace }}/build
+      working-directory: ${{ github.workspace }}/cmake-build
       run: >
         cmake ..
         --preset conan-default
@@ -114,7 +114,7 @@ jobs:
         ${{ matrix.compiler.allow_build_failure }}
       id: build
       continue-on-error: ${{ !!matrix.compiler.allow_build_failure }}
-      working-directory: ${{ github.workspace }}/build
+      working-directory: ${{ github.workspace }}/cmake-build
       run: >
         cmake --build .
         --config ${{ matrix.build_type }}
@@ -129,7 +129,7 @@ jobs:
 
     - name: Test
       if: steps.build.outcome == 'success'
-      working-directory: ${{ github.workspace }}/build
+      working-directory: ${{ github.workspace }}/cmake-build
       run: >
         ctest
         --verbose

@@ -24,8 +24,8 @@ done
 
 # sudo apt install cmake ninja-build mold python3 pipx
 # pipx install conan
-conan install . --output-folder=build --build=missing --profile=conanprofile.txt --settings=build_type=$BUILD_TYPE
-cd build
+conan install . --output-folder=cmake-build --build=missing --profile=conanprofile.txt --settings=build_type=$BUILD_TYPE
+cd cmake-build
 cmake .. --preset conan-default \
     -DARC_BUILD_TESTS=TRUE \
     -DARC_BUILD_EXAMPLES=$BUILD_EXAMPLES \

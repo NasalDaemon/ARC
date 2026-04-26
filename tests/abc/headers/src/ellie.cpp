@@ -1,4 +1,5 @@
 #include "abc/ellie.hpp"
+#include <cstdio>
 
 void abc::node::Ellie::onGraphConstructed() { std::puts("Constructed Ellie"); }
 

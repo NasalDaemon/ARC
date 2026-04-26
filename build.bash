@@ -14,7 +14,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-cd build
+cd cmake-build
 
 set -e
 cmake --build . --config $BUILD_TYPE
