@@ -1,6 +1,6 @@
 export module examples.filesystem.filesystem;
 
-import examples.filesystem.entry;
+import examples.filesystem.types;
 import examples.filesystem.traits;
 import arc;
 import std;

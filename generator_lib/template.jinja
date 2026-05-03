@@ -342,7 +342,7 @@ struct {{ trait.name }} : ::arc::Trait
                     {% for pos, name, cond, then in method.proto_if_exprs %}
                     bool if_{{ loop.index0 }} = static_cast<bool>({{ cond }});
                     {% endfor %}
-                    {% for call in method.proto_snap_calls %}
+                    {% for call in method.proto_snap_calls(False) %}
                     (void)({{ call }});
                     {% endfor %}
                     ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, log);
@@ -566,7 +566,7 @@ struct {{ trait.name }} : ::arc::Trait
                 : real(real_), log(log_)
             {
                 {% for group in trait.state_groups if not group.params %}
-                (void)this->impl(ARC_This_Trait::proto{{ group.name }}{});
+                log.{{ decapitalise(group.name) }}Entry.emplace(real.proto{{ group.name }}());
                 {% endfor %}
             }
 
@@ -584,23 +584,17 @@ struct {{ trait.name }} : ::arc::Trait
             {
                 {% if group.params %}
                 auto key = std::make_tuple({% for type, name in group.params %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %});
-                if (auto it = std::ranges::find(log.{{ decapitalise(group.name) }}, key, &::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{% endfor %}>::key); it != log.{{ decapitalise(group.name) }}.end())
+                if (auto it = std::ranges::find(log.{{ decapitalise(group.name) }}, key, [](auto& x) -> auto& { return x.key; }); it != log.{{ decapitalise(group.name) }}.end())
                     return it->entry;
                 auto v = real.proto{{ group.name }}(
                     {%- for type, name in group.params -%}
                     {{ name }}{% if not loop.last %}, {% endif %}
                     {%- endfor -%}
                 );
-                log.{{ decapitalise(group.name) }}.push_back(
-                    ::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{% endfor %}>{ std::move(key), v }
-                );
+                log.{{ decapitalise(group.name) }}.emplace_back(std::move(key), v);
                 return v;
                 {% else %}
-                if (log.{{ decapitalise(group.name) }}Entry.has_value())
-                    return *log.{{ decapitalise(group.name) }}Entry;
-                auto v = real.proto{{ group.name }}();
-                log.{{ decapitalise(group.name) }}Entry.emplace(v);
-                return v;
+                return log.{{ decapitalise(group.name) }}Entry.value();
                 {% endif %}
             }
             {% endfor %}
@@ -646,7 +640,7 @@ struct {{ trait.name }} : ::arc::Trait
             {
                 {% if group.params %}
                 auto key = std::make_tuple({% for type, name in group.params %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %});
-                auto it = std::ranges::find(log.{{ decapitalise(group.name) }}, key, &::arc::ProtocolStateLog<ARC_This_Trait::Meta::States::{{ group.name }}{% for type, name in group.params %}, {{ type }}{% endfor %}>::key);
+                auto it = std::ranges::find(log.{{ decapitalise(group.name) }}, key, [](auto& x) -> auto& { return x.key; });
                 if (it != log.{{ decapitalise(group.name) }}.end() && it->exit.has_value())
                     return *it->exit;
                 auto v = real.proto{{ group.name }}(

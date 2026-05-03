@@ -27,7 +27,7 @@ protocol Proto {
     Closed <---------- Error
 
     per(std::string name) {
-        state NamedState {
+        state Named {
             Disconnected <-- Connecting | Connected
             Disconnected --> Connecting --> Connected
 
@@ -101,9 +101,9 @@ arc-end */
 // Aliases and static checks
 // ===========================================================================
 
-using States     = arc::States<protocol::Proto>;
-using State      = States::State;
-using NamedState = States::NamedState;
+using States = arc::States<protocol::Proto>;
+using Main   = States::Main;
+using Named  = States::Named;
 
 using IffStates = arc::States<protocol::IffProto>;
 using P = IffStates::P;
@@ -117,13 +117,13 @@ static_assert( arc::HasProtocol<trait::Connections>);
 static_assert( arc::IsProtocol<protocol::IffProto>);
 static_assert( arc::HasProtocol<trait::IffTrait>);
 
-static_assert(toString(State::Closed) == "Closed");
-static_assert(toString(State::Open)   == "Open");
-static_assert(toString(State::Error)  == "Error");
-static_assert(toString(State::Dead)   == "Dead");
-static_assert(toString(NamedState::Disconnected) == "Disconnected");
-static_assert(toString(NamedState::Connecting)   == "Connecting");
-static_assert(toString(NamedState::Connected)    == "Connected");
+static_assert(toString(Main::Closed) == "Closed");
+static_assert(toString(Main::Open)   == "Open");
+static_assert(toString(Main::Error)  == "Error");
+static_assert(toString(Main::Dead)   == "Dead");
+static_assert(toString(Named::Disconnected) == "Disconnected");
+static_assert(toString(Named::Connecting)   == "Connecting");
+static_assert(toString(Named::Connected)    == "Connected");
 
 static_assert(arc::IsMethodOf<protocol::Proto::Closed,          protocol::Proto>);
 static_assert(arc::IsMethodOf<protocol::Proto::Open,            protocol::Proto>);
@@ -132,8 +132,8 @@ static_assert(arc::IsMethodOf<protocol::Proto::Dead,            protocol::Proto>
 static_assert(arc::IsMethodOf<protocol::Proto::Disconnected,    protocol::Proto>);
 static_assert(arc::IsMethodOf<protocol::Proto::Connecting,      protocol::Proto>);
 static_assert(arc::IsMethodOf<protocol::Proto::Connected,       protocol::Proto>);
-static_assert(arc::IsMethodOf<protocol::Proto::protoState,      protocol::Proto>);
-static_assert(arc::IsMethodOf<protocol::Proto::protoNamedState, protocol::Proto>);
+static_assert(arc::IsMethodOf<protocol::Proto::protoMain,       protocol::Proto>);
+static_assert(arc::IsMethodOf<protocol::Proto::protoNamed,      protocol::Proto>);
 static_assert(arc::IsMethodOf<protocol::Proto::hasPendingData,  protocol::Proto>);
 static_assert(arc::IsMethodOf<protocol::Proto::isDead,          protocol::Proto>);
 
@@ -187,38 +187,38 @@ using IffProtoGraph = arc::test::Graph<IffProtoCaller, Mocks>;
 
 struct MockState
 {
-    State nullary = State::Closed;
-    std::map<std::string, NamedState> keyed;
+    Main nullary = Main::Closed;
+    std::map<std::string, Named> keyed;
 
     template<class G>
     explicit MockState(G& g)
     {
         g.mocks->defineConst(
-            [&](protocol::Proto::protoState) -> State { return nullary; },
-            [&](protocol::Proto::protoNamedState, std::string n) -> NamedState {
+            [&](protocol::Proto::protoMain) -> Main { return nullary; },
+            [&](protocol::Proto::protoNamed, std::string n) -> Named {
                 auto it = keyed.find(n);
-                return it != keyed.end() ? it->second : NamedState::Disconnected;
+                return it != keyed.end() ? it->second : Named::Disconnected;
             },
             [&](protocol::Proto::hasPendingData, std::string n) -> bool {
                 auto it = keyed.find(n);
-                return it != keyed.end() && it->second == NamedState::Connected;
+                return it != keyed.end() && it->second == Named::Connected;
             },
-            [&](protocol::Proto::isDead) -> bool { return nullary == State::Dead; });
+            [&](protocol::Proto::isDead) -> bool { return nullary == Main::Dead; });
         if constexpr (std::same_as<G, Graph>)
         {
             g.mocks->define(
-                [&](trait::Connections::open)      -> bool { nullary = State::Open;   return true; },
-                [&](trait::Connections::close)     -> bool { nullary = State::Closed; return true; },
-                [&](trait::Connections::kill)              { nullary = State::Dead;   },
-                [&](trait::Connections::reset)     -> bool { nullary = State::Closed; return true; },
-                [&](trait::Connections::forceOpen)         { nullary = State::Open;   },
+                [&](trait::Connections::open)      -> bool { nullary = Main::Open;   return true; },
+                [&](trait::Connections::close)     -> bool { nullary = Main::Closed; return true; },
+                [&](trait::Connections::kill)              { nullary = Main::Dead;   },
+                [&](trait::Connections::reset)     -> bool { nullary = Main::Closed; return true; },
+                [&](trait::Connections::forceOpen)         { nullary = Main::Open;   },
                 [&](trait::Connections::connect, std::string n) -> bool {
                     auto it = keyed.find(n);
-                    if (it == keyed.end() || it->second == NamedState::Disconnected) {
-                        keyed[n] = NamedState::Connecting; return true;
+                    if (it == keyed.end() || it->second == Named::Disconnected) {
+                        keyed[n] = Named::Connecting; return true;
                     }
-                    if (it->second == NamedState::Connecting) {
-                        it->second = NamedState::Connected; return true;
+                    if (it->second == Named::Connecting) {
+                        it->second = Named::Connected; return true;
                     }
                     return true;
                 },
@@ -278,38 +278,38 @@ void setupIffProtoMocks(IffProtoGraph& g, IffState& st)
 
 TEST_CASE("transition table — declared transitions and self-transitions are valid; others are not")
 {
-    constexpr struct { State f, t; bool ok; } nullary[] = {
+    constexpr struct { Main f, t; bool ok; } nullary[] = {
         // declared
-        {State::Closed, State::Open,   true},  {State::Open,   State::Closed, true},
-        {State::Open,   State::Error,  true},  {State::Error,  State::Closed, true},
-        {State::Error,  State::Dead,   true},
+        {Main::Closed, Main::Open,   true},  {Main::Open,   Main::Closed, true},
+        {Main::Open,   Main::Error,  true},  {Main::Error,  Main::Closed, true},
+        {Main::Error,  Main::Dead,   true},
         // undeclared
-        {State::Closed, State::Error,  false}, {State::Closed, State::Dead,   false},
-        {State::Open,   State::Dead,   false}, {State::Error,  State::Open,   false},
-        {State::Dead,   State::Closed, false}, {State::Dead,   State::Open,   false},
-        {State::Dead,   State::Error,  false},
+        {Main::Closed, Main::Error,  false}, {Main::Closed, Main::Dead,   false},
+        {Main::Open,   Main::Dead,   false}, {Main::Error,  Main::Open,   false},
+        {Main::Dead,   Main::Closed, false}, {Main::Dead,   Main::Open,   false},
+        {Main::Dead,   Main::Error,  false},
         // self-transitions
-        {State::Closed, State::Closed, true},  {State::Open,   State::Open,   true},
-        {State::Error,  State::Error,  true},  {State::Dead,   State::Dead,   true},
+        {Main::Closed, Main::Closed, true},  {Main::Open,   Main::Open,   true},
+        {Main::Error,  Main::Error,  true},  {Main::Dead,   Main::Dead,   true},
     };
     for (auto [f, t, ok] : nullary) {
         CAPTURE(toString(f)); CAPTURE(toString(t));
         CHECK(isValidTransition(f, t) == ok);
     }
 
-    constexpr struct { NamedState f, t; bool ok; } keyed[] = {
+    constexpr struct { Named f, t; bool ok; } keyed[] = {
         // declared (set form `Disconnected <-- Connecting | Connected` expands here)
-        {NamedState::Disconnected, NamedState::Connecting,   true},
-        {NamedState::Connecting,   NamedState::Connected,    true},
-        {NamedState::Connecting,   NamedState::Disconnected, true},
-        {NamedState::Connected,    NamedState::Disconnected, true},
+        {Named::Disconnected, Named::Connecting,   true},
+        {Named::Connecting,   Named::Connected,    true},
+        {Named::Connecting,   Named::Disconnected, true},
+        {Named::Connected,    Named::Disconnected, true},
         // undeclared
-        {NamedState::Connected,    NamedState::Connecting,   false},
-        {NamedState::Disconnected, NamedState::Connected,    false},
+        {Named::Connected,    Named::Connecting,   false},
+        {Named::Disconnected, Named::Connected,    false},
         // self-transitions
-        {NamedState::Disconnected, NamedState::Disconnected, true},
-        {NamedState::Connecting,   NamedState::Connecting,   true},
-        {NamedState::Connected,    NamedState::Connected,    true},
+        {Named::Disconnected, Named::Disconnected, true},
+        {Named::Connecting,   Named::Connecting,   true},
+        {Named::Connected,    Named::Connected,    true},
     };
     for (auto [f, t, ok] : keyed) {
         CAPTURE(toString(f)); CAPTURE(toString(t));
@@ -323,13 +323,13 @@ TEST_CASE("transition table — declared transitions and self-transitions are va
 
 TEST_CASE("is clause — pre-state must hold at entry for every method that requires it")
 {
-    constexpr State all[] = {State::Closed, State::Open, State::Error, State::Dead};
+    constexpr Main all[] = {Main::Closed, Main::Open, Main::Error, Main::Dead};
 
     SUBCASE("open requires Closed") {
         for (auto s : all) {
             CAPTURE(toString(s));
             Graph g; MockState st(g); st.nullary = s;
-            if (s == State::Closed) CHECK_NOTHROW(g.node->open());
+            if (s == Main::Closed) CHECK_NOTHROW(g.node->open());
             else CHECK_THROWS_WITH_AS(g.node->open(), doctest::Contains("proto.Closed()"), arc::ContractViolation);
         }
     }
@@ -337,7 +337,7 @@ TEST_CASE("is clause — pre-state must hold at entry for every method that requ
         for (auto s : all) {
             CAPTURE(toString(s));
             Graph g; MockState st(g); st.nullary = s;
-            if (s == State::Open) CHECK_NOTHROW(g.node->close());
+            if (s == Main::Open) CHECK_NOTHROW(g.node->close());
             else CHECK_THROWS_WITH_AS(g.node->close(), doctest::Contains("proto.Open()"), arc::ContractViolation);
         }
     }
@@ -345,7 +345,7 @@ TEST_CASE("is clause — pre-state must hold at entry for every method that requ
         for (auto s : all) {
             CAPTURE(toString(s));
             Graph g; MockState st(g); st.nullary = s;
-            if (s == State::Closed) CHECK_NOTHROW(g.node->forceOpen());
+            if (s == Main::Closed) CHECK_NOTHROW(g.node->forceOpen());
             else CHECK_THROWS_WITH_AS(g.node->forceOpen(), doctest::Contains("proto.Closed()"), arc::ContractViolation);
         }
     }
@@ -353,7 +353,7 @@ TEST_CASE("is clause — pre-state must hold at entry for every method that requ
         for (auto s : all) {
             CAPTURE(toString(s));
             Graph g; MockState st(g); st.nullary = s;
-            if (s == State::Error) CHECK_NOTHROW(g.node->kill());
+            if (s == Main::Error) CHECK_NOTHROW(g.node->kill());
             else CHECK_THROWS_WITH_AS(g.node->kill(), doctest::Contains("proto.Error()"), arc::ContractViolation);
         }
     }
@@ -379,18 +379,18 @@ TEST_CASE("then clause — post-condition checked against named return value (op
         CHECK_THROWS_WITH_AS(g.node->open(), doctest::Contains("proto.Open()"), arc::ContractViolation);
     }
     SUBCASE("returns true and ends Error — fails (true != false)") {
-        g.mocks->define([&](trait::Connections::open) -> bool { st.nullary = State::Error; return true; });
+        g.mocks->define([&](trait::Connections::open) -> bool { st.nullary = Main::Error; return true; });
         CHECK_THROWS_WITH_AS(g.node->open(), doctest::Contains("proto.Open()"), arc::ContractViolation);
     }
 
     // Symmetric coverage on close: is Open then (success: success == proto.Closed())
     SUBCASE("close: returns false stays Open — passes (false == false)") {
-        st.nullary = State::Open;
+        st.nullary = Main::Open;
         g.mocks->define([&](trait::Connections::close) -> bool { return false; });
         CHECK_NOTHROW(g.node->close());
     }
     SUBCASE("close: returns true but stays Open — fails") {
-        st.nullary = State::Open;
+        st.nullary = Main::Open;
         g.mocks->define([&](trait::Connections::close) -> bool { return true; });
         CHECK_THROWS_WITH_AS(g.node->close(), doctest::Contains("proto.Closed()"), arc::ContractViolation);
     }
@@ -415,11 +415,11 @@ TEST_CASE("then clause — bare-name post-state on void method (forceOpen: is Cl
 
 TEST_CASE("to clause — reset() must end Closed via a declared transition from any starting state")
 {
-    constexpr struct { State from; bool valid; } cases[] = {
-        {State::Closed, true},   // self-transition
-        {State::Open,   true},   // declared
-        {State::Error,  true},   // declared
-        {State::Dead,   false},  // undeclared transition Dead→Closed
+    constexpr struct { Main from; bool valid; } cases[] = {
+        {Main::Closed, true},   // self-transition
+        {Main::Open,   true},   // declared
+        {Main::Error,  true},   // declared
+        {Main::Dead,   false},  // undeclared transition Dead→Closed
     };
     for (auto [from, valid] : cases) {
         CAPTURE(toString(from));
@@ -432,14 +432,14 @@ TEST_CASE("to clause — reset() must end Closed via a declared transition from 
 TEST_CASE("to clause — reset() must end Closed regardless of where it lands")
 {
     Graph g; MockState st(g);
-    st.nullary = State::Open;
+    st.nullary = Main::Open;
 
     SUBCASE("ends Error — fails to(Closed)") {
-        g.mocks->define([&](trait::Connections::reset) -> bool { st.nullary = State::Error; return true; });
+        g.mocks->define([&](trait::Connections::reset) -> bool { st.nullary = Main::Error; return true; });
         CHECK_THROWS_WITH_AS(g.node->reset(), doctest::Contains("proto.Closed()"), arc::ContractViolation);
     }
     SUBCASE("ends Dead — fails to(Closed)") {
-        g.mocks->define([&](trait::Connections::reset) -> bool { st.nullary = State::Dead; return true; });
+        g.mocks->define([&](trait::Connections::reset) -> bool { st.nullary = Main::Dead; return true; });
         CHECK_THROWS_WITH_AS(g.node->reset(), doctest::Contains("proto.Closed()"), arc::ContractViolation);
     }
     SUBCASE("does not transition — fails to(Closed)") {
@@ -455,28 +455,28 @@ TEST_CASE("to clause — reset() must end Closed regardless of where it lands")
 TEST_CASE("if...then — connect()'s two ifs target only the matching entry condition")
 {
     Graph g; MockState st(g);
-    st.nullary = State::Open;
+    st.nullary = Main::Open;
 
     SUBCASE("from Disconnected, returns true → Connecting passes") {
         CHECK_NOTHROW(g.node->connect("x"));
     }
     SUBCASE("from Connecting, returns true → Connected passes") {
-        st.keyed["x"] = NamedState::Connecting;
+        st.keyed["x"] = Named::Connecting;
         CHECK_NOTHROW(g.node->connect("x"));
     }
     SUBCASE("from Connected, both ifs false → no exit constraint, no-op passes") {
-        st.keyed["x"] = NamedState::Connected;
+        st.keyed["x"] = Named::Connected;
         CHECK_NOTHROW(g.node->connect("x"));
     }
     SUBCASE("from Disconnected, returns false but stays Connecting — violates r ? Connecting : Disconnected") {
         g.mocks->define([&](trait::Connections::connect, std::string n) -> bool {
-            st.keyed[n] = NamedState::Connecting; return false;
+            st.keyed[n] = Named::Connecting; return false;
         });
         CHECK_THROWS_WITH_AS(g.node->connect("x"), doctest::Contains("proto.Connecting(name)"), arc::ContractViolation);
     }
     SUBCASE("from Disconnected, returns true but jumps to Connected — violates r ? Connecting") {
         g.mocks->define([&](trait::Connections::connect, std::string n) -> bool {
-            st.keyed[n] = NamedState::Connected; return true;
+            st.keyed[n] = Named::Connected; return true;
         });
         CHECK_THROWS_WITH_AS(g.node->connect("x"), doctest::Contains("proto.Connecting(name)"), arc::ContractViolation);
     }
@@ -493,41 +493,41 @@ TEST_CASE("if...then — connect()'s two ifs target only the matching entry cond
 TEST_CASE("methods without to/then for a group must keep that group's state identical")
 {
     Graph g; MockState st(g);
-    st.nullary = State::Open;
+    st.nullary = Main::Open;
 
-    SUBCASE("connect() may not mutate nullary (no to/then on State group)") {
+    SUBCASE("connect() may not mutate nullary (no to/then on Main group)") {
         g.mocks->define([&](trait::Connections::connect, std::string n) -> bool {
-            st.nullary = State::Error;          // unannounced nullary change
-            st.keyed[n] = NamedState::Connecting;
+            st.nullary = Main::Error;          // unannounced nullary change
+            st.keyed[n] = Named::Connecting;
             return true;
         });
         CHECK_THROWS_AS(g.node->connect("x"), arc::ContractViolation);
     }
     SUBCASE("connect() may not mutate keyed when both ifs are false") {
-        st.keyed["x"] = NamedState::Connected;  // both ifs false for x
+        st.keyed["x"] = Named::Connected;  // both ifs false for x
         g.mocks->define([&](trait::Connections::connect, std::string n) -> bool {
-            st.keyed[n] = NamedState::Disconnected; return true;
+            st.keyed[n] = Named::Disconnected; return true;
         });
         CHECK_THROWS_AS(g.node->connect("x"), arc::ContractViolation);
     }
     SUBCASE("read() — has only an `is` clause; nullary mutation throws") {
-        st.keyed["x"] = NamedState::Connected;
+        st.keyed["x"] = Named::Connected;
         g.mocks->define([&](trait::Connections::read, std::string) -> std::string {
-            st.nullary = State::Closed; return "data";
+            st.nullary = Main::Closed; return "data";
         });
         CHECK_THROWS_WITH_AS(g.node->read("x"), doctest::Contains("Open -> Closed"), arc::ContractViolation);
     }
     SUBCASE("read() — keyed mutation also throws") {
-        st.keyed["x"] = NamedState::Connected;
+        st.keyed["x"] = Named::Connected;
         g.mocks->define([&](trait::Connections::read, std::string n) -> std::string {
-            st.keyed[n] = NamedState::Disconnected; return "data";
+            st.keyed[n] = Named::Disconnected; return "data";
         });
         CHECK_THROWS_WITH_AS(g.node->read("x"), doctest::Contains("Connected -> Disconnected"), arc::ContractViolation);
     }
-    SUBCASE("forceOpen() — has then(Open) for State only; nullary unchanged fails then(Open)") {
-        st.nullary = State::Closed;
+    SUBCASE("forceOpen() — has then(Open) for Main only; nullary unchanged fails then(Open)") {
+        st.nullary = Main::Closed;
         g.mocks->define([&](trait::Connections::forceOpen) {
-            st.keyed["x"] = NamedState::Connecting;  // unannounced keyed mutation; nullary unchanged
+            st.keyed["x"] = Named::Connecting;  // unannounced keyed mutation; nullary unchanged
         });
         CHECK_THROWS_WITH_AS(g.node->forceOpen(), doctest::Contains("proto.Open()"), arc::ContractViolation);
     }
@@ -540,18 +540,18 @@ TEST_CASE("methods without to/then for a group must keep that group's state iden
 TEST_CASE("is predicate(args) — read() requires hasPendingData(name) on entry")
 {
     Graph g; MockState st(g);
-    st.nullary = State::Open;
+    st.nullary = Main::Open;
 
     SUBCASE("Connected key — hasPendingData true, passes") {
-        st.keyed["x"] = NamedState::Connected;
+        st.keyed["x"] = Named::Connected;
         CHECK_NOTHROW(g.node->read("x"));
     }
     SUBCASE("Disconnected key — hasPendingData false, throws") {
-        st.keyed["x"] = NamedState::Disconnected;
+        st.keyed["x"] = Named::Disconnected;
         CHECK_THROWS_WITH_AS(g.node->read("x"), doctest::Contains("hasPendingData"), arc::ContractViolation);
     }
     SUBCASE("Connecting key — hasPendingData false, throws") {
-        st.keyed["x"] = NamedState::Connecting;
+        st.keyed["x"] = Named::Connecting;
         CHECK_THROWS_WITH_AS(g.node->read("x"), doctest::Contains("hasPendingData"), arc::ContractViolation);
     }
     SUBCASE("Unknown key — hasPendingData false, throws") {
@@ -567,11 +567,11 @@ TEST_CASE("implies invariant — Connected implies Open enforced at entry and ex
 {
     SUBCASE("entry: read() with hasPendingData precondition transitively checks implies — Connected key with Closed nullary throws") {
         Graph g; MockState st(g);
-        st.nullary = State::Open;
-        st.keyed["x"] = NamedState::Connected;
+        st.nullary = Main::Open;
+        st.keyed["x"] = Named::Connected;
         // After close(), nullary=Closed but keyed still Connected — violates implies
         g.mocks->define([&](trait::Connections::close) -> bool {
-            st.nullary = State::Closed;
+            st.nullary = Main::Closed;
             return true;
         });
         CHECK_NOTHROW(g.node->close());
@@ -581,29 +581,29 @@ TEST_CASE("implies invariant — Connected implies Open enforced at entry and ex
     }
     SUBCASE("exit: connect() with unannounced nullary change throws transition violation first") {
         Graph g; MockState st(g);
-        st.nullary = State::Open;
-        st.keyed["x"] = NamedState::Connecting;
+        st.nullary = Main::Open;
+        st.keyed["x"] = Named::Connecting;
         g.mocks->define([&](trait::Connections::connect, std::string n) -> bool {
-            st.keyed[n] = NamedState::Connected;
-            st.nullary = State::Closed;
+            st.keyed[n] = Named::Connected;
+            st.nullary = Main::Closed;
             return true;
         });
         CHECK_THROWS_WITH_AS(g.node->connect("x"), doctest::Contains("unannounced transition"), arc::ContractViolation);
     }
     SUBCASE("exit: connect() ends Connected with nullary still Open — passes") {
         Graph g; MockState st(g);
-        st.nullary = State::Open;
-        st.keyed["x"] = NamedState::Connecting;
+        st.nullary = Main::Open;
+        st.keyed["x"] = Named::Connecting;
         g.mocks->define([&](trait::Connections::connect, std::string n) -> bool {
-            st.keyed[n] = NamedState::Connected;
+            st.keyed[n] = Named::Connected;
             return true;
         });
         CHECK_NOTHROW(g.node->connect("x"));
     }
     SUBCASE("invariants only checked for keys touched by this call (per-key isolation)") {
         Graph g; MockState st(g);
-        st.nullary = State::Open;
-        st.keyed["y"] = NamedState::Connected;     // y consistent with Open
+        st.nullary = Main::Open;
+        st.keyed["y"] = Named::Connected;     // y consistent with Open
         // close() transitions Open→Closed without touching keyed; the existing Connected("y")
         // would violate `Connected implies Open` if checked, but per-key isolation skips
         // untouched keys.
@@ -695,13 +695,13 @@ TEST_CASE("implies predicate — hasPendingData implies Connected(name)")
         CHECK_NOTHROW(g.node->hasData("x"));
     }
     SUBCASE("returns true while Connected — passes") {
-        st.nullary = State::Open;
-        st.keyed["x"] = NamedState::Connected;
+        st.nullary = Main::Open;
+        st.keyed["x"] = Named::Connected;
         g.mocks->defineConst([&](protocol::Proto::hasPendingData, std::string) -> bool { return true; });
         CHECK_NOTHROW(g.node->hasData("x"));
     }
     SUBCASE("returns true while Disconnected — implies violated, throws") {
-        st.keyed["x"] = NamedState::Disconnected;
+        st.keyed["x"] = Named::Disconnected;
         g.mocks->defineConst([&](protocol::Proto::hasPendingData, std::string) -> bool { return true; });
         CHECK_THROWS_WITH_AS(g.node->hasData("x"), doctest::Contains("implies"), arc::ContractViolation);
     }
@@ -768,18 +768,18 @@ TEST_CASE("multi-step sequences — declared chains work; recovery via reset; ki
         CHECK_NOTHROW(g.node->close());
     }
     SUBCASE("multiple independent keys via connect") {
-        st.nullary = State::Open;
+        st.nullary = Main::Open;
         CHECK_NOTHROW(g.node->connect("a"));
         CHECK_NOTHROW(g.node->connect("b"));
         CHECK_NOTHROW(g.node->connect(""));
     }
     SUBCASE("error recovery: Error → reset → Closed") {
-        st.nullary = State::Error;
+        st.nullary = Main::Error;
         CHECK_NOTHROW(g.node->reset());
     }
     SUBCASE("open → fault to Error → kill → Dead") {
         CHECK_NOTHROW(g.node->open());
-        st.nullary = State::Error;
+        st.nullary = Main::Error;
         CHECK_NOTHROW(g.node->kill());
     }
 }
@@ -799,7 +799,7 @@ TEST_CASE("protocol view — variant queries through asTrait(arc::protocol(...))
         CHECK_FALSE(proto.Closed());
     }
     SUBCASE("parameterised variant query after connect") {
-        st.nullary = State::Open;
+        st.nullary = Main::Open;
         CHECK_NOTHROW(g.node->connect("x"));
         CHECK(proto.Connecting("x"));
         CHECK_NOTHROW(g.node->connect("x"));
@@ -809,14 +809,14 @@ TEST_CASE("protocol view — variant queries through asTrait(arc::protocol(...))
         CHECK_FALSE(proto.isDead());  // default state is Closed
     }
     SUBCASE("parameterised predicate query through view") {
-        st.nullary = State::Open;
-        st.keyed["x"] = NamedState::Connected;
+        st.nullary = Main::Open;
+        st.keyed["x"] = Named::Connected;
         CHECK(proto.hasPendingData("x"));
         CHECK_FALSE(proto.hasPendingData("unknown"));
     }
     SUBCASE("raw enum accessors through view") {
-        CHECK(toString(proto.protoState()) == toString(State::Closed));
-        CHECK(toString(proto.protoNamedState("nonexistent")) == toString(NamedState::Disconnected));
+        CHECK(toString(proto.protoMain()) == toString(Main::Closed));
+        CHECK(toString(proto.protoNamed("nonexistent")) == toString(Named::Disconnected));
     }
 }
 

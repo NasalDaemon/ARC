@@ -23,7 +23,7 @@ trait Log
 cluster MainCluster [R = Root]
 {
     node = R::Node
-    cluster = InnerCluster
+    cluster = cluster::InnerCluster
 
     [@global] @all --> @global
 

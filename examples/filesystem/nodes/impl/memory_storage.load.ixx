@@ -1,24 +1,21 @@
 module examples.filesystem.memory_storage:load;
 import examples.filesystem.memory_storage;
 
-import examples.filesystem.entry;
+import examples.filesystem.types;
 import examples.filesystem.traits;
 
 import std;
 
 namespace examples::filesystem::node {
 
-auto MemoryStorage::impl(DirectorySync::loadFromDirectory, std::string_view dirPath) -> std::expected<void, FsError>
+auto MemoryStorage::loadFromDirectory(std::string_view dirPath) -> std::expected<void, FsError>
 {
     try
     {
         std::filesystem::path rootPath{dirPath};
 
         if (not std::filesystem::exists(rootPath) || not std::filesystem::is_directory(rootPath))
-        {
-            std::println("Error: {} is not a valid directory", dirPath);
             return std::unexpected(FsError::InvalidPath);
-        }
 
         auto const loadRecursive =
             // Weird GCC bug requires 'this' to be captured as a named value
@@ -31,9 +28,7 @@ auto MemoryStorage::impl(DirectorySync::loadFromDirectory, std::string_view dirP
 
                     if (entry.is_directory())
                     {
-                        if (auto result = p->put(fullFsPath, InMemoryEntry::directory()); !result)
-                            std::println("Warning: Could not create directory {}: {}", fullFsPath, asString(result.error()));
-                        else
+                        if (auto result = p->put(fullFsPath, Entry::directory()); result)
                             self(entry.path(), fullFsPath);
                     }
                     else if (entry.is_regular_file())
@@ -42,29 +37,26 @@ auto MemoryStorage::impl(DirectorySync::loadFromDirectory, std::string_view dirP
                         {
                             std::ifstream file(entry.path());
                             std::string content(std::istreambuf_iterator<char>{file}, {});
-                            if (auto result = p->put(fullFsPath, InMemoryEntry::file(std::move(content))); !result)
-                                std::println("Warning: Could not write file {}: {}", fullFsPath, asString(result.error()));
+                            p->put(fullFsPath, Entry::file(std::move(content)));
                         }
-                        catch (std::exception const& e)
+                        catch (std::exception const&)
                         {
-                            std::println("Warning: Could not read file {}: {}", entry.path().string(), e.what());
+                            // Skip files that cannot be read
                         }
                     }
                 }
             };
 
         loadRecursive(rootPath, "");
-        std::println("Loaded filesystem from directory: {}", dirPath);
         return {};
     }
-    catch (std::exception const& e)
+    catch (std::exception const&)
     {
-        std::println("Error loading from directory {}: {}", dirPath, e.what());
         return std::unexpected(FsError::InvalidPath);
     }
 }
 
-auto MemoryStorage::impl(DirectorySync::dumpToDirectory, std::string_view dirPath) const -> std::expected<void, FsError>
+auto MemoryStorage::dumpToDirectory(std::string_view dirPath) const -> std::expected<void, FsError>
 {
     try
     {
@@ -93,20 +85,15 @@ auto MemoryStorage::impl(DirectorySync::dumpToDirectory, std::string_view dirPat
 
                 std::ofstream file(fullPath);
                 if (not file)
-                {
-                    std::println("Warning: Could not write file {}", fullPath.string());
-                    continue;
-                }
+                    return std::unexpected(FsError::InvalidPath);
                 file << entry.content();
             }
         }
 
-        std::println("Dumped filesystem to directory: {}", dirPath);
         return {};
     }
-    catch (std::exception const& e)
+    catch (std::exception const&)
     {
-        std::println("Error dumping to directory {}: {}", dirPath, e.what());
         return std::unexpected(FsError::InvalidPath);
     }
 }

@@ -1,9 +1,12 @@
 export module examples.filesystem.clusters;
 
+import examples.filesystem.command_handler;
+import examples.filesystem.console_output;
 import examples.filesystem.filesystem;
 import examples.filesystem.memory_storage;
 import examples.filesystem.path_ops;
 import examples.filesystem.repl;
+import examples.filesystem.terminal_line_reader;
 import examples.filesystem.traits;
 
 namespace examples::filesystem {
@@ -25,10 +28,18 @@ cluster Filesystem [Root]
 cluster Repl
 {
     repl = node::Repl
+    lineReader = node::TerminalLineReader
+    commands = node::CommandHandler
+    output = node::ConsoleOutput
     fs = cluster::Filesystem
 
-    [trait::Filesystem]    repl --> fs
-    [trait::DirectorySync] repl --> fs
+    [trait::LineReader]    repl --> lineReader
+    [trait::Commands]      repl --> commands
+    [trait::Output]        repl --> output
+
+    [trait::Filesystem]    lineReader --> fs
+                           commands   --> fs
+    [trait::DirectorySync] commands   --> fs
 }
 
 }

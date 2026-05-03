@@ -22,8 +22,8 @@ cluster OuterCluster [R = Root]
 {
     a = R::Node
     b = R::Node
-    innerUnary = InnerUnary
-    innerBinary = InnerBinary
+    innerUnary = cluster::InnerUnary
+    innerBinary = cluster::InnerBinary
 }
 
 }

@@ -91,17 +91,17 @@ namespace detail {
     {
         return owner;
     }
-    template<class T>
-    constexpr std::span<T> toView(AdlTag<std::span<T>>, auto const& owner)
+    template<class T, std::size_t Size>
+    constexpr std::span<T, Size> toView(AdlTag<std::span<T, Size>>, auto& owner)
     {
-        return std::span(owner);
+        return std::span<T, Size>(owner);
     }
 
     template<class... Ts>
     constexpr auto toValueHolder(Ts const&... args)
     {
         using Values = std::tuple<decltype(toValue(args))...>;
-        using Views = std::tuple<decltype(toView(AdlTag<Ts>{}, std::declval<decltype(toValue(args)) const&>()))...>;
+        using Views = std::tuple<decltype(toView(AdlTag<Ts>{}, std::declval<decltype(toValue(args))&>()))...>;
         using Voids = std::array<void const*, sizeof...(Ts)>;
         struct ValueHolder
         {
@@ -132,7 +132,7 @@ namespace detail {
             }
 
         private:
-            Views toViews() const
+            Views toViews()
             {
                 return [this]<std::size_t... I>(std::index_sequence<I...>) {
                     return Views(toView(AdlTag<Ts>{}, std::get<I>(values))...);
@@ -216,6 +216,12 @@ namespace detail {
     struct MockReturn
     {
         template<class T>
+        std::string conversionError() const
+        {
+            return std::format("MockReturn: cannot convert {} to {}", storedTypeName, arc::typeName<T>);
+        }
+
+        template<class T>
         constexpr operator T&() const &&
         {
             if (Ref const* ref = std::get_if<Ref>(&value))
@@ -223,7 +229,7 @@ namespace detail {
                 if (ref->convertibleTo<T&>())
                     return *static_cast<T*>(ref->ptr);
             }
-            throw std::bad_any_cast();
+            throw std::runtime_error(conversionError<T&>());
         }
 
         template<class T>
@@ -249,7 +255,7 @@ namespace detail {
             {
                 return T();
             }
-            throw std::bad_any_cast();
+            throw std::runtime_error(conversionError<T>());
         }
 
         template<class T>
@@ -277,7 +283,7 @@ namespace detail {
                 else
                     return *value.emplace<AnyUniquePtr>(std::in_place_type<T>).template get<T>();
             }
-            throw std::bad_any_cast();
+            throw std::runtime_error(conversionError<T&>());
         }
 
         template<class T>
@@ -306,12 +312,13 @@ namespace detail {
                 else
                     return std::forward<T>(*value.emplace<AnyUniquePtr>(std::in_place_type<T>).template get<T>());
             }
-            throw std::bad_any_cast();
+            throw std::runtime_error(conversionError<T&&>());
         }
 
         template<class T>
         constexpr void emplace(auto&& arg)
         {
+            storedTypeName = arc::typeName<T>;
             if constexpr (std::is_reference_v<T>)
                 value.emplace<Ref>(std::addressof(arg), typeId<std::remove_cvref_t<T>>, std::is_lvalue_reference_v<T>, std::is_const_v<std::remove_reference_t<T>>);
             else if constexpr (std::is_copy_constructible_v<T>)
@@ -320,7 +327,11 @@ namespace detail {
                 value.emplace<AnyUniquePtr>(std::in_place_type<T>, ARC_FWD(arg));
         }
 
-        constexpr void reset() { value.emplace<std::monostate>(); }
+        constexpr void reset()
+        {
+            storedTypeName = "void";
+            value.emplace<std::monostate>();
+        }
 
         constexpr void setReturnDefault() { returnDefault = true; }
 
@@ -340,6 +351,7 @@ namespace detail {
 
     private:
         bool returnDefault = false;
+        std::string_view storedTypeName;
 
         struct Ref
         {
@@ -490,14 +502,67 @@ namespace detail {
         void methodReturns(T&& value)
         {
             auto const methodType_ = methodType<Method>();
+            impls.erase(methodType_);
             returnsMap[methodType_].template emplace<T>(ARC_FWD(value));
         }
         template<class Method, class... Args, class T>
-        void implReturns(T&& value)
+        requires (not IsFunctionSignature<Method>)
+        void implReturns(T value)
         {
             auto const implType_ = implType<Method, Args...>();
             returnsMap[implType_].template emplace<T>(ARC_FWD(value));
             impls.erase(implType_);
+        }
+        template<IsFunctionSignature ImplSig, class T>
+        void implReturns(T value)
+        {
+            auto const implType_ = implType<ImplSig>();
+            returnsMap[implType_].template emplace<T>(ARC_FWD(value));
+            impls.erase(implType_);
+        }
+        template<class Method, class T, std::convertible_to<T>... Ts>
+        void methodReturnsN(T value, Ts&&... values)
+        {
+            auto const methodType_ = methodType<Method>();
+            returnsMap.erase(methodType_);
+
+            auto& impl = impls[methodType_];
+            impl.mut.reset();
+            using Array = std::array<T, 1 + sizeof...(values)>;
+            impl.con =
+                [values = Array{std::move(value), ARC_FWD(values)...}, index = std::size_t(0)](void* result, void**) mutable
+                {
+                    if (index >= values.size())
+                        throw std::runtime_error(std::format(
+                            "methodReturnsN: No more return values (called {} times, but only {} values were provided)",
+                            ++index, values.size()));
+                    static_cast<MockReturn*>(result)->emplace<T>(std::move(values[index++]));
+                };
+        }
+        template<class Method, class... Args, class T, std::convertible_to<T>... Ts>
+        requires (not IsFunctionSignature<Method>)
+        void implReturnsN(T value, Ts&&... values)
+        {
+            return implReturnsN<Method(Args...), T>(ARC_FWD(value), ARC_FWD(values)...);
+        }
+        template<IsFunctionSignature ImplSig, class T, std::convertible_to<T>... Ts>
+        void implReturnsN(T value, Ts&&... values)
+        {
+            auto const implType_ = implType<ImplSig>();
+            returnsMap.erase(implType_);
+
+            auto& impl = impls[implType_];
+            impl.mut.reset();
+            using Array = std::array<T, 1 + sizeof...(values)>;
+            impl.con =
+                [values = Array{std::move(value), ARC_FWD(values)...}, index = std::size_t(0)](void* result, void**) mutable
+                {
+                    if (index >= values.size())
+                        throw std::runtime_error(std::format(
+                            "implReturnsN: No more return values (called {} times, but only {} values were provided)",
+                            ++index, values.size()));
+                    static_cast<MockReturn*>(result)->emplace<T>(std::move(values[index++]));
+                };
         }
 
         template<class Method, class... Args, std::invocable<std::remove_cvref_t<Args> const&...> F = ArgsTuple>
@@ -542,7 +607,6 @@ namespace detail {
 
             auto const implType_ = implType<Method, Args...>();
             auto const implTypeValues_ = implType<Method, std::decay_t<Args>...>();
-
             UniversalFn* impl = nullptr;
             if (auto const it = self.impls.find(implType_); it != self.impls.end())
                 impl = self.getMockDef(it->second);
@@ -565,13 +629,22 @@ namespace detail {
                 return result;
             }
 
+            auto const methodType_ = methodType<Method>();
+
+            if (auto const it = self.impls.find(methodType_); it != self.impls.end())
+            {
+                MockReturn result;
+                it->second.con(std::addressof(result), nullptr);
+                return result;
+            }
+
             if (auto const retIt = self.returnsMap.find(implType_); retIt != self.returnsMap.end())
                 return std::as_const(retIt->second);
 
             if (auto const retIt = self.returnsMap.find(implTypeValues_); retIt != self.returnsMap.end())
                 return std::as_const(retIt->second);
 
-            if (auto const retIt = self.returnsMap.find(methodType<Method>()); retIt != self.returnsMap.end())
+            if (auto const retIt = self.returnsMap.find(methodType_); retIt != self.returnsMap.end())
                 return std::as_const(retIt->second);
 
             auto& combined = arc::detail::downCast<MockBaseWithDefault<TraitOf<Method>>>(arc::detail::upCast<MockBase>(self));
@@ -639,6 +712,7 @@ namespace detail {
         constexpr void undefineMethodReturns()
         {
             auto const methodType_ = methodType<Method>();
+            impls.erase(methodType_);
             returnsMap.erase(methodType_);
         }
         template<class Method, class... Args>
@@ -674,9 +748,16 @@ namespace detail {
             return arc::typeId<MethodTag, Method>;
         }
         template<class Method, class... Args>
+        static consteval TypeId implType(Method(*)(Args...) = nullptr)
+        {
+            static_assert(not IsFunctionSignature<Method>);
+            return arc::typeId<ImplTag, Method, Args...>;
+        }
+
+        template<IsFunctionSignature Sig>
         static consteval TypeId implType()
         {
-            return arc::typeId<ImplTag, Method, Args...>;
+            return implType(static_cast<Sig*>(nullptr));
         }
 
         template<class Self>

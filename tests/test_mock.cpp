@@ -182,7 +182,7 @@ TEST_CASE("arc::test::Mock")
     g.mocks->define([](trait::Trait::returnsRef) { return 0; });
 
     // Returning dangling reference throws exception
-    CHECK_THROWS_AS(g.node->testRef(), std::bad_any_cast);
+    CHECK_THROWS_WITH(g.node->testRef(), "MockReturn: cannot convert int to " ARC_IF_GCC_ELSE("int&")("int &"));
 
     // Storing result allows conversion to reference
     auto refResult = g.mocks->impl(trait::Trait::returnsRef{});
@@ -202,9 +202,149 @@ TEST_CASE("arc::test::Mock")
     CHECK(314 == g.node->testInt(8));
 
     // Definition takes precedence over stored method result
-    CHECK_THROWS_AS(g.node->testRef(), std::bad_any_cast);
+    CHECK_THROWS_WITH(g.node->testRef(), "MockReturn: cannot convert int to " ARC_IF_GCC_ELSE("int&")("int &"));
     g.mocks->undefine<trait::Trait::returnsRef>();
     CHECK(123 == g.node->testRef());
+}
+
+TEST_CASE("arc::test::Mock::methodReturns single value repeats")
+{
+    arc::test::Graph<MockTestNode> g;
+    g.mocks->setThrowIfMissing();
+
+    g.mocks->methodReturns<trait::Trait::takesInt>(42);
+    CHECK(42 == g.node->testInt(0));
+    CHECK(42 == g.node->testInt(0));
+    CHECK(42 == g.node->testInt(0));
+    g.mocks->methodReturns<trait::Trait::takesInt>(12);
+    CHECK(12 == g.node->testInt(0));
+    CHECK(12 == g.node->testInt(0));
+}
+
+TEST_CASE("arc::test::Mock::implReturns single value")
+{
+    arc::test::Graph<MockTestNode> g;
+    g.mocks->setThrowIfMissing();
+
+    SUBCASE("repeats the same value")
+    {
+        g.mocks->implReturns<trait::Trait::takesInt, int>(77);
+        CHECK(77 == g.node->testInt(0));
+        CHECK(77 == g.node->testInt(0));
+        CHECK(77 == g.node->testInt(0));
+    }
+
+    SUBCASE("overwrites previous define")
+    {
+        g.mocks->define([](trait::Trait::takesInt, int i) { return i * 2; });
+        CHECK(16 == g.node->testInt(8));
+        g.mocks->implReturns<trait::Trait::takesInt, int>(99);
+        CHECK(99 == g.node->testInt(8));
+        CHECK(99 == g.node->testInt(8));
+    }
+
+    SUBCASE("overwrites previous implReturns")
+    {
+        g.mocks->implReturns<trait::Trait::takesInt, int>(10);
+        CHECK(10 == g.node->testInt(0));
+        g.mocks->implReturns<trait::Trait::takesInt, int>(20);
+        CHECK(20 == g.node->testInt(0));
+        CHECK(20 == g.node->testInt(0));
+    }
+}
+
+TEST_CASE("arc::test::Mock::methodReturnsN")
+{
+    arc::test::Graph<MockTestNode> g;
+    g.mocks->setThrowIfMissing();
+    g.mocks->enableCallCounting();
+
+    SUBCASE("returns values in order")
+    {
+        g.mocks->methodReturnsN<trait::Trait::takesInt>(10, 20, 30);
+        CHECK(10 == g.node->testInt(0));
+        CHECK(20 == g.node->testInt(0));
+        CHECK(30 == g.node->testInt(0));
+        CHECK(3 == g.mocks->methodCallCount<trait::Trait::takesInt>());
+    }
+
+    SUBCASE("throws when exhausted")
+    {
+        g.mocks->methodReturnsN<trait::Trait::takesInt>(1, 2);
+        CHECK(1 == g.node->testInt(0));
+        CHECK(2 == g.node->testInt(0));
+        CHECK_THROWS_WITH(g.node->testInt(0), "methodReturnsN: No more return values (called 3 times, but only 2 values were provided)");
+    }
+
+    SUBCASE("index increments on each throw")
+    {
+        g.mocks->methodReturnsN<trait::Trait::takesInt>(1, 2);
+        CHECK(1 == g.node->testInt(0));
+        CHECK(2 == g.node->testInt(0));
+        CHECK_THROWS_WITH(g.node->testInt(0), "methodReturnsN: No more return values (called 3 times, but only 2 values were provided)");
+        CHECK_THROWS_WITH(g.node->testInt(0), "methodReturnsN: No more return values (called 4 times, but only 2 values were provided)");
+        CHECK_THROWS_WITH(g.node->testInt(0), "methodReturnsN: No more return values (called 5 times, but only 2 values were provided)");
+    }
+
+    SUBCASE("erases previous methodReturns")
+    {
+        g.mocks->methodReturns<trait::Trait::takesInt>(99);
+        g.mocks->methodReturnsN<trait::Trait::takesInt>(1, 2);
+        CHECK(1 == g.node->testInt(0));
+        CHECK(2 == g.node->testInt(0));
+        CHECK_THROWS(g.node->testInt(0));
+    }
+
+}
+
+TEST_CASE("arc::test::Mock::implReturnsN")
+{
+    arc::test::Graph<MockTestNode> g;
+    g.mocks->setThrowIfMissing();
+    g.mocks->enableCallCounting();
+
+    SUBCASE("returns values in order")
+    {
+        g.mocks->implReturnsN<trait::Trait::takesInt, int>(100, 200);
+        CHECK(100 == g.node->testInt(0));
+        CHECK(200 == g.node->testInt(0));
+        CHECK(2 == g.mocks->implCallCount<trait::Trait::takesInt, int>());
+    }
+
+    SUBCASE("throws when exhausted")
+    {
+        g.mocks->implReturnsN<trait::Trait::takesInt, int>(5, 6);
+        CHECK(5 == g.node->testInt(0));
+        CHECK(6 == g.node->testInt(0));
+        CHECK_THROWS_WITH(g.node->testInt(0), "implReturnsN: No more return values (called 3 times, but only 2 values were provided)");
+    }
+
+    SUBCASE("index increments on each throw")
+    {
+        g.mocks->implReturnsN<trait::Trait::takesInt, int>(5, 6);
+        CHECK(5 == g.node->testInt(0));
+        CHECK(6 == g.node->testInt(0));
+        CHECK_THROWS_WITH(g.node->testInt(0), "implReturnsN: No more return values (called 3 times, but only 2 values were provided)");
+        CHECK_THROWS_WITH(g.node->testInt(0), "implReturnsN: No more return values (called 4 times, but only 2 values were provided)");
+        CHECK_THROWS_WITH(g.node->testInt(0), "implReturnsN: No more return values (called 5 times, but only 2 values were provided)");
+    }
+
+    SUBCASE("erases previous implReturns")
+    {
+        g.mocks->implReturns<trait::Trait::takesInt, int>(99);
+        g.mocks->implReturnsN<trait::Trait::takesInt, int>(11, 22);
+        CHECK(11 == g.node->testInt(0));
+        CHECK(22 == g.node->testInt(0));
+        CHECK_THROWS(g.node->testInt(0));
+    }
+
+    SUBCASE("erases previous define for same impl")
+    {
+        g.mocks->define([](trait::Trait::takesInt, int i) { return i * 2; });
+        g.mocks->implReturnsN<trait::Trait::takesInt, int>(50, 60);
+        CHECK(50 == g.node->testInt(0));
+        CHECK(60 == g.node->testInt(0));
+    }
 }
 
 } // namespace arc::tests::mock

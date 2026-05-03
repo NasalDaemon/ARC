@@ -10,7 +10,7 @@ auto DiskStorage::toAbsolute(std::string_view path) const -> std::filesystem::pa
 {
     // path is expected to be normalised starting with "/"
     // We strip the leading "/" and append to rootPath
-    if (path.empty() || path == "/")
+    if (path == "/")
         return rootPath;
 
     if (path.starts_with('/'))
@@ -33,7 +33,7 @@ auto DiskStorage::get(std::string_view path) const -> std::optional<DiskEntry>
         return DiskEntry::file(absPath);
 }
 
-auto DiskStorage::put(std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
+auto DiskStorage::put(std::string_view path, Entry entry) -> std::expected<void, FsError>
 {
     auto const absPath = toAbsolute(path);
 
@@ -63,7 +63,7 @@ auto DiskStorage::put(std::string_view path, InMemoryEntry entry) -> std::expect
     return {};
 }
 
-auto DiskStorage::impl(Storage::erase, std::string_view path) -> bool
+auto DiskStorage::erase(std::string_view path) -> bool
 {
     auto const absPath = toAbsolute(path);
 

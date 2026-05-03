@@ -879,8 +879,7 @@ class Method:
     def has_contracts(self) -> bool:
         return bool(self.pre_exprs or self.post_exprs or self.has_proto_contracts)
 
-    @cached_property
-    def proto_snap_calls(self) -> list[str]:
+    def proto_snap_calls(self, include_nullary: bool) -> list[str]:
         """Unique proto.method(...) calls to invoke in preProto for entry snapping."""
         seen: set[str] = set()
         result: list[str] = []
@@ -890,6 +889,8 @@ class Method:
         ):
             for call in extract_proto_calls(expr):
                 if call not in seen:
+                    if not include_nullary and call.endswith("()"):
+                        continue
                     seen.add(call)
                     result.append(call)
         return result
@@ -1418,7 +1419,7 @@ class Protocol(Trait):
                 pred.implies_expr = self._parse_invariant_target(pred, c.children[3], get_pos(c, False), pred_scope)
                 self._temp_predicates.append(pred)
             elif c.data == imported('proto_state_trans_top'):
-                default_name = 'State'
+                default_name = 'Main'
                 if default_name not in self._all_state_names:
                     self._all_state_names.add(default_name)
                     group = StateGroup(default_name, list(inherited_params), is_top_level=True)

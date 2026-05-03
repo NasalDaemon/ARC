@@ -1,7 +1,7 @@
 module examples.filesystem.filesystem:impl;
 
 import examples.filesystem.filesystem;
-import examples.filesystem.entry;
+import examples.filesystem.types;
 import examples.filesystem.traits;
 import std;
 
@@ -29,8 +29,8 @@ FILESYSTEM::read(std::string_view path) const
 FILESYSTEM::write(std::string_view path, std::string data)
     -> std::expected<void, FsError>
 {
-    auto pathOps = getNode(trait::pathOps);
-    auto storage = getNode(trait::storage);
+    auto pathOps = getPathOps();
+    auto storage = getStorage();
 
     std::string normalised = pathOps.normalise(path);
 
@@ -49,14 +49,14 @@ FILESYSTEM::write(std::string_view path, std::string data)
     if (auto existing = storage.get(normalised); existing && existing->isDir())
         return std::unexpected(FsError::IsADirectory);
 
-    return storage.put(normalised, InMemoryEntry::file(std::move(data)));
+    return storage.put(normalised, Entry::file(std::move(data)));
 }
 
 FILESYSTEM::mkdir(std::string_view path)
     -> std::expected<void, FsError>
 {
-    auto pathOps = getNode(trait::pathOps);
-    auto storage = getNode(trait::storage);
+    auto pathOps = getPathOps();
+    auto storage = getStorage();
 
     std::string normalised = pathOps.normalise(path);
 
@@ -75,15 +75,15 @@ FILESYSTEM::mkdir(std::string_view path)
     if (!parentEntry->isDir())
         return std::unexpected(FsError::NotADirectory);
 
-    storage.put(normalised, InMemoryEntry::directory());
+    storage.put(normalised, Entry::directory());
     return {};
 }
 
 FILESYSTEM::remove(std::string_view path)
     -> std::expected<void, FsError>
 {
-    auto pathOps = getNode(trait::pathOps);
-    auto storage = getNode(trait::storage);
+    auto pathOps = getPathOps();
+    auto storage = getStorage();
 
     std::string normalised = pathOps.normalise(path);
 
@@ -99,7 +99,7 @@ FILESYSTEM::remove(std::string_view path)
     {
         auto children = storage.children(normalised);
         if (!children.empty())
-            return std::unexpected(FsError::InvalidPath); // Directory not empty
+            return std::unexpected(FsError::NotEmpty);
     }
 
     storage.erase(normalised);

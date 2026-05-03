@@ -6,93 +6,140 @@ import arc;
 
 using namespace examples::filesystem;
 
-TEST_CASE("PathOps")
+SCENARIO(R"(PathOps normalisation and navigation)")
 {
     arc::test::Graph<node::PathOps> graph;
     auto pathOps = graph.node.asTrait(trait::pathOps);
 
-    SUBCASE("normalise")
+    GIVEN(R"(a PathOps trait)")
     {
-        SUBCASE("empty path becomes root")
+        WHEN(R"(normalising paths)")
         {
-            CHECK(pathOps.normalise("") == "/");
+            THEN(R"(root stays root)")
+            {
+                CHECK(pathOps.normalise("/") == "/");
+            }
+
+            THEN(R"(leading slash is added)")
+            {
+                CHECK(pathOps.normalise("foo") == "/foo");
+                CHECK(pathOps.normalise("foo/bar") == "/foo/bar");
+            }
+
+            THEN(R"(trailing slashes are removed)")
+            {
+                CHECK(pathOps.normalise("/foo/") == "/foo");
+                CHECK(pathOps.normalise("/foo/bar/") == "/foo/bar");
+            }
+
+            THEN(R"(multiple slashes are collapsed)")
+            {
+                CHECK(pathOps.normalise("//foo") == "/foo");
+                CHECK(pathOps.normalise("/foo//bar") == "/foo/bar");
+                CHECK(pathOps.normalise("/foo///bar//") == "/foo/bar");
+            }
+
+            THEN(R"(single dot is resolved)")
+            {
+                CHECK(pathOps.normalise("/./foo") == "/foo");
+                CHECK(pathOps.normalise("/foo/./bar") == "/foo/bar");
+                CHECK(pathOps.normalise("/foo/.") == "/foo");
+            }
+
+            THEN(R"(double dot is resolved)")
+            {
+                CHECK(pathOps.normalise("/foo/bar/..") == "/foo");
+                CHECK(pathOps.normalise("/foo/bar/../baz") == "/foo/baz");
+                CHECK(pathOps.normalise("/foo/bar/baz/../..") == "/foo");
+            }
+
+            THEN(R"(double dot at root stays at root)")
+            {
+                CHECK(pathOps.normalise("/..") == "/");
+                CHECK(pathOps.normalise("/../foo") == "/foo");
+            }
         }
 
-        SUBCASE("root stays root")
+        AND_WHEN(R"(empty path is passed to normalise)")
         {
-            CHECK(pathOps.normalise("/") == "/");
+            THEN(R"(contract violation is thrown)")
+            {
+                CHECK_THROWS_AS(pathOps.normalise(""), arc::ContractViolation);
+            }
         }
 
-        SUBCASE("adds leading slash")
+        WHEN(R"(getting the parent path)")
         {
-            CHECK(pathOps.normalise("foo") == "/foo");
-            CHECK(pathOps.normalise("foo/bar") == "/foo/bar");
+            THEN(R"(returns correct parents)")
+            {
+                CHECK(pathOps.parent("/") == "/");
+                CHECK(pathOps.parent("/foo") == "/");
+                CHECK(pathOps.parent("/foo/bar") == "/foo");
+                CHECK(pathOps.parent("/foo/bar/baz") == "/foo/bar");
+            }
         }
 
-        SUBCASE("removes trailing slashes")
+        AND_WHEN(R"(empty path is passed to parent)")
         {
-            CHECK(pathOps.normalise("/foo/") == "/foo");
-            CHECK(pathOps.normalise("/foo/bar/") == "/foo/bar");
+            THEN(R"(contract violation is thrown)")
+            {
+                CHECK_THROWS_AS(pathOps.parent(""), arc::ContractViolation);
+            }
         }
 
-        SUBCASE("collapses multiple slashes")
+        WHEN(R"(getting the filename)")
         {
-            CHECK(pathOps.normalise("//foo") == "/foo");
-            CHECK(pathOps.normalise("/foo//bar") == "/foo/bar");
-            CHECK(pathOps.normalise("/foo///bar//") == "/foo/bar");
+            THEN(R"(returns correct filenames)")
+            {
+                CHECK(pathOps.filename("/") == "");
+                CHECK(pathOps.filename("/foo") == "foo");
+                CHECK(pathOps.filename("/foo/bar") == "bar");
+                CHECK(pathOps.filename("/foo/bar.txt") == "bar.txt");
+            }
         }
 
-        SUBCASE("resolves single dot")
+        AND_WHEN(R"(empty path is passed to filename)")
         {
-            CHECK(pathOps.normalise("/./foo") == "/foo");
-            CHECK(pathOps.normalise("/foo/./bar") == "/foo/bar");
-            CHECK(pathOps.normalise("/foo/.") == "/foo");
+            THEN(R"(contract violation is thrown)")
+            {
+                CHECK_THROWS_AS(pathOps.filename(""), arc::ContractViolation);
+            }
         }
 
-        SUBCASE("resolves double dot")
+        WHEN(R"(joining paths)")
         {
-            CHECK(pathOps.normalise("/foo/bar/..") == "/foo");
-            CHECK(pathOps.normalise("/foo/bar/../baz") == "/foo/baz");
-            CHECK(pathOps.normalise("/foo/bar/baz/../..") == "/foo");
+            THEN(R"(joins correctly)")
+            {
+                CHECK(pathOps.join("/", "foo") == "/foo");
+                CHECK(pathOps.join("/foo", "bar") == "/foo/bar");
+                CHECK(pathOps.join("/foo/", "bar") == "/foo/bar");
+                CHECK(pathOps.join("/foo", "/bar") == "/bar");
+            }
         }
 
-        SUBCASE("double dot at root stays at root")
+        AND_WHEN(R"(empty path is passed to join)")
         {
-            CHECK(pathOps.normalise("/..") == "/");
-            CHECK(pathOps.normalise("/../foo") == "/foo");
+            THEN(R"(contract violation is thrown)")
+            {
+                CHECK_THROWS_AS(pathOps.join("", "foo"), arc::ContractViolation);
+            }
         }
-    }
 
-    SUBCASE("parent")
-    {
-        CHECK(pathOps.parent("/") == "/");
-        CHECK(pathOps.parent("/foo") == "/");
-        CHECK(pathOps.parent("/foo/bar") == "/foo");
-        CHECK(pathOps.parent("/foo/bar/baz") == "/foo/bar");
-    }
+        WHEN(R"(checking if a path is root)")
+        {
+            THEN(R"(identifies root correctly)")
+            {
+                CHECK(pathOps.isRoot("/") == true);
+                CHECK(pathOps.isRoot("/foo") == false);
+            }
+        }
 
-    SUBCASE("filename")
-    {
-        CHECK(pathOps.filename("/") == "");
-        CHECK(pathOps.filename("/foo") == "foo");
-        CHECK(pathOps.filename("/foo/bar") == "bar");
-        CHECK(pathOps.filename("/foo/bar.txt") == "bar.txt");
-    }
-
-    SUBCASE("join")
-    {
-        CHECK(pathOps.join("/", "foo") == "/foo");
-        CHECK(pathOps.join("/foo", "bar") == "/foo/bar");
-        CHECK(pathOps.join("/foo/", "bar") == "/foo/bar");
-        // Absolute child path replaces base (Unix behavior)
-        CHECK(pathOps.join("/foo", "/bar") == "/bar");
-    }
-
-    SUBCASE("isRoot")
-    {
-        CHECK(pathOps.isRoot("/") == true);
-        CHECK(pathOps.isRoot("/foo") == false);
-        // Empty string normalises to root
-        CHECK(pathOps.isRoot("") == true);
+        AND_WHEN(R"(empty path is passed to isRoot)")
+        {
+            THEN(R"(contract violation is thrown)")
+            {
+                CHECK_THROWS_AS(pathOps.isRoot(""), arc::ContractViolation);
+            }
+        }
     }
 }

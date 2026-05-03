@@ -4,11 +4,8 @@ import std;
 
 namespace examples::filesystem::node {
 
-auto PathOps::impl(trait::PathOps::normalise, std::string_view path) const -> std::string
+auto PathOps::normalise(std::string_view path) const -> std::string
 {
-    if (path.empty())
-        return "/";
-
     std::string result;
     result.reserve(path.size());
 
@@ -60,9 +57,9 @@ auto PathOps::impl(trait::PathOps::normalise, std::string_view path) const -> st
     return result;
 }
 
-auto PathOps::impl(trait::PathOps::parent, std::string_view path) const -> std::string
+auto PathOps::parent(std::string_view path) const -> std::string
 {
-    std::string normalised = Methods::normalise(path);
+    std::string normalised = normalise(path);
     auto const pos = normalised.rfind('/');
     if (pos == 0)
         normalised.resize(1);
@@ -73,7 +70,7 @@ auto PathOps::impl(trait::PathOps::parent, std::string_view path) const -> std::
     return normalised;
 }
 
-auto PathOps::impl(trait::PathOps::filename, std::string_view path) const -> std::string
+auto PathOps::filename(std::string_view path) const -> std::string
 {
     std::string normalised = normalise(path);
     if (normalised == "/")
@@ -84,7 +81,7 @@ auto PathOps::impl(trait::PathOps::filename, std::string_view path) const -> std
     return normalised;
 }
 
-auto PathOps::impl(trait::PathOps::join, std::string_view base, std::string_view child) const -> std::string
+auto PathOps::join(std::string_view base, std::string_view child) const -> std::string
 {
     if (child.empty())
         return normalise(base);
@@ -100,7 +97,7 @@ auto PathOps::impl(trait::PathOps::join, std::string_view base, std::string_view
     return normalise(result);
 }
 
-auto PathOps::impl(trait::PathOps::isRoot, std::string_view path) const -> bool
+auto PathOps::isRoot(std::string_view path) const -> bool
 {
     return normalise(path) == "/";
 }

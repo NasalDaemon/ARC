@@ -7,10 +7,10 @@ namespace examples::filesystem::node {
 MemoryStorage::MemoryStorage()
 {
     // Initialize with root directory
-    entries.try_emplace("/", InMemoryEntry::directory());
+    entries.try_emplace("/", Entry::directory());
 }
 
-auto MemoryStorage::impl(Storage::get, std::string_view path) const -> InMemoryEntry const*
+auto MemoryStorage::get(std::string_view path) const -> Entry const*
 {
     auto it = entries.find(path);
     if (it == entries.end())
@@ -18,13 +18,13 @@ auto MemoryStorage::impl(Storage::get, std::string_view path) const -> InMemoryE
     return &it->second;
 }
 
-auto MemoryStorage::impl(Storage::put, std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>
+auto MemoryStorage::put(std::string_view path, Entry entry) -> std::expected<void, FsError>
 {
     auto const [it, inserted] = entries.try_emplace(std::string(path), std::move(entry));
     if (inserted)
     {
         auto parentDir = parent(path);
-        auto& c = children.try_emplace(std::string(parentDir)).first->second;
+        auto& c = childrenMap.try_emplace(std::string(parentDir)).first->second;
         c.push_back(std::to_address(it));
     }
     else
@@ -55,20 +55,20 @@ auto MemoryStorage::parent(std::string_view path) -> std::string_view
     return path.substr(0, slashPos);
 }
 
-auto MemoryStorage::impl(Storage::erase, std::string_view path) -> bool
+auto MemoryStorage::erase(std::string_view path) -> bool
 {
     auto parentDir = parent(path);
-    if (auto const it = children.find(parentDir); it != children.end())
+    if (auto const it = childrenMap.find(parentDir); it != childrenMap.end())
         std::erase_if(it->second, [path](auto const* pair) { return pair->first == path; });
 
     return entries.erase(std::string(path)) > 0;
 }
 
-auto MemoryStorage::impl(Storage::children, std::string_view path) const -> std::vector<std::string_view>
+auto MemoryStorage::children(std::string_view path) const -> std::vector<std::string_view>
 {
     std::vector<std::string_view> result;
-    auto it = children.find(path);
-    if (it == children.end())
+    auto it = childrenMap.find(path);
+    if (it == childrenMap.end())
         return result;
     auto const prefix = path.size() + (path != "/");
     for (auto const* pair : it->second)

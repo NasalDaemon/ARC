@@ -10,24 +10,25 @@ arc_module_library(
     srcs = glob(["nodes/impl/*.cpp"]),
 )
 
+GRAPH_NODES = {
+    "repl": "examples.filesystem.repl",
+    "lineReader": "examples.filesystem.terminal_line_reader",
+    "commands": "examples.filesystem.command_handler",
+    "fs.fs": "examples.filesystem.filesystem",
+}
+
 arc_graph(
     name = "in_memory_repl_graph",
     graph_module = "examples.filesystem.graphs",
     graph_type = "examples::filesystem::graph::InMemoryRepl",
-    nodes = {
-        "repl": "examples.filesystem.repl",
-        "fs.fs": "examples.filesystem.filesystem",
-    },
+    nodes = GRAPH_NODES,
 )
 
 arc_graph(
     name = "disk_repl_graph",
     graph_module = "examples.filesystem.graphs",
     graph_type = "examples::filesystem::graph::DiskRepl",
-    nodes = {
-        "repl": "examples.filesystem.repl",
-        "fs.fs": "examples.filesystem.filesystem",
-    },
+    nodes = GRAPH_NODES,
 )
 
 cc_module_bundle(
@@ -79,6 +80,33 @@ arc_graph(
     },
 )
 
+arc_graph(
+    name = "test_command_handler_graph",
+    graph_module = "examples.filesystem.tests.mocks",
+    graph_type = "arc::test::Graph<examples::filesystem::node::CommandHandler, arc::test::Mock<examples::filesystem::tests::MockFilesystemTypes>>",
+    nodes = {
+        "node": "examples.filesystem.command_handler",
+    },
+)
+
+arc_graph(
+    name = "test_terminal_line_reader_graph",
+    graph_module = "examples.filesystem.tests.mocks",
+    graph_type = "arc::test::Graph<examples::filesystem::node::TerminalLineReader, arc::test::Mock<examples::filesystem::tests::MockFilesystemTypes>>",
+    nodes = {
+        "node": "examples.filesystem.terminal_line_reader",
+    },
+)
+
+arc_graph(
+    name = "test_repl_graph",
+    graph_module = "examples.filesystem.repl",
+    graph_type = "arc::test::Graph<examples::filesystem::node::Repl>",
+    nodes = {
+        "node": "examples.filesystem.repl",
+    },
+)
+
 cc_module_bundle(
     name = "fs_test_srcs",
     srcs = glob(["tests/test_*.cpp"]),
@@ -87,6 +115,9 @@ cc_module_bundle(
         ":fs_test_mocks",
         ":in_memory_graph",
         ":test_filesystem_graph",
+        ":test_command_handler_graph",
+        ":test_terminal_line_reader_graph",
+        ":test_repl_graph",
     ],
     deps = ["@doctest//doctest:doctest"],
 )

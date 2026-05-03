@@ -167,6 +167,8 @@ export namespace arc {
     using arc::Constructor;
     using arc::Emplace;
     // function.hpp
+    using arc::Overload;
+    using arc::IsFunctionSignature;
     using arc::StatelessInvocable;
     using arc::Function;
     using arc::FunctionPolicy;

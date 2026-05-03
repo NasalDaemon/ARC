@@ -16,6 +16,24 @@
 namespace arc {
 
 ARC_MODULE_EXPORT
+template<class... F>
+struct Overload : F...
+{
+    using F::operator()...;
+};
+
+namespace detail {
+    template<class T>
+    inline constexpr bool isFunctionSig = false;
+    template<class R, class... Args>
+    inline constexpr bool isFunctionSig<R(Args...)> = true;
+}
+
+ARC_MODULE_EXPORT
+template<class T>
+concept IsFunctionSignature = detail::isFunctionSig<T>;
+
+ARC_MODULE_EXPORT
 struct FunctionPolicy
 {
     static constexpr bool movable = true;
@@ -35,7 +53,7 @@ concept StatelessInvocable = IsStateless<F> and std::invocable<F, Args...>;
 // Stores a single pointer: `sizeof(Function<void(int)>) == sizeof(void*)`
 // Default policy is a move-only object with only a mutable call
 ARC_MODULE_EXPORT
-template<class F, FunctionPolicy = FunctionPolicy{.copyable=false, .mutableCall=true, .constCall=false}>
+template<IsFunctionSignature F, FunctionPolicy = FunctionPolicy{.copyable=false, .mutableCall=true, .constCall=false}>
 struct Function;
 
 template<class R, class... Args, FunctionPolicy Policy_>

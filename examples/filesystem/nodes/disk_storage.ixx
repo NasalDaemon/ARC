@@ -1,6 +1,6 @@
 export module examples.filesystem.disk_storage;
 
-import examples.filesystem.entry;
+import examples.filesystem.types;
 import examples.filesystem.traits;
 import arc;
 import std;
@@ -17,15 +17,11 @@ export struct DiskStorage : arc::NodeImpl<Storage, DirectorySync>
     };
 
     DiskStorage();
-    using Methods::impl;
 
     auto get(std::string_view path) const -> std::optional<DiskEntry>;
-    auto put(std::string_view path, InMemoryEntry entry) -> std::expected<void, FsError>;
+    auto put(std::string_view path, Entry entry) -> std::expected<void, FsError>;
+    auto erase(std::string_view path) -> bool;
     auto children(std::string_view path) const -> std::vector<std::string>;
-
-    // Fully qualified impl(method, ...) definitions still work if you disable the named method
-    using Storage::Disable::erase;
-    auto impl(Storage::erase, std::string_view path) -> bool;
 
     auto loadFromDirectory(std::string_view directory) -> std::expected<void, FsError>;
     auto dumpToDirectory(std::string_view directory) const -> std::expected<void, FsError>;

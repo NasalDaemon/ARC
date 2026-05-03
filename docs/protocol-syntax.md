@@ -13,7 +13,7 @@ A protocol makes the lifecycle a first-class part of the trait definition. It de
 
 Here is a network connection trait with a protocol. The protocol declares the legal lifecycle of the connection and each channel it manages; each method in the trait declares precisely what transition it makes and under what conditions.
 
-```cpp
+```arc
 namespace app {
 
 protocol Connection {
@@ -83,11 +83,11 @@ Reading this trait definition, a caller knows the full lifecycle without reading
 
 Protocols are defined in `.arc` files alongside traits. They live inside `namespace protocol` within the enclosing namespace — `protocol Connection` inside `namespace app` produces `app::protocol::Connection`.
 
-```cpp
+```arc
 namespace app {
 
 protocol Connection {
-    // Top-level transitions — group named "State", enum: States::State
+    // Top-level transitions — group named "Main", enum: States::Main
     Closed <-> Open -> Error -> Dead
     Closed <---------- Error
 
@@ -110,11 +110,11 @@ protocol Connection {
 } // namespace app
 ```
 
-### State group naming
+### Main group naming
 
 | Where declared | Group name | Enum type |
 |----------------|------------|-----------|
-| Directly in protocol body | `State` | `States::State` |
+| Directly in protocol body | `Main` | `States::Main` |
 | `state Name { ... }` | `Name` | `States::Name` |
 | Inside `per(...)` | as declared | `States::Name`, keyed by parameter |
 
@@ -128,7 +128,7 @@ protocol Connection {
 
 Arrows chain: `A --> B --> C` adds A→B and B→C.
 
-State sets work on either side: `A | B --> C` adds A→C and B→C. `A --> B | C` adds A→B and A→C.
+Main sets work on either side: `A | B --> C` adds A→C and B→C. `A --> B | C` adds A→B and A→C.
 
 ### Default state and reachability
 
@@ -142,7 +142,7 @@ Real systems often have multiple groups of state that must stay consistent with 
 
 Variant invariants declare these constraints after the transition lines inside a `state` or `per` block. The framework checks them before and after every trait method call, so any violation is caught at the boundary where it first occurred.
 
-```cpp
+```arc
 protocol Connection {
     Closed <-> Open -> Error -> Dead
     Closed <---------- Error
@@ -184,7 +184,7 @@ Not every meaningful query maps directly onto a state variant. Callers often nee
 
 Protocol predicates give these methods the same first-class status as state transitions. A predicate declaration specifies the logical relationship between the method's return value and the state machine. The framework checks the declared relationship after every call.
 
-```cpp
+```arc
 protocol Connection {
     Closed <-> Open -> Error -> Dead
     Closed <---------- Error
@@ -220,7 +220,7 @@ The target expression follows the same rules as variant invariant targets: bare 
 
 Predicates are accessible via `proto.name(args...)` inside trait contracts:
 
-```cpp
+```arc
 trait Network [Protocol = protocol::Connection] {
     read(std::string name) -> std::string
         is hasPendingData(name)    // proto.hasPendingData(name) must hold on entry
@@ -246,11 +246,13 @@ Annotate a trait with `[Protocol = protocol::Name]` to attach its state machine.
 
 Multiple clauses can appear on a single method and are evaluated independently:
 
-```cpp
-connect(std::string name) -> bool
-    is Open                            // nullary State must be Open on entry
-    if (proto.Disconnected(name)) then (success: success ? proto.Connecting(name) : proto.Disconnected(name))
-    if (proto.Connecting(name))  then (success: success ? proto.Connected(name)  : proto.Disconnected(name))
+```arc
+trait Network [Protocol = protocol::Connection] {
+    connect(std::string name) -> bool
+        is Open                            // nullary Main must be Open on entry
+        if Disconnected(name) then (success: success ? proto.Connecting(name) : proto.Disconnected(name))
+        if Connecting(name) then (success: success ? proto.Connected(name) : proto.Disconnected(name))
+}
 ```
 
 A method with no exit-constraining clause (`to`, `then`, or `if ... then`) must not change any state. Any unannounced transition is caught.
@@ -284,14 +286,14 @@ Both the trait and the protocol must be listed in `arc::NodeImpl`:
 namespace node {
 
 using States  = arc::States<protocol::Connection>;
-using State   = States::State;
+using Main    = States::Main;
 using Channel = States::Channel;
 
 struct Network : arc::NodeImpl<trait::Network, protocol::Connection>
 {
-    // State accessors — const, called by the framework to read state before and after every call
+    // Main accessors — const, called by the framework to read state before and after every call
 
-    State protoState() const { return state; }
+    Main protoState() const { return state; }
 
     Channel protoChannel(std::string const& name) const
     {
@@ -307,7 +309,7 @@ struct Network : arc::NodeImpl<trait::Network, protocol::Connection>
         return it != pending.end() && !it->second.empty();
     }
 
-    bool isDead() const { return state == State::Dead; }
+    bool isDead() const { return state == Main::Dead; }
 
     bool isEstablished(std::string const& name) const
     {
@@ -319,7 +321,7 @@ struct Network : arc::NodeImpl<trait::Network, protocol::Connection>
 
     bool open()
     {
-        state = State::Open;
+        state = Main::Open;
         return true;
     }
 
@@ -343,21 +345,21 @@ struct Network : arc::NodeImpl<trait::Network, protocol::Connection>
     {
         channels.clear();
         pending.clear();
-        state = State::Closed;
+        state = Main::Closed;
         return true;
     }
 
-    void kill() { state = State::Dead; }
+    void kill() { state = Main::Dead; }
 
     bool reset()
     {
         channels.clear();
         pending.clear();
-        state = State::Closed;
+        state = Main::Closed;
         return true;
     }
 
-    State state = State::Closed;
+    Main state = Main::Closed;
     std::map<std::string, Channel> channels;
     std::map<std::string, std::string> pending;
 };
@@ -399,13 +401,13 @@ bool isOpen = view.Open();  // true if the connection is currently Open
 ```cpp
 using S = arc::States<app::protocol::Connection>;
 
-S::State   s  = S::State::Closed;            // top-level State group
+S::Main   s  = S::Main::Closed;              // top-level Main group
 S::Channel ch = S::Channel::Disconnected;    // named Channel group
 
-bool ok  = isValidTransition(S::State::Closed, S::State::Open); // true
-bool bad = isValidTransition(S::State::Dead,   S::State::Open); // false
+bool ok  = isValidTransition(S::Main::Closed, S::Main::Open); // true
+bool bad = isValidTransition(S::Main::Dead,   S::Main::Open); // false
 
-std::string_view name = toString(S::State::Open); // "Open"
+std::string_view name = toString(S::Main::Open); // "Open"
 
 static_assert(arc::IsProtocol<app::protocol::Connection>);
 static_assert(arc::HasProtocol<app::trait::Network>);
@@ -430,7 +432,7 @@ bool hasPending = proto.hasPendingData("channelA");
 bool dead       = proto.isDead();
 
 // Raw enum value
-S::State   s  = proto.protoState();
+S::Main   s  = proto.protoState();
 S::Channel ch = proto.protoChannel("channelA");
 ```
 

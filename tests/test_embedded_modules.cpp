@@ -3,19 +3,14 @@
 import arc.tests.embedded;
 import arc;
 
-#if 0
-// arc-begin
+/* arc-begin
 export module arc.tests.embedded;
 
 trait arc::tests::trait::Embedded
 {
     get() const
 }
-// arc-end
 
-random code between two sections will be ignored
-
-// arc-begin
 cluster arc::tests::EmbeddedCluster [R = Root]
 {
     embedded = R::Embedded
@@ -23,8 +18,7 @@ cluster arc::tests::EmbeddedCluster [R = Root]
     [trait::Embedded]
     .. --> embedded
 }
-// arc-end
-#endif
+arc-end */
 
 namespace arc::tests {
 

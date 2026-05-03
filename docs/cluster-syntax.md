@@ -19,7 +19,7 @@ There are special node and trait markers for common dependency types. Either the
 
 Clusters must be namespaced, either via a wrapping `namespace` block or a using a fully qualified name. The generated cluster type is placed inside `namespace cluster` within the enclosing namespace — so `cluster FruitSalad` inside `namespace my::app` produces `my::app::cluster::FruitSalad`.
 
-```cpp
+```arc
 namespace my::app {
 
 cluster FruitSalad [Context, Root] // Optional type annotations
@@ -161,14 +161,14 @@ cluster FruitSalad [Context, Root] // Optional type annotations
 ### Namespace and Type Annotations
 
 **Inline Namespaces:**
-```cpp
+```
 cluster my::app::Cluster { ... }
 ```
 This produces `my::app::cluster::Cluster`.
 
 **Type Annotations:**
 Access `Context`, `Root`, or `Info` types by listing them in brackets. You can also alias them:
-```cpp
+```arc
 cluster MyCluster [C = Context, R = Root]
 {
     node = R::NodeType
@@ -177,7 +177,7 @@ cluster MyCluster [C = Context, R = Root]
 
 ### Templated node definitions
 There are many higher-order nodes provided by ARC that are templated on other nodes, such as `arc::InGroup`, `arc::OnThread`, and `arc::Collection`. The DSL provides a convenient syntax for using these without needing to write out the full template syntax. The general form is `nodeName = UnderlyingNode : Wrapper1<Args> : Wrapper2<Args> ...` where each wrapper is a higher-order node taking an underlying node as its first template argument. This allows you to quickly and easily read the node definitions from left to right, starting with the underlying node and then seeing how it is wrapped by various higher-order nodes. For example:
-```cpp
+```arc
 cluster MyCluster
 {
     topSecret = Node1 : arc::InGroup<policy::Classification::TopSecret>
@@ -224,7 +224,7 @@ p->doWork();
 ```
 ### Multiple sinks in one declaration:
 Multiple no-trait sinks can be declared in one line. This is only possible for no-trait connections.
-```cpp
+```
 [@notrait] logger, metrics
 ```
 ## Caveats

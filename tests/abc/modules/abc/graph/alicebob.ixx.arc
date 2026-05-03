@@ -16,8 +16,8 @@ cluster AliceBob
     charlie = cluster::CharlieCluster
     ellie = node::Ellie
 
-    using a = trait::Alice, b = trait::Bob, c = trait::Charlie,
-          e = trait::Ellie, e2 = trait::Ellie2, e3 = trait::Ellie3
+    using a = trait::Alice, b = trait::Bob, c = trait::Charlie
+    using e = trait::Ellie, e2 = trait::Ellie2, e3 = trait::Ellie3
 
     [a]  alice   <--      .., bob, charlie
     [b]  bob     <--      .., alice, charlie

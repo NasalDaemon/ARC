@@ -1,4 +1,4 @@
-export module examples.filesystem.entry;
+export module examples.filesystem.types;
 
 import std;
 
@@ -12,6 +12,7 @@ export enum class FsError
     IsADirectory,
     AlreadyExists,
     InvalidPath,
+    NotEmpty,
 };
 
 export constexpr std::string_view asString(FsError error)
@@ -23,9 +24,13 @@ export constexpr std::string_view asString(FsError error)
     case FsError::IsADirectory: return "is a directory";
     case FsError::AlreadyExists: return "already exists";
     case FsError::InvalidPath: return "invalid path";
+    case FsError::NotEmpty: return "directory not empty";
     }
     return "unknown error";
 }
+
+// Contract helper for trait pre-conditions
+export constexpr bool nonEmpty(std::string_view v) { return not v.empty(); }
 
 // Enable streaming for FsError (used by doctest for stringification)
 export inline auto operator<<(std::ostream& os, FsError error) -> std::ostream&
@@ -33,17 +38,8 @@ export inline auto operator<<(std::ostream& os, FsError error) -> std::ostream&
     return os << asString(error);
 }
 
-// Concept for filesystem entries (covers both InMemoryEntry and DiskEntry)
-export template<class T>
-concept Entry = requires(T const& entry) {
-    typename T::DataView;
-    { entry.isDir() } -> std::same_as<bool>;
-    { entry.stream() } -> std::convertible_to<std::istream>;
-    { entry.content() } -> std::convertible_to<typename T::DataView>;
-};
-
 // Represents an in-memory filesystem entry (file or directory)
-export struct InMemoryEntry
+export struct Entry
 {
     using DataView = std::string_view;
 
@@ -59,21 +55,21 @@ export struct InMemoryEntry
         return data_;
     }
 
-    static auto file(std::string content = {}) -> InMemoryEntry
+    static auto file(std::string content = {}) -> Entry
     {
-        return InMemoryEntry{false, std::move(content)};
+        return Entry{false, std::move(content)};
     }
 
-    static auto directory() -> InMemoryEntry
+    static auto directory() -> Entry
     {
-        return InMemoryEntry{true, {}};
+        return Entry{true, {}};
     }
 
 private:
     bool isDir_ = false;
     std::string data_; // Empty for directories
 
-    InMemoryEntry(bool isDir, std::string data)
+    Entry(bool isDir, std::string data)
         : isDir_{isDir}, data_{std::move(data)}
     {}
 };
