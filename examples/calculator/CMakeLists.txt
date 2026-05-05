@@ -55,11 +55,11 @@ target_generate_arc_src(arc_example_calculator_modules
     GRAPH_TYPE
         "examples::calculator::graph::Batch"
     NODES
-        evaluator   examples.calculator.node.evaluator
-        repl        examples.calculator.node.repl
-        functions   examples.calculator.node.functions
-        commands    examples.calculator.node.command_handler
-        persistence examples.calculator.node.file_persistence
+        compute.evaluator examples.calculator.node.evaluator
+        repl              examples.calculator.node.repl
+        compute.functions examples.calculator.node.functions
+        data.commands     examples.calculator.node.command_handler
+        data.persistence  examples.calculator.node.file_persistence
 )
 
 target_generate_arc_src(arc_example_calculator_modules
@@ -68,12 +68,12 @@ target_generate_arc_src(arc_example_calculator_modules
     GRAPH_TYPE
         "examples::calculator::graph::Interactive"
     NODES
-        evaluator   examples.calculator.node.evaluator
-        repl        examples.calculator.node.repl
-        functions   examples.calculator.node.functions
-        lineReader  examples.calculator.node.terminal_line_reader
-        commands    examples.calculator.node.command_handler
-        persistence examples.calculator.node.file_persistence
+        compute.evaluator examples.calculator.node.evaluator
+        repl              examples.calculator.node.repl
+        compute.functions examples.calculator.node.functions
+        lineReader        examples.calculator.node.terminal_line_reader
+        data.commands     examples.calculator.node.command_handler
+        data.persistence  examples.calculator.node.file_persistence
 )
 
 if(ARC_BUILD_TESTS)
@@ -144,11 +144,11 @@ if(ARC_BUILD_TESTS)
         GRAPH_TYPE
             "examples::calculator::tests::IntegrationGraph"
         NODES
-            repl        examples.calculator.node.repl
-            evaluator   examples.calculator.node.evaluator
-            functions   examples.calculator.node.functions
-            commands    examples.calculator.node.command_handler
-            persistence examples.calculator.node.file_persistence
+            repl              examples.calculator.node.repl
+            compute.evaluator examples.calculator.node.evaluator
+            compute.functions examples.calculator.node.functions
+            data.commands     examples.calculator.node.command_handler
+            data.persistence  examples.calculator.node.file_persistence
     )
 
     target_generate_arc_src(arc_example_calculator_tests

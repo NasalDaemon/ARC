@@ -197,6 +197,41 @@ struct AltTrait : Trait_
     static void canProvide(AltTrait);
 };
 
+ARC_MODULE_EXPORT
+template<IsTrait... Traits>
+struct Trunk : arc::Trait
+{
+    template<class Expected>
+    requires (... or TraitCanProvide<Traits, Expected>)
+    static void canProvide(Expected);
+
+    static void expects();
+
+    template<class...> requires false
+    using Implements = void;
+};
+
+namespace detail {
+    template<class T>
+    inline constexpr bool isTrunk = false;
+    template<class... Ts>
+    constexpr bool isTrunk<Trunk<Ts...>> = true;
+}
+
+ARC_MODULE_EXPORT
+template<class T>
+concept IsTrunk = detail::isTrunk<T>;
+
+namespace detail {
+    template<class T>
+    requires IsTrunk<typename T::Trunk>
+    auto getTrunk() -> T::Trunk;
+}
+
+ARC_MODULE_EXPORT
+template<class T>
+using TrunkOf = decltype(detail::getTrunk<T>());
+
 namespace detail {
     template<IsTrait Trait_>
     struct DuckTrait : arc::Trait

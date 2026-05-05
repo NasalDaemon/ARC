@@ -32,12 +32,13 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     date = Date
     elderberry = Elderberry
 
-    // 2. (Optional) enable connections to @global node (must come first)
-    [@global] @all --> @global
+    // 2. (Optional) enable all connections to @global node (must come first)
+    [[@global]] @all ==> @global
     // Allows any node in this cluster to connect to the global node
     // by any trait it implements via getGlobal(trait).
     // Alternatively, you can specify a subset of nodes:
-    // [@global] apple, banana --> @global
+    // [[@global]] apple, banana ==> @global
+    // NOTE: `[[Trait]]` and `==>` shows that multiple traits are being served by the same connection
 
     // 3. Sink connection block (must come before normal connection blocks)
     [trait::Elderberry] @all --> elderberry
@@ -231,3 +232,105 @@ Multiple no-trait sinks can be declared in one line. This is only possible for n
 - **No Mixing:** Cannot mix no-trait and named trait connections for the same target node.
 - **Special Nodes:** `@notrait` (`~`) is not supported for `@global` (`^`) or `@parent` (`..`) nodes; use `arc::NoTrait<NodeHandle>` or a named trait.
 - **Migration:** To formalize an interface, replace `[@notrait]` with `[trait::Name]` and update `getNode` calls.
+
+## Trunk Connections [`[[...]]`]
+
+Named after **network trunking** — a single high-capacity link carrying many separate channels between two endpoints. Trunks bundle multiple traits into one connection line.
+
+### Cluster Trunks
+
+A cluster declares a curated **trunk** of exposed traits in its header, and a sibling node or subcluster carries all of those traits over one connection line.
+
+```arc
+cluster Producer [Trunk = A + B + C]   // subset; D exposed but not in trunk
+{
+    // ...
+
+    [A] .. --> a
+    [B] .. --> b
+    [C] .. --> c
+    [D] .. --> d
+}
+
+cluster Consumer
+{
+    // ...
+
+    [A] x --> ..
+    [B] y --> ..
+    [C] z --> ..
+}
+
+cluster Outer
+{
+    producer = cluster::Producer
+    consumer = cluster::Consumer
+    node = node::Node
+
+    [[cluster::Producer]] consumer ==> producer    // consumer gets A + B + C
+    [D]                   node     --> producer    // D available as normal
+}
+```
+
+### Inline Trunks
+
+You can also define trunks inline without a cluster declaration.
+
+```arc
+cluster MyCluster
+{
+    a = node::A
+    b = node::B
+    c = node::C
+    consumer = node::Consumer
+
+    [[trait::A + trait::B + trait::C]] consumer ==> a, b, c
+}
+```
+
+Inline trunks are useful when:
+- You want to bundle traits without defining a cluster
+- The traits come from different nodes
+- You need a one-off trunk for a specific connection
+
+### Bi-directional Trunks
+
+Two clusters that depend on each other's trunks can be wired in a single block using a `<=>` separator in the header. The block's left and right trunks behave like the two sides of a `[A <-> B]` bi-trait header, and the connection lines may use `==>`, `<==`, or `<=>` per pair.
+
+```arc
+cluster Outer
+{
+    data    = cluster::Data
+    compute = cluster::Compute
+    repl    = node::Repl
+
+    [[cluster::Data <=> cluster::Compute]]
+    data <=> compute  // data and compute consume each other's trunks
+    repl ==> compute  // repl consumes Compute trunk
+    data <== repl     // repl consumes Data trunk (reversed form)
+}
+```
+
+This is equivalent to:
+
+```arc
+[[cluster::Data]]    repl, compute ==> data
+[[cluster::Compute]] repl, data    ==> compute
+```
+
+The bi-trunk form is a matter of taste — it makes the symmetric relationship explicit but mixes arrow directions in one block.
+
+Both sides of a bi-trunk header must be single cluster trunks (no `+` on either side).
+
+### Rules
+- `[Trunk = T1 + T2 + ...]` declares the cluster's curated public surface. Every listed trait must be exposed via a matching `[T] .. --> node` parent connection — the generator checks this.
+- Trunk consumption uses **double brackets** `[[...]]` and **`==`-style arrows** (`==>`, `<==`, `<=>`). Single-bracket `[...]` with `==>` is rejected, and `[[...]]` with `-->` is rejected.
+- A `[[...]]` block can contain a single cluster (uses cluster's trunk), multiple traits joined with `+` (inline trunk), or two cluster trunks joined with `<=>` (bi-trunk).
+- Bi-directional connections (`<=>`) are only allowed inside a bi-trunk block `[[A <=> B]]`; in a uni-trunk block they're rejected because both directions would carry the same trunk.
+- The bi-trunk separator must be `=`-style (e.g. `<=>`); `<->` is rejected to match the `==`-style arrow convention.
+- Inline trunks (`+`) cannot be bi-directional — each side of `<=>` must be a single cluster trunk.
+- No bi-trait `[[X <-> Y]]` (use `<=>` instead), no sinks, no `@notrait` / `@global`.
+
+### When to use
+- A subcluster has a coherent public face (multiple related traits) and a sibling consumer needs most of it. The named trunk replaces a hand-maintained `trait Composite = A + B + C` alias.
+- You want to bundle traits inline without defining a cluster or naming a new joined trait

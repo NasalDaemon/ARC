@@ -25,7 +25,7 @@ cluster MainCluster [R = Root]
     node = R::Node
     cluster = cluster::InnerCluster
 
-    [@global] @all --> @global
+    [[@global]] @all ==> @global
 
     [~] .. --> node
 

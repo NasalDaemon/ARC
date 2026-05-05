@@ -431,10 +431,11 @@ class Cluster:
         self.user_nodes: list[Node] = []
         self.repeaters: list[Repeater] = []
         self.nodes: list[Node | Repeater] = []
-        self.aliases: list[tuple[str, str]] = []
+        self.aliases: dict[str, str] = {}
         self.dependencies: list[str] = []
         # trait: [(Node, position)] where len(list) > 1 only when trait is NO_TRAIT
         self.sink_traits: dict[str, list[tuple[Node, str]]] = defaultdict(list)
+        self.trunk_traits: list[str] = []
 
     @property
     def is_domain(self) -> bool:
@@ -486,6 +487,18 @@ class Cluster:
     def arrow_sign(self, arrow: Tree) -> str:
         return next((c.value for c in arrow.children if isinstance(c, Token)))
 
+    def is_trunk_arrow(self, arrow: Tree | Token) -> bool:
+        sign: str = self.arrow_sign(arrow) if isinstance(arrow, Tree) else arrow.value
+        has_eq = '=' in sign
+        has_dash = '-' in sign
+        if has_eq and has_dash:
+            raise SyntaxError(f"{get_pos(arrow)} Arrow '{sign}' in {self.cluster_class} '{self.full_name}' "
+                              "cannot mix '-' and '=' bars.")
+        if has_eq and isinstance(arrow, Tree) and arrow.data not in (imported('left_arrow'), imported('right_arrow'), imported('bi_arrow')):
+            raise SyntaxError(f"{get_pos(arrow)} Trunk arrow '{sign}' in {self.cluster_class} '{self.full_name}' "
+                              "cannot be combined with an inline arrow trait '(Trait)'.")
+        return has_eq
+
     def validate_arrow(self, arrow: Tree):
         sign = self.arrow_sign(arrow)
         chevrons = max(sign.count('<'), sign.count('>'))
@@ -513,6 +526,7 @@ class Cluster:
         left_trait: str
         right_trait: str
         bi_trait: bool
+        is_trunk_block: bool = False
         traitblock_id = 0
         fanout_id = 0
 
@@ -546,6 +560,13 @@ class Cluster:
                 if node.is_global and not is_global_trait(left_trait):
                     self.sink_traits[f"::arc::Global<{left_trait}>"].append((node, get_pos(token)))
 
+        def check_trunk_arrow(arrow: Tree | Token):
+            arrow_is_trunk = self.is_trunk_arrow(arrow)
+            if is_trunk_block and not arrow_is_trunk:
+                raise SyntaxError(f"{get_pos(arrow)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' requires '=='-style arrows")
+            if not is_trunk_block and arrow_is_trunk:
+                raise SyntaxError(f"{get_pos(arrow)} '=='-style arrows in {self.cluster_class} '{self.full_name}' are only allowed inside trunk blocks '[[...]]'")
+
         current_token: Tree | Token = children
 
         try:
@@ -554,12 +575,20 @@ class Cluster:
                 if child.data == imported('cluster_annotations'):
                     for ann in child.children:
                         current_token = ann
-                        if ann.children[-1].value == "Context":
+                        if ann.children[0].value == "Trunk":
+                            traits = []
+                            for c in ann.children[1:]:
+                                if isinstance(c, Tree) and c.data == imported('trunk_trait'):
+                                    traits.append(reconstruct(c))
+                            self.trunk_traits = traits
+                        elif ann.children[-1].value == "Context":
                             self.context_name = ann.children[0].value
                         elif ann.children[-1].value == "Root":
                             self.root_name = ann.children[0].value
                         elif ann.children[-1].value == "Info":
                             self.info_name = ann.children[0].value
+                        elif ann.children[-1].value == "Trunk":
+                            raise SyntaxError(f"{get_pos(ann)} Trunk annotation must use explicit 'Trunk = ...' syntax")
                         else:
                             raise SyntaxError(f"{get_pos(ann)} Unknown cluster annotation: {ann.children[0].value}")
                 elif child.data == imported('node'):
@@ -595,17 +624,64 @@ class Cluster:
                                         raise SyntaxError(f"{get_pos(alias)} Alias '{alias}' changed from {aliases.get(alias)} to {type_string}")
                                 else:
                                     aliases[alias] = type_string
-                        elif child.data == imported('connection_trait'):
-                            left_trait = reconstruct(child.children[0])
+                        elif child.data in (imported('connection_trait_normal'), imported('connection_trait_trunk')):
+                            is_trunk_block = child.data == imported('connection_trait_trunk')
 
-                            if len(child.children) == 1:
-                                bi_trait = False
-                                right_trait = left_trait
+                            if is_trunk_block:
+                                # Split children at BARROW token (if present) for bi-trunk [[A <==> B]]
+                                left_trait_trees: list[Tree] = []
+                                right_trait_trees: list[Tree] = []
+                                barrow_token: Token | None = None
+                                for c in child.children:
+                                    if isinstance(c, Token) and c.type == imported('BARROW'):
+                                        barrow_token = c
+                                        continue
+                                    (left_trait_trees if barrow_token is None else right_trait_trees).append(c)
+
+                                bi_trait = barrow_token is not None
+                                if bi_trait and '-' in barrow_token.value:
+                                    raise SyntaxError(f"{get_pos(barrow_token)} Bi-trunk separator in {self.cluster_class} '{self.full_name}' "
+                                                      f"must use '='-style (e.g. '<=>'), got '{barrow_token.value}'")
+                                if bi_trait and (len(left_trait_trees) > 1 or len(right_trait_trees) > 1):
+                                    raise SyntaxError(f"{get_pos(barrow_token)} Bi-directional trunks only support cluster trunks "
+                                                      f"(single type on each side, e.g. '[[cluster::A <=> cluster::B]]'). "
+                                                      f"Inline trunks with '+' cannot be bi-directional in {self.cluster_class} '{self.full_name}'")
+
+                                def build_trunk_trait(trees: list[Tree], pos_token: Tree | Token) -> str:
+                                    trait_strs = []
+                                    for t in trees:
+                                        s = reconstruct(t)
+                                        if s in NO_TRAIT:
+                                            raise SyntaxError(f"{get_pos(t)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' "
+                                                              f"cannot use special trait '{s}'")
+                                        trait_strs.append(s)
+                                    if len(trait_strs) == 1:
+                                        s = trait_strs[0]
+                                        if s in GLOBAL_TRAIT:
+                                            return s
+                                        return f"::arc::TrunkOf<{s}>"
+                                    if any(t in GLOBAL_TRAIT for t in trait_strs):
+                                        raise SyntaxError(f"{get_pos(pos_token)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' "
+                                                          f"cannot use @global trait in inline trunk trait '{trait_strs}'")
+                                    return f"::arc::Trunk<{', '.join(trait_strs)}>"
+
+                                left_trait = build_trunk_trait(left_trait_trees, child)
+                                if bi_trait:
+                                    right_trait = build_trunk_trait(right_trait_trees, child)
+                                else:
+                                    right_trait = left_trait
                             else:
-                                bi_trait = True
-                                right_trait = reconstruct(child.children[-1])
+                                left_trait = reconstruct(child.children[0])
+                                if len(child.children) == 1:
+                                    bi_trait = False
+                                    right_trait = left_trait
+                                else:
+                                    bi_trait = True
+                                    right_trait = reconstruct(child.children[-1])
 
                             if left_trait in GLOBAL_TRAIT or right_trait in GLOBAL_TRAIT:
+                                if not is_trunk_block:
+                                    raise SyntaxError(f"{get_pos(child)} [@global] sink trait must use double brackets: [[@global]]")
                                 if bi_trait:
                                     raise SyntaxError(f"{get_pos(child)} Bi-directional connections cannot use @global trait in {self.cluster_class} '{self.full_name}'")
                                 if self.is_domain:
@@ -619,15 +695,22 @@ class Cluster:
                                 raise SyntaxError(f"{get_pos(child.children[-1])} Trait '{right_trait}' already allocated to sink node "
                                                   f"'{self.sink_traits[right_trait][0][0].name}' in {self.cluster_class} '{self.full_name}' here {self.sink_traits[right_trait][0][1]}")
                         elif child.data in (imported('sink_node_implicit'), imported('sink_node_larrow')):
+                            if is_trunk_block and left_trait not in GLOBAL_TRAIT:
+                                raise SyntaxError(f"{get_pos(child)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' cannot contain sink connections")
                             if isinstance(child.children[0], Tree) and child.children[0].data == imported('node_names_fanout'):
                                 raise SyntaxError(f"{get_pos(child.children[0])} Sink nodes cannot use explicit fan-out syntax '{{node1, node2}}'")
+                            if child.data == imported('sink_node_larrow'):
+                                check_trunk_arrow(child.children[1])
                             for c in child.children[0].children:
                                 current_token = c
                                 name = self.normalise_name(get_value(c))
                                 make_sink(name, c, explicit=child.data.endswith('arrow'))
                         elif child.data == imported('sink_node_rarrow'):
+                            if is_trunk_block and left_trait not in GLOBAL_TRAIT:
+                                raise SyntaxError(f"{get_pos(child)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' cannot contain sink connections")
                             if isinstance(child.children[0], Tree) and child.children[0].data == imported('node_names_fanout'):
                                 raise SyntaxError(f"{get_pos(child.children[0])} Sink nodes cannot use explicit fan-out syntax '{{node1, node2}}'")
+                            check_trunk_arrow(child.children[1])
                             for c in child.children[-1].children:
                                 current_token = c
                                 name = self.normalise_name(get_value(c))
@@ -645,8 +728,12 @@ class Cluster:
                                 lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
                                 lnodes = [nodes[self.normalise_name(get_value(name))] for name in lnames.children]
                                 rnodes = [nodes[self.normalise_name(get_value(name))] for name in rnames.children]
+                                check_trunk_arrow(arrow)
                                 is_override = self.validate_arrow(arrow)
                                 pos = get_pos(arrow)
+
+                                if is_trunk_block and arrow.data == imported('bi_arrow') and not bi_trait:
+                                    raise SyntaxError(f"{pos} in {self.cluster_class} '{self.full_name}': bi-directional arrows in a trunk block require a bi-trunk header '[[A <==> B]]'.")
 
                                 tid, lfid, rfid = traitblock_id, None, None
                                 if lnames.data == imported('node_names_fanout'):
@@ -672,10 +759,14 @@ class Cluster:
                                 if arrow.data == imported('left_arrow'):
                                     validate_fanout(right_arrow=False)
                                     for lnode, rnode in lrnodes:
+                                        if is_trunk_block and lnode.is_global:
+                                            raise SyntaxError(f"{pos} in {self.cluster_class} '{self.full_name}': Trunk connection cannot target @global node.")
                                         rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait)
                                 elif arrow.data == imported('right_arrow'):
                                     validate_fanout(right_arrow=True)
                                     for lnode, rnode in lrnodes:
+                                        if is_trunk_block and rnode.is_global:
+                                            raise SyntaxError(f"{pos} in {self.cluster_class} '{self.full_name}': Trunk connection cannot target @global node.")
                                         lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
                                 elif arrow.data == imported('bi_arrow'):
                                     validate_fanout(right_arrow=False, double_headed=True)
@@ -741,7 +832,7 @@ class Cluster:
                         node.add_connection(pos, None, None, False, sink_node, trait)
 
         self.user_nodes = [node for node in nodes.values() if node.name not in PARENT_NODE + GLOBAL_NODE]
-        self.aliases = sorted(aliases.items())
+        self.aliases.update(sorted(aliases.items()))
         self.parent_node.connections.sort(key=lambda v: v.trait)
         self.repeaters.extend(self.parent_node.repeaters)
         for node in self.user_nodes:
@@ -752,6 +843,13 @@ class Cluster:
         self.nodes.extend(self.repeaters)
         self.dependencies = [aliases.get(trait, trait) for _, _, trait in self.parent_node.clients]
         self.dependencies.sort()
+
+        if self.trunk_traits is not None:
+            parent_traits = {c.trait for c in self.parent_node.connections}
+            for trait in self.trunk_traits:
+                if trait not in parent_traits:
+                    raise SyntaxError(f"{self.cluster_class} '{self.full_name}' trunk annotation lists trait '{trait}' "
+                                      f"but there is no '[{trait}] .. --> node' parent connection")
 
     def finalise(self):
         self.dependencies = [f"{dep}*" for dep in self.dependencies]

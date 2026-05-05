@@ -14,8 +14,6 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-cd cmake-build
-
 set -e
-cmake --build . --config $BUILD_TYPE
-ctest --build-config $BUILD_TYPE --output-on-failure
+cmake --build cmake-build --config $BUILD_TYPE
+ctest --test-dir cmake-build --build-config $BUILD_TYPE --output-on-failure

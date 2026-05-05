@@ -16,32 +16,49 @@ namespace examples::calculator {
 
 cluster Calculator [Root]
 {
-    repl = node::Repl
+    repl       = node::Repl
     lineReader = Root::LineReader
-    output = Root::Output
+    output     = Root::Output
+    data       = cluster::Data
+    compute    = cluster::Compute
+
+    [LineReader]  repl --> lineReader
+    [Output]      repl --> output
+    [History]     lineReader --> data
+
+    [[cluster::Data]]    repl ==> data
+    [[cluster::Compute]] repl, data ==> compute
+}
+
+cluster Compute [Trunk = Tokeniser + Parser + Evaluator + Functions + Variables]
+{
     tokeniser = node::Tokeniser
-    parser = node::Parser
+    parser    = node::Parser
     evaluator = node::Evaluator
-    variables = node::Variables
     functions = node::Functions
-    formatter = node::Formatter
-    history = node::HistoryStore
-    commands = node::CommandHandler
+    variables = node::Variables
+
+    [Tokeniser] .. --> tokeniser
+    [Parser]    .. --> parser
+    [Evaluator] .. --> evaluator
+    [Functions] .. --> functions <-- evaluator
+    [Variables] .. --> variables <-- evaluator, functions
+}
+
+cluster Data [Trunk = Commands + History + Formatter]
+{
+    commands    = node::CommandHandler
+    formatter   = node::Formatter
+    history     = node::HistoryStore
     persistence = node::FilePersistence
 
-    // Repl orchestrates the pipeline
-    [LineReader]   repl --> lineReader
-    [Commands]     repl --> commands
-    [Tokeniser]    repl --> tokeniser   <-- persistence
-    [Parser]       repl --> parser      <-- persistence
-    [Evaluator]    repl --> evaluator
-    [Output]       repl --> output
-    [History]      repl --> history     <-- commands, lineReader
-    [Formatter]    repl --> formatter   <-- commands
+    [Commands]    .. --> commands
+    [History]     .. --> history     <-- commands
+    [Formatter]   .. --> formatter   <-- commands
+    [Persistence] .. --> persistence <-- commands
 
-    [Functions]             functions   <-- commands, evaluator, persistence
-    [Variables]             variables   <-- commands, evaluator, persistence, functions
-    [Persistence]           persistence <-- commands
+    [[Functions + Variables]]   commands, persistence ==> ..
+    [[Tokeniser + Parser]]                persistence ==> ..
 }
 
 } // namespace examples::calculator

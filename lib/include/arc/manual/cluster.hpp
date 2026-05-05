@@ -8,6 +8,7 @@
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/resolve.hpp"
+#include "arc/trait.hpp"
 #include "arc/nodes/repeater.hpp"
 
 

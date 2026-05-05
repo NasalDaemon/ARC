@@ -389,6 +389,9 @@ export namespace arc {
     using arc::TraitOf;
     using arc::JoinedTrait;
     using arc::AltTrait;
+    using arc::Trunk;
+    using arc::IsTrunk;
+    using arc::TrunkOf;
     // traits_fwd.hpp
     using arc::ResolvedTrait;
     using arc::IsResolvedTrait;

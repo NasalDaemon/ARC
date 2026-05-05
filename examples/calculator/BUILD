@@ -10,30 +10,27 @@ arc_module_library(
     srcs = glob(["src/*.cpp", "src/nodes/impl/*.cpp"], exclude = ["src/main.cpp"]),
 )
 
+GRAPH_NODES = {
+    "repl": "examples.calculator.node.repl",
+    "compute.evaluator": "examples.calculator.node.evaluator",
+    "compute.functions": "examples.calculator.node.functions",
+    "data.commands": "examples.calculator.node.command_handler",
+    "data.persistence": "examples.calculator.node.file_persistence",
+}
+
 arc_graph(
     name = "batch_graph",
     graph_module = "examples.calculator.graphs",
     graph_type = "examples::calculator::graph::Batch",
-    nodes = {
-        "evaluator": "examples.calculator.node.evaluator",
-        "repl": "examples.calculator.node.repl",
-        "functions": "examples.calculator.node.functions",
-        "commands": "examples.calculator.node.command_handler",
-        "persistence": "examples.calculator.node.file_persistence",
-    },
+    nodes = GRAPH_NODES,
 )
 
 arc_graph(
     name = "interactive_graph",
     graph_module = "examples.calculator.graphs",
     graph_type = "examples::calculator::graph::Interactive",
-    nodes = {
-        "evaluator": "examples.calculator.node.evaluator",
-        "repl": "examples.calculator.node.repl",
-        "functions": "examples.calculator.node.functions",
+    nodes = GRAPH_NODES | {
         "lineReader": "examples.calculator.node.terminal_line_reader",
-        "commands": "examples.calculator.node.command_handler",
-        "persistence": "examples.calculator.node.file_persistence",
     },
 )
 
@@ -96,13 +93,7 @@ arc_graph(
     name = "integration_graph",
     graph_module = "examples.calculator.tests.graphs",
     graph_type = "examples::calculator::tests::IntegrationGraph",
-    nodes = {
-        "repl": "examples.calculator.node.repl",
-        "evaluator": "examples.calculator.node.evaluator",
-        "functions": "examples.calculator.node.functions",
-        "commands": "examples.calculator.node.command_handler",
-        "persistence": "examples.calculator.node.file_persistence",
-    },
+    nodes = GRAPH_NODES,
 )
 
 cc_module_bundle(

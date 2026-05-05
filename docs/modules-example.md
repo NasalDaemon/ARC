@@ -134,7 +134,7 @@ cluster Cluster
     authService = node::AuthService
 
     // Enable connections to the global node for all nodes via getGlobal
-    [@global] @all --> @global
+    [[@global]] @all ==> @global
 
     [trait::TokenStore <-> trait::AuthService]
     sessions <-> authService

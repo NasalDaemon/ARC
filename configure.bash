@@ -1,7 +1,5 @@
 #!/usr/bin/bash
 
-cd $(dirname "$0")
-
 BUILD_TYPE="Debug"
 STD_MODULE="ON"
 BUILD_EXAMPLES="ON"
@@ -22,11 +20,12 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+cd $(dirname "$0")
+
 # sudo apt install cmake ninja-build mold python3 pipx
 # pipx install conan
 conan install . --output-folder=cmake-build --build=missing --profile=conanprofile.txt --settings=build_type=$BUILD_TYPE
-cd cmake-build
-cmake .. --preset conan-default \
+cmake -B cmake-build --preset conan-default \
     -DARC_BUILD_TESTS=TRUE \
     -DARC_BUILD_EXAMPLES=$BUILD_EXAMPLES \
     -DARC_COMPRESS_TYPES=TRUE \

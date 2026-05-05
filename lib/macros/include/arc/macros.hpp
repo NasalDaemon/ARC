@@ -293,10 +293,10 @@
 #define ARC_LINK(...) ARC_OVERLOAD(ARC_LINK, __VA_ARGS__)(__VA_ARGS__)
 
 #define ARC_LINK3(traitName, targetContext, targetTrait) \
-    template<::arc::MatchesTrait<ARC_DEPAREN(traitName)> T> \
+    template<class T> requires ::arc::MatchesTrait<T, ARC_TYPENAME(ARC_DEPAREN(traitName))> \
     static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkPriorityMin); \
     template<class T> \
-    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkExact<ARC_DEPAREN(traitName)>);
+    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkExact<ARC_TYPENAME(ARC_DEPAREN(traitName))>);
 
 #define ARC_LINK2(traitName, targetContext) \
     ARC_LINK3(traitName, targetContext, T)

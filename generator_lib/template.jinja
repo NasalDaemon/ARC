@@ -50,6 +50,23 @@ template<
     {%- endfor -%}
 {%- endmacro -%}
 
+{% for namespace in repr.namespaces if namespace.traits %}
+
+namespace {{ namespace.name }} {
+{% for trait in namespace.traits %}
+
+{{ export }}{{ trait.wrapping_namespace }} {
+{% if trait.templates %}
+{{ template(trait.templates) }}
+struct {{ trait.name }};
+{% else %}
+struct {{ trait.name }};
+{% endif %}
+} // {{ trait.wrapping_namespace }}
+{% endfor %}
+
+} // namespace {{ namespace.name }}
+{% endfor %}
 {% for namespace in repr.namespaces %}
 
 namespace {{ namespace.name }} {
@@ -80,17 +97,6 @@ struct policy::{{ policy.name }}::{{ classification.name }} : ::arc::Group
     {% endfor %}
 };
 {% endfor %}
-{% endfor %}
-{% for trait in namespace.traits %}
-
-{{ export }}{{ trait.wrapping_namespace }} {
-{% if trait.templates %}
-{{ template(trait.templates) }}
-struct {{ trait.name }};
-{% else %}
-struct {{ trait.name }};
-{% endif %}
-} // {{ trait.wrapping_namespace }}
 {% endfor %}
 {% for trait in namespace.traits %}
 
@@ -830,21 +836,28 @@ inline constexpr {{ alias[0] }} {{ decapitalise(alias[0]) }}{};
 
 } // inline namespace trait
 {% endfor %}
+
+} // namespace {{ namespace.name }}
+{% endfor %}
+{% for namespace in repr.namespaces if namespace.clusters %}
+
+namespace {{ namespace.name }} {
 {% for cluster in namespace.clusters %}
 
 namespace {{ cluster.cluster_class }} {
-{% if not cluster.templates %}
-template<class Context>
-struct {{ cluster.node_name() }};
-{{ export }}using {{ cluster.name }} = ::arc::InlineNode<{{ cluster.node_name() }}>;
-{% else %}
-{{ export }}{{ template(cluster.templates) }}
+{{ export }}
+{% if cluster.templates %}
+{{ template(cluster.templates) }}
+{% endif %}
 struct {{ cluster.name }}
 {
+    {% if cluster.trunk_traits %}
+    using Trunk = ::arc::Trunk<{{ cluster.trunk_traits | join(", ") }}>;
+
+    {% endif %}
     template<class Context>
     struct Node;
 };
-{% endif %}
 } // namespace {{ cluster.cluster_class }}
 {% endfor %}
 
@@ -857,12 +870,9 @@ namespace {{ namespace.name }} {
 
 {% if cluster.templates %}
 {{ template(cluster.templates) }}
-template<class {{ cluster.context_name }}>
-struct {{ cluster.cluster_class }}::{{ cluster.name }}<{{ template_params(cluster.templates) }}>::Node : {{ cluster.cluster_type }}
-{% else %}
-template<class {{ cluster.context_name }}>
-struct {{ cluster.cluster_class }}::{{ cluster.node_name() }} : {{ cluster.cluster_type }}
 {% endif %}
+template<class {{ cluster.context_name }}>
+struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}<{{ template_params(cluster.templates) }}>{% endif %}::Node : {{ cluster.cluster_type }}
 {
     {% if cluster.root_name %}
     using {{ cluster.root_name }} = ::arc::ResolveRoot<{{ cluster.context_name }}>;
@@ -873,7 +883,7 @@ struct {{ cluster.cluster_class }}::{{ cluster.node_name() }} : {{ cluster.clust
 
     {% endif %}
     {% if cluster.aliases %}
-    {% for alias, type in cluster.aliases %}
+    {% for alias, type in cluster.aliases.items() %}
     using {{ alias }} = {{ type }};
     {% endfor %}
 
@@ -906,7 +916,7 @@ struct {{ cluster.cluster_class }}::{{ cluster.node_name() }} : {{ cluster.clust
     {% endif %}
 
     {% for node in cluster.nodes %}
-    struct {{ node.context }} : ::arc::Context<{{ cluster.node_name() }}, {{ node.context }}Node_>
+    struct {{ node.context }} : ::arc::Context<Node, {{ node.context }}Node_>
     {
         {% if node.connected_to_global %}
         ARC_LINK_TO_GLOBAL()

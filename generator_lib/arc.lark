@@ -99,7 +99,10 @@ group_arrow: L_RARROW  -> group_l_r_arrow
 
 cluster_annotations: "[" cluster_annotation ["," cluster_annotation] "]"
 cluster_annotation: [NAME "="] CLUSTER_ANNOTATION_NAME
+                  | CLUSTER_TRUNK_ANNOTATION "=" trunk_trait ("+" trunk_trait)*
+trunk_trait: FQNAME [full_templ_args]
 CLUSTER_ANNOTATION_NAME.1: "Context" | "Root" | "Info"
+CLUSTER_TRUNK_ANNOTATION.2: "Trunk"
 
 trait_annotations: "[" trait_annotation_item ("," trait_annotation_item)* "]"
 ?trait_annotation_item: trait_annotation | trait_protocol_annotation
@@ -189,7 +192,8 @@ connection_aliases: "using" connection_alias ("," connection_alias)*
 
 connection_alias: NAME "=" cpp_type
 
-connection_trait: "[" connection_trait_type [BARROW connection_trait_type] "]"
+connection_trait: "[" connection_trait_type [BARROW connection_trait_type] "]" -> connection_trait_normal
+                | "[[" connection_trait_type ("+" connection_trait_type)* [BARROW connection_trait_type] "]]" -> connection_trait_trunk
 
 connection_trait_type: SPECIAL_TRAIT | cpp_type
 
@@ -217,9 +221,9 @@ arrow:             LARROW             -> left_arrow
 
 arrow_trait: "(" cpp_type ")"
 
-LARROW: "<"+ "-"+
-RARROW:      "-"+ ">"+
-BARROW: "<"+ "-"+ ">"+
+LARROW: "<"+ ("-"|"=")+
+RARROW:      ("-"|"=")+ ">"+
+BARROW: "<"+ ("-"|"=")+ ">"+
 
 !cpp_type: [TYPENAME] (NAME | "::" cpp_type_no_typename) cpp_type_cont*
 !cpp_type_no_typename: (NAME | "::" cpp_type_no_typename) cpp_type_cont*
