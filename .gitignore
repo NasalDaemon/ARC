@@ -1,6 +1,4 @@
 .*
-AGENTS.md
-CLAUDE.md
 
 # Bazel build artifacts
 bazel-*
