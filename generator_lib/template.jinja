@@ -284,7 +284,7 @@ struct {{ trait.name }} : ::arc::Trait
         // Contracts and return type constraints of method signatures
         struct Constraints
         {
-            {% if trait.has_protocol and trait.methods|selectattr("has_contracts", "eq", False)|list %}
+            {% if trait.has_protocol and trait.methods | selectattr("has_contracts", "eq", False) | list %}
             struct ProtoOnly : ::arc::NoConstraints
             {
                 using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, 0>;
@@ -475,12 +475,12 @@ struct {{ trait.name }} : ::arc::Trait
             )
             {% if method.return_type.is_auto %}
             {% if method.return_type.str == "decltype(auto)" %}
-                -> ::arc::InvokeMethod<{{ cppbool(method.is_const) }}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethod<{ {{ cppbool(method.is_const) }}, {{ cppbool(method.default_impl is not none) }}}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% else %}
-                -> ::arc::InvokeMethodC<{{ cppbool(method.is_const) }}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethodC<{ {{ cppbool(method.is_const) }}, {{ cppbool(method.default_impl is not none) }}}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}{{ argdecltypes(method) }}>;
             {% endif %}
             {% else %}
-                -> ::arc::InvokeMethodR<{{ cppbool(method.is_const) }}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
+                -> ::arc::InvokeMethodR<{ {{ cppbool(method.is_const) }}, {{ cppbool(method.default_impl is not none) }}}, typename ARC_This_Trait::Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, ARC_TYPENAME({{ method.return_type.str }}){{ argdecltypes(method) }}>;
             {% endif %}
             {% endfor %}
         };
@@ -494,7 +494,7 @@ struct {{ trait.name }} : ::arc::Trait
         // Provides interface to TraitView, enforcing Meta::Signatures and Meta::Constraints
         struct NamedMethods
         {
-            struct {{ trait.name }}
+            struct {{ trait.name }} : ::arc::MethodsBase
             {
                 {% for method_name in trait.method_names %}
                 ARC_SIGNATURE_METHOD({{ method_name }})
@@ -505,7 +505,7 @@ struct {{ trait.name }} : ::arc::Trait
         // Provides interface without any signature enforcement (used when transforming traits with keys)
         struct NamedDuckMethods
         {
-            struct {{ trait.name }}
+            struct {{ trait.name }} : ::arc::MethodsBase
             {
                 {% for method_name in trait.method_names %}
                 ARC_DUCK_METHOD({{ method_name }})
@@ -520,53 +520,69 @@ struct {{ trait.name }} : ::arc::Trait
             ARC_NAMED_METHOD_IMPL_DISABLE({{ method_name }})
             {% endfor %}
         };
+        struct NoDisable{};
         // Default method implementations as specified in the trait definition
         struct DefaultImpl
         {
-            {% for group in trait.state_groups %}
-            {% for variant in group.variants %}
-            ARC_INLINE constexpr bool impl(this auto const& self, ARC_This_Trait::{{ variant }}
-                {%- for type, name in group.params -%}
-                , auto const& {{ name }}
+            {% for method in trait.methods if method.default_impl is not none %}
+            template<class Self
+                {%- if trait.types_name -%}
+                , class {{ trait.types_name }} = std::remove_cvref_t<Self>::Types
+                {%- endif -%}
+                {%- if trait.root_name -%}
+                , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<std::remove_cvref_t<Self>>>
+                {%- endif -%}
+                {%- if trait.info_name -%}
+                , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<std::remove_cvref_t<Self>>>
+                {%- endif -%}
+                {%- if trait.impl_named -%}
+                , class {{ trait.impl_name }} = ::arc::ContextToNode<::arc::ContextOf<std::remove_cvref_t<Self>>>
+                {%- endif -%}
+                {%- for prefix, name in method.templates -%}
+                , {{ prefix }}{{ prefix.pack }} {{ name }}
+                {%- endfor -%}
+            >
+            ARC_INLINE static constexpr decltype(auto) defaultImpl([[maybe_unused]] Self{{ " const" if method.is_const else "" }}& self, ARC_This_Trait::{{ method.name }}
+                {%- for type, name in method.params -%}
+                , [[maybe_unused]] {{ type }}{{ type.pack }} {{ name }}
                 {%- endfor -%}
             )
             {
-                return self.impl(proto{{ group.name }}_c
-                    {%- for type, name in group.params -%}
+                ARC_IF_GCC(::arc::ignoreArgs(self
+                    {%- for type, name in method.params -%}
                     , {{ name }}{{ type.pack }}
                     {%- endfor -%}
-                ) == ARC_This_Trait::Meta::States::{{ group.name }}::{{ variant }};
+                ));
+                {{ method.default_impl | indent(16) }}
             }
             {% endfor %}
-            {% endfor %}
-            static void impl() = delete;
         };
         // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
         // Effective only when using arc::NodeImpl<{{ trait.name }}> or arc::Node::Uses<...>::Impl<{{ trait.name }}>
-        struct Impl : DefaultImpl, protected DisableImpl
+        struct Impl : Methods
         {
             struct {{ trait.name }} : MethodTags
             {
+                using Impl = Methods;
                 using Disable = DisableImpl;
             };
-            using DefaultImpl::impl;
             {% for method_name in trait.method_names %}
             ARC_NAMED_METHOD_IMPL({{ method_name }})
             {% endfor %}
         };
         // Provides internal node redirection `node.method(...)` --> `node.impl(method, ...)`
         // Effective only when using arc::NodeImpl<{{ trait.name }}*> or arc::Node::Uses<...>::Impl<{{ trait.name }}*>
-        struct ImplQualified : DefaultImpl, Methods
+        struct ImplQualified : Methods
         {
             struct {{ trait.name }} : MethodTags
             {
                 using Impl = Methods;
             };
-            using DefaultImpl::impl;
+            static void impl() = delete;
         };
         {% if trait.is_protocol %}
         template<class ProtocolTraitView>
-        struct RecordingView : Methods, DefaultImpl, arc::TraitViewBase
+        struct RecordingView : Methods, arc::TraitViewBase
         {
             constexpr RecordingView(ProtocolTraitView real_, StateTransitionLog& log_)
                 : real(real_), log(log_)
@@ -580,7 +596,6 @@ struct {{ trait.name }} : ::arc::Trait
 
             constexpr auto asTrait(ARC_This_Trait, std::true_type) { return *this; }
 
-            using DefaultImpl::impl;
             {% for group in trait.state_groups %}
             ARC_This_Trait::Meta::States::{{ group.name }} impl(ARC_This_Trait::proto{{ group.name }}
                 {%- for type, name in group.params -%}
@@ -627,7 +642,7 @@ struct {{ trait.name }} : ::arc::Trait
         RecordingView(ProtocolTraitView, StateTransitionLog&) -> RecordingView<ProtocolTraitView>;
 
         template<class ProtocolTraitView>
-        struct PostRecordingView : Methods, DefaultImpl, arc::TraitViewBase
+        struct PostRecordingView : Methods, arc::TraitViewBase
         {
             constexpr PostRecordingView(ProtocolTraitView real_, StateTransitionLog& log_)
                 : real(real_), log(log_) {}
@@ -636,7 +651,6 @@ struct {{ trait.name }} : ::arc::Trait
 
             constexpr auto asTrait(ARC_This_Trait, std::true_type) { return *this; }
 
-            using DefaultImpl::impl;
             {% for group in trait.state_groups %}
             ARC_This_Trait::Meta::States::{{ group.name }} impl(ARC_This_Trait::proto{{ group.name }}
                 {%- for type, name in group.params -%}
@@ -725,7 +739,7 @@ struct {{ trait.name }} : ::arc::Trait
         {% for require in trait.requires %}
         {{ require }}
         {% endfor %}
-        {% for method in trait.methods if not method.is_template and not method.optional %}
+        {% for method in trait.methods if not method.is_template and not method.optional and method.default_impl is none %}
 
         {% macro require_invoke() -%}
             {{ "const_" if method.is_const else "impl_" }}.impl({{ method.name }}_c

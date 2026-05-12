@@ -83,11 +83,6 @@ struct Root
                 }
             }
 
-            #if ARC_COMPILER_CLANG
-            // TODO: For some reason clang frontend crashes if this is not defined (but omitting with impl() syntax still works)
-            bool skipEvent(auto&&...) { return false; }
-            #endif
-
             bool onEvent(arc::Event<Event> event, EventItem<SharedData, PrivateData> item)
             {
                 REQUIRE(event.isLatest());

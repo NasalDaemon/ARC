@@ -379,7 +379,7 @@ namespace detail {
     };
 
     template<IsTrait Trait>
-    struct MockBaseWithDefault;
+    struct MockBaseWithMethods;
 
     struct MockBase : arc::test::TestOnlyNode
     {
@@ -592,14 +592,14 @@ namespace detail {
             return arc::detail::normaliseMethodArgs(
                 self,
                 method,
-                [&self](auto&&... normalArgs) -> decltype(auto)
+                [&self](auto hasDefault, auto&&... normalArgs) -> decltype(auto)
                 {
-                    return self.implNormalised(Method{}, ARC_FWD(normalArgs)...);
+                    return self.template implNormalised<hasDefault>(Method{}, ARC_FWD(normalArgs)...);
                 },
                 ARC_FWD(args)...);
         }
 
-        template<class Self, class Method, class... Args>
+        template<bool HasDefault, class Self, class Method, class... Args>
         constexpr MockReturn implNormalised(this Self& self, Method method, Args&&... args)
         {
             if (self.counting) [[unlikely]]
@@ -647,25 +647,25 @@ namespace detail {
             if (auto const retIt = self.returnsMap.find(methodType_); retIt != self.returnsMap.end())
                 return std::as_const(retIt->second);
 
-            auto& combined = arc::detail::downCast<MockBaseWithDefault<TraitOf<Method>>>(arc::detail::upCast<MockBase>(self));
-            if constexpr (requires { combined.DefaultImpl::impl(method, ARC_FWD(args)...); })
+            if constexpr (HasDefault)
             {
-                using R = decltype(combined.DefaultImpl::impl(method, ARC_FWD(args)...));
+                auto& withMethods = arc::detail::downCast<MockBaseWithMethods<TraitOf<Method>>>(arc::detail::upCast<MockBase>(self));
+                using R = decltype(invokeMethodDefault(withMethods, method, ARC_FWD(args)...));
                 if constexpr (std::is_same_v<MockReturn, R>)
                 {
-                    return combined.DefaultImpl::impl(method, ARC_FWD(args)...);
+                    return invokeMethodDefault(withMethods, method, ARC_FWD(args)...);
                 }
                 else
                 {
                     MockReturn result;
                     if constexpr (std::is_same_v<R, void>)
                     {
-                        combined.DefaultImpl::impl(method, ARC_FWD(args)...);
+                        invokeMethodDefault(withMethods, method, ARC_FWD(args)...);
                         result.reset();
                     }
                     else
                     {
-                        result.emplace<R>(combined.DefaultImpl::impl(method, ARC_FWD(args)...));
+                        result.emplace<R>(invokeMethodDefault(withMethods, method, ARC_FWD(args)...));
                     }
                     return result;
                 }
@@ -1169,10 +1169,8 @@ namespace detail {
     };
 
     template<IsTrait Trait>
-    struct MockBaseWithDefault : MockBase, Trait::Meta::DefaultImpl
-    {
-        using MockBase::impl;
-    };
+    struct MockBaseWithMethods : MockBase, Trait::Meta::Methods
+    {};
 
 } // namespace detail
 

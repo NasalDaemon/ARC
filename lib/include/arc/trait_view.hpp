@@ -96,7 +96,7 @@ private:
 // Presents a view over a trait implementation, where only the trait trait functions are accessible
 ARC_MODULE_EXPORT
 template<IsTrait Trait, class ImplAlias, class Types_ /*= EmptyTypes*/>
-struct TraitView final : Trait::Meta::Methods, Trait::Meta::DefaultImpl
+struct TraitView final : Trait::Meta::Methods
 {
     ARC_INLINE constexpr TraitView(Trait, ImplAlias alias, std::type_identity<Types_>)
         : alias(alias)
@@ -142,14 +142,14 @@ struct TraitView final : Trait::Meta::Methods, Trait::Meta::DefaultImpl
         using ResolveTypes = Types;
     };
 
-    template<IsMethodOf<Trait> Method>
-    ARC_INLINE constexpr decltype(auto) impl(this auto&& self, Method method, auto&&... args)
-        requires requires { self.alias.get().impl(method, ARC_FWD(args)...); } or requires { self.DefaultImpl::impl(method, ARC_FWD(args)...); }
+    template<class Self>
+    using InterfaceOf = detail::ConstLike<std::remove_reference_t<Self>, typename ImplAlias::Interface>;
+
+    template<class Self, IsMethodOf<Trait> Method, class... Args>
+    requires CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
+    ARC_INLINE constexpr decltype(auto) impl(this Self&& self, Method method, Args&&... args)
     {
-        if constexpr (requires { self.alias.get().impl(method, ARC_FWD(args)...); })
-            return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), method, ARC_FWD(args)...);
-        else
-            return self.DefaultImpl::impl(method, ARC_FWD(args)...);
+        return detail::invokeMethodWithGlobal(detail::getGlobal<ContextOf<Node>, Trait>(self.alias.get()), self, self.alias.get(), method, ARC_FWD(args)...);
     }
 
     template<class Self, IsMethodOf<Trait> Method>
@@ -171,7 +171,7 @@ private:
 
         ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
         {
-            return detail::invokeMethod<ContextOf<Node>, Trait>(self.alias.get(), Method{}, ARC_FWD(args)...);
+            return detail::invokeMethodWithGlobal(detail::getGlobal<ContextOf<Node>, Trait>(self.alias.get()), TraitView({}, self.alias, {}), self.alias.get(), Method{}, ARC_FWD(args)...);
         }
     };
 

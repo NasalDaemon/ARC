@@ -128,7 +128,11 @@ trait_requires_block: "requires" [cpp_func_params] "{" cpp_requires_statement "}
                        | "{" cpp_expr "}" ["->" cpp_type] [SEMICOLON]
 
 trait_method: NAME "(...)" -> trait_method_elipsis
-            | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] (pre_contract | post_contract | is_clause | if_clause | to_clause)* -> trait_method_signature
+            | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] method_contract* [method_default_impl] -> trait_method_signature
+
+method_default_impl: "{" bracket_content "}"
+
+?method_contract: pre_contract | post_contract | is_clause | if_clause | to_clause
 
 pre_contract:  "pre"  "(" bracket_content ")"
 post_contract: "post" "(" bracket_content ")"

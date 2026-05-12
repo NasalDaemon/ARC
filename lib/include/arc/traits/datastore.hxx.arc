@@ -80,9 +80,12 @@ trait DataListener [Types]
     // skipEvent: return true to skip processing the event for this listener.
     // Called on each subscriber for the id when modify, notify, or notifyAll is called on the DataStore, before onEvent is called.
     // A useful catch-all implementation might be: `return not event.isLatest();`
-    // If not defined for an event, it is interpreted as "do not skip".
+    // If not defined for an event, the default is "do not skip".
     template<class EventType>
-    ? skipEvent(Event<EventType> event, EventItem<SharedData const, typename Types::PrivateData const> item) -> std::convertible_to<bool> auto
+    skipEvent(Event<EventType> event, EventItem<SharedData const, typename Types::PrivateData const> item) -> std::convertible_to<bool> auto
+    {
+        return std::false_type{};
+    }
 
     // Called on all subscribers when modify, notify, or notifyAll is called on the DataStore.
     // If the return type is `bool` and `false` is returned, then this particular event is not propagated to any further listeners.

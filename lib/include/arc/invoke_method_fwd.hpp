@@ -3,6 +3,7 @@
 
 #include "arc/detail/cast.hpp"
 #include "arc/macros.hpp"
+#include "arc/trait.hpp"
 #include "arc/trait_view_fwd.hpp"
 #include "arc/test/mock_fwd.hpp"
 
@@ -23,25 +24,63 @@ struct NoConstraints
 };
 
 ARC_MODULE_EXPORT
+template<class Interface, class Method, class... Args>
+concept ImplementsMethod = requires(Interface& interface, Method method, Args&&... args) {
+    interface.impl(method, ARC_FWD(args)...);
+};
+
+ARC_MODULE_EXPORT
+template<class Interface, class Method, class... Args>
+concept HasDefaultImpl = decltype(TraitOf<Method>::Meta::SignaturesByTag::impl(std::declval<Interface&>(), Method{}, std::declval<Args>()...))::HasDefault;
+
+ARC_MODULE_EXPORT
+template<class Interface, class Method, class... Args>
+concept CanInvokeMethod = ImplementsMethod<Interface, Method, Args...> or HasDefaultImpl<Interface, Method, Args...>;
+
+ARC_MODULE_EXPORT
 template<class Node, class Method, class... Args>
-requires (not IsTraitView<Node>) and requires { typename ContextOf<detail::NodeOf<Node>>; }
+requires HasDefaultImpl<Node, Method, Args...>
+ARC_INLINE constexpr decltype(auto) invokeMethodDefault(Node& node, Method method, Args&&... args)
+{
+    static_assert(HasMethods<Node>);
+    return TraitOf<Method>::Meta::DefaultImpl::defaultImpl(node, method, ARC_FWD(args)...);
+}
+
+ARC_MODULE_EXPORT
+template<class Node, class Method, class... Args>
+requires (not IsTraitView<Node>) and requires { typename ContextOf<detail::NodeOf<Node>>; } and CanInvokeMethod<Node, Method, Args...>
 ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args);
 
 ARC_MODULE_EXPORT
 template<class Node, class Method, class... Args>
+requires CanInvokeMethod<Node, Method, Args...>
 ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args)
 {
-    return node.impl(method, ARC_FWD(args)...);
+    if constexpr (ImplementsMethod<Node, Method, Args...>)
+        return node.impl(method, ARC_FWD(args)...);
+    else
+        return invokeMethodDefault(node, method, ARC_FWD(args)...);
 }
+
+ARC_MODULE_EXPORT
+struct InvokerParams
+{
+    bool isConst = false;
+    bool hasDefault = false;
+
+    auto operator<=>(InvokerParams const&) const = default;
+};
 
 ARC_MODULE_EXPORT
 struct NullNormalInvoker
 {
+    static constexpr bool HasDefault = false;
+
     struct Normaliser
     {
         ARC_INLINE static constexpr decltype(auto) normalise(auto&& f, auto&&... args)
         {
-            return ARC_FWD(f)(ARC_FWD(args)...);
+            return ARC_FWD(f)(std::false_type{}, ARC_FWD(args)...);
         }
     };
     using Constraints = NoConstraints;
@@ -53,13 +92,13 @@ struct NullSignaturesByTag
     static auto impl(auto&&...) -> ::arc::NullNormalInvoker;
 };
 
-template<class... NormalArgs>
+template<bool HasDefault, class... NormalArgs>
 struct NormalInvoker
 {
-    template<std::invocable<NormalArgs...> F>
+    template<std::invocable<std::bool_constant<HasDefault>, NormalArgs...> F>
     ARC_INLINE static constexpr decltype(auto) normalise(F&& f, NormalArgs... args)
     {
-        return ARC_FWD(f)(ARC_FWD(args)...);
+        return ARC_FWD(f)(std::bool_constant<HasDefault>{}, ARC_FWD(args)...);
     }
 };
 
@@ -115,10 +154,11 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<bool Const, class Constraints_, class... NormalArgs>
+template<InvokerParams Params, class Constraints_, class... NormalArgs>
 struct InvokeMethod : detail::InvokeMethodBase
 {
-    using Normaliser = NormalInvoker<NormalArgs...>;
+    static constexpr bool HasDefault = Params.hasDefault;
+    using Normaliser = NormalInvoker<Params.hasDefault, NormalArgs...>;
     using Constraints = Constraints_;
 
 private:
@@ -126,16 +166,17 @@ private:
 
     ARC_INLINE static constexpr decltype(auto) invokeImpl(IsTraitView auto traitView, auto method, auto&&... args)
     {
-        return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
+        return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
     }
 };
 
 ARC_MODULE_EXPORT
-template<bool Const, class Constraints_, class ReturnType_, class... NormalArgs>
+template<InvokerParams Params, class Constraints_, class ReturnType_, class... NormalArgs>
 struct InvokeMethodR : detail::InvokeMethodBase
 {
+    static constexpr bool HasDefault = Params.hasDefault;
     using ReturnType = ReturnType_;
-    using Normaliser = NormalInvoker<NormalArgs...>;
+    using Normaliser = NormalInvoker<Params.hasDefault, NormalArgs...>;
     using Constraints = Constraints_;
 
 private:
@@ -145,15 +186,15 @@ private:
     {
         if constexpr (std::is_void_v<ReturnType>)
         {
-            arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
+            arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
         }
         else
         {
-            using T = decltype(arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...));
+            using T = decltype(arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...));
             if constexpr (std::is_convertible_v<T, ReturnType>)
-                return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
+                return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
             else if constexpr (std::is_same_v<T, test::detail::MockReturn>)
-                return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...).operator ReturnType&&();
+                return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...).operator ReturnType&&();
         }
     }
 };
@@ -167,10 +208,11 @@ template<class T, class ReturnConstraint, class Types>
 concept MatchesReturnConstraint = requires { ReturnConstraint::template Return<T, Types>(); };
 
 ARC_MODULE_EXPORT
-template<bool Const, class Constraints_, class... NormalArgs>
+template<InvokerParams Params, class Constraints_, class... NormalArgs>
 struct InvokeMethodC : detail::InvokeMethodBase
 {
-    using Normaliser = NormalInvoker<NormalArgs...>;
+    static constexpr bool HasDefault = Params.hasDefault;
+    using Normaliser = NormalInvoker<Params.hasDefault, NormalArgs...>;
     using Constraints = Constraints_;
 
 private:
@@ -180,7 +222,7 @@ private:
     ARC_INLINE static constexpr auto invokeImpl(TraitView traitView, auto method, auto&&... args)
         -> MatchesReturnConstraint<Constraints, typename TraitView::Types> auto
     {
-        return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
+        return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
     }
 
     template<IsTraitView TraitView>
@@ -188,7 +230,7 @@ private:
     ARC_INLINE static constexpr auto invokeImpl(TraitView traitView, auto method, auto&&... args)
         -> MatchesReturnConstraint<Constraints, typename TraitView::Types> decltype(auto)
     {
-        return arc::invokeMethod(detail::asConst<Const>(traitView), method, ARC_FWD(args)...);
+        return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
     }
 };
 

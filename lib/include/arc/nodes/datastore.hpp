@@ -234,9 +234,8 @@ struct DataStoreNode
                         auto listener = this->getDataListener(i);
                         auto& privateData = *std::get<i>(item.second.privateData).value();
                         using EventView = EventItem<SharedData const, PrivateDataAt<i> const>;
-                        if constexpr (requires { listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}); })
-                            if (listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}))
-                                return true;
+                        if (listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}))
+                            return true;
                         using result_t = decltype(listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData}));
                         if constexpr (std::is_void_v<result_t>)
                             listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData});
@@ -452,10 +451,9 @@ struct DataStoreNode<SharedData, Map>::Node<Context>::FromDataListener : Node
                     {
                         auto listener = this->getDataListener(i);
                         auto& privateData = *std::get<i>(item.second.privateData).value();
-                        using EventView = EventItem<SharedData const, PrivateData const>;
-                        if constexpr (requires { listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}); })
-                            if (listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}))
-                                return true;
+                        using EventView = EventItem<SharedData const, PrivateDataAt<i> const>;
+                        if (listener.skipEvent(event, EventView{item.first, item.second.sharedData, privateData}))
+                            return true;
                         using result_t = decltype(listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData}));
                         if constexpr (std::is_void_v<result_t>)
                             listener.onEvent(event, EventItem{item.first, item.second.sharedData, privateData});

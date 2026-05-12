@@ -208,7 +208,12 @@ export namespace arc {
     }
     // invoke_method_fwd.hpp
     using arc::NoConstraints;
+    using arc::ImplementsMethod;
+    using arc::HasDefaultImpl;
+    using arc::CanInvokeMethod;
+    using arc::invokeMethodDefault;
     using arc::invokeMethod;
+    using arc::InvokerParams;
     using arc::NullNormalInvoker;
     using arc::InvokeMethod;
     using arc::InvokeMethodR;
@@ -378,6 +383,8 @@ export namespace arc {
     using arc::AdlTag;
     using arc::DisableNamedImpl;
     using arc::DisableNamedImplFor;
+    using arc::MethodsBase;
+    using arc::HasMethods;
     using arc::Trait;
     using arc::IsTrait;
     using arc::UnconstrainedTrait;

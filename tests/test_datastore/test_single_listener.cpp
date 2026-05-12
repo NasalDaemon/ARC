@@ -15,7 +15,7 @@ export module arc.tests.datastore.single;
 namespace arc::tests::datastore::single {
 
 cluster Cluster [R = Root] {
-    store = arc::node::DataStore<typename R::SharedData>
+    store = R::SharedData : arc::node::DataStore
     listener = R::Listener
 
     [arc::DataStore<typename R::SharedData> <-> arc::DataListener<typename R::SharedData>]
@@ -53,10 +53,6 @@ struct Root
             {
                 constructor();
             }
-
-            #if ARC_COMPILER_CLANG
-            bool skipEvent(auto&&...) { return false; }
-            #endif
 
             void onEvent(auto event, auto item)
             {

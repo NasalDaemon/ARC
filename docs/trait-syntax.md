@@ -102,6 +102,28 @@ trait Trait4 [Types, Root]
     requires const_.constMethod(0)
 }
 
+// Methods may carry an inline default implementation, used when an implementing
+// node does not override the method. Nodes can then opt to implement only a
+// subset of the trait's methods.
+trait WithDefaults
+{
+    // No default — every implementor must provide this overload
+    required()
+
+    // Default no-op; implementors may omit this method
+    optional() {}
+
+    // Default body may call other trait methods on `self`.
+    // `self` is the trait view of the implementor, so calls dispatch through
+    // the trait (overrides, spies, contracts still apply).
+    // Const methods receive a `const&` self.
+    summary() const -> int
+    {
+        self.optional();
+        return 0;
+    }
+}
+
 // `Trait` interface is provided and enforced, but must be resolved using name `AltTrait`.
 // Useful for disambiguation between two dependencies implementing the same trait.
 trait AltTrait = Trait

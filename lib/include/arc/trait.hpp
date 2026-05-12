@@ -25,13 +25,20 @@ template<class T>
 struct DisableNamedImplFor : DisableNamedImpl {};
 
 ARC_MODULE_EXPORT
+struct MethodsBase{};
+
+ARC_MODULE_EXPORT
+template<class T>
+concept HasMethods = std::is_base_of_v<MethodsBase, std::remove_cvref_t<T>>;
+
+ARC_MODULE_EXPORT
 struct Trait
 {
     struct Meta
     {
         struct Applicable{};
-        struct Methods{};
-        struct DuckMethods{};
+        struct Methods : MethodsBase{};
+        struct DuckMethods : MethodsBase{};
         struct DefaultImpl { static void impl() = delete; };
         struct Impl{};
         struct ImplQualified{};
@@ -133,14 +140,14 @@ struct JoinedTrait : Traits...
         {};
         struct DisableImpl : Traits::Meta::DisableImpl...
         {};
+        struct NoDisable
+        {};
         struct SignaturesByTag : Traits::Meta::SignaturesByTag...
         {
             using Traits::Meta::SignaturesByTag::impl...;
         };
         struct DefaultImpl : Traits::Meta::DefaultImpl...
-        {
-            using Traits::Meta::DefaultImpl::impl...;
-        };
+        {};
         struct Impl : Traits::Meta::Impl...
         {
             using Traits::Meta::Impl::impl...;

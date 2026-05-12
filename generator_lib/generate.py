@@ -963,6 +963,7 @@ class Method:
         self.optional: bool = False
         self.pre_exprs: list[tuple[str, str]] = []
         self.post_exprs: list[tuple[str, str, str]] = []
+        self.default_impl: str | None = None
         # Protocol clauses — use the preProto/postProto path with entry snapshotting
         self.proto_pre_exprs: list[tuple[str, str]] = []           # (pos, expr)  — `is (P)`
         self.proto_post_exprs: list[tuple[str, str, str]] = []     # (pos, name, expr) — `is (P) then (Q)` / `to (Q)`
@@ -1065,6 +1066,10 @@ class Method:
                     raise SyntaxError(f"{get_pos(c)} 'to' contracts can only be used in traits with a protocol annotation")
                 post_name, post_expr = _parse_named_expr(_expand_clause_body(c.children[0]))
                 self.proto_post_exprs.append((get_pos(c, False), post_name, post_expr))
+            elif c.data == imported('method_default_impl'):
+                import textwrap
+
+                self.default_impl = textwrap.dedent(reconstruct(c.children[0])).strip()
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown method entity: {c.data}')
 
@@ -1605,6 +1610,10 @@ class Protocol(Trait):
                 vm.params = list(group.params)
                 vm.is_const = True
                 vm.return_type = CppType("bool")
+                vm.default_impl = f"return self.impl({method.name}_c"
+                for type, name in group.params:
+                    vm.default_impl += f", {name}{type.pack}"
+                vm.default_impl += f") == ARC_This_Trait::Meta::States::{group.name}::{variant};"
                 self.methods.append(vm)
 
         for pred in self._temp_predicates:

@@ -160,7 +160,7 @@
         struct SignaturesByTag : ::arc::NullSignaturesByTag {}; \
         struct NamedMethods \
         { \
-            struct TraitName \
+            struct TraitName : ::arc::MethodsBase \
             { \
                 METHOD_LIST(ARC_DUCK_METHOD) \
             }; \
@@ -171,23 +171,24 @@
         { \
             METHOD_LIST(ARC_NAMED_METHOD_IMPL_DISABLE) \
         }; \
-        struct DefaultImpl { static void impl() = delete; }; \
-        struct Impl : DefaultImpl, protected DisableImpl \
+        struct NoDisable {}; \
+        struct DefaultImpl {}; \
+        struct Impl : Methods \
         { \
             struct TraitName : MethodTags \
             { \
+                using Impl = Methods; \
                 using Disable = DisableImpl; \
             }; \
-            using DefaultImpl::impl; \
             METHOD_LIST(ARC_NAMED_METHOD_IMPL) \
         }; \
-        struct ImplQualified : DefaultImpl, Methods \
+        struct ImplQualified : Methods \
         { \
             struct TraitName : MethodTags \
             { \
                 using Impl = Methods; \
             }; \
-            using DefaultImpl::impl; \
+            static void impl() = delete; \
         }; \
         struct Resolver \
         { \
@@ -218,12 +219,15 @@
     static void method(::arc::DisableNamedImplFor<ARC_This_Trait::method>);
 
 #define ARC_NAMED_METHOD_IMPL(method) \
-    template<::arc::IsNode Self> \
+    template<::arc::IsNode Self, class... Args> \
     requires (not requires { Self::method(::arc::DisableNamedImplFor<ARC_This_Trait::method>{}); }) \
-    ARC_INLINE constexpr decltype(auto) impl(this Self& self, ARC_This_Trait::method, auto&&... args) \
-        requires requires { self.method(ARC_FWD(args)...); }  \
+    ARC_INLINE constexpr decltype(auto) impl(this Self& self, ARC_This_Trait::method m, Args&&... args) \
+        requires requires { self.method(ARC_FWD(args)...); } or ::arc::HasDefaultImpl<Self, ARC_This_Trait::method, Args...> \
     { \
-        return self.method(ARC_FWD(args)...); \
+        if constexpr (requires { self.method(ARC_FWD(args)...); }) \
+            return self.method(ARC_FWD(args)...); \
+        else \
+            return ::arc::invokeMethodDefault(self, m, ARC_FWD(args)...); \
     }
 
 #define ARC_AS_FUNCTOR_METHOD(method) \
@@ -234,8 +238,9 @@
     }
 
 #define ARC_DUCK_METHOD(method) \
-    template<::arc::IsTraitViewOrNode Self> \
-    ARC_INLINE constexpr decltype(auto) method(this Self&& self, auto&&... args) \
+    template<::arc::IsTraitViewOrNode Self, class... Args> \
+    requires ::arc::CanInvokeMethod<Self, ARC_This_Trait::method, Args...> \
+    ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
     { \
         return ::arc::invokeMethod(self, method ## _c, ARC_FWD(args)...); \
     }
@@ -243,8 +248,8 @@
 #define ARC_SIGNATURE_METHOD(method) \
     ARC_AS_FUNCTOR_METHOD(method) \
     template<class Self, class... Args> \
+    requires ::arc::CanInvokeMethod<Self, ARC_This_Trait::method, Args...> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
-        requires requires { self.impl(method ## _c, ARC_FWD(args)...); } \
     { \
         if constexpr (::arc::IsTraitView<Self>) \
         { \

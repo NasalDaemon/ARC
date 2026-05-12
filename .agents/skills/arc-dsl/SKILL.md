@@ -71,12 +71,18 @@ trait <Name>
     // Constrained template method
     template<std::size_t I, class T>
     complex(T t, auto a) -> std::same_as<double> auto
+
+    // Default implementation: used when a node does not define its own.
+    // `self` is a trait view, so `self.x()` dispatches through the trait
+    // (spies/overrides apply). Const methods get a `const&` self.
+    reset() {}
+    summary() const -> int { self.reset(); return 0; }
 }
 
 } // namespace <project>
 ```
 
-Non-template methods are added to the `arc::Implements` concept and enforced at `getNode`/`asTrait` time. Template methods are only checked when actually called.
+Non-template, non-defaulted methods are added to the `arc::Implements` concept and enforced at `getNode`/`asTrait` time. Template methods are only checked when actually called.
 
 **Contracts** — use `pre`/`post` selectively where a method has genuinely invalid inputs or meaningful invariants. They also serve as documentation of intent.
 
