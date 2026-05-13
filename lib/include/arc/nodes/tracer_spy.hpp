@@ -1,5 +1,6 @@
 #pragma once
 
+#include "arc/circular_buffer.hpp"
 #include "arc/macros.hpp"
 #include "arc/node.hpp"
 #include "arc/traits/spy.hpp"
@@ -12,6 +13,7 @@
 #include <exception>
 #include <format>
 #include <map>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -71,21 +73,74 @@ struct TracerSpy : arc::Node
         std::chrono::nanoseconds maxTime{};
     };
 
-    std::size_t maxDepthLog = 64;
+    static constexpr std::size_t defaultMinDepth = 0;
+    static constexpr std::size_t defaultMaxDepth = 64;
+    static constexpr std::size_t defaultMaxEvents = 32 * 1024;
+    static constexpr bool        defaultRecording = true;
 
-    std::vector<Event> events;
-    std::map<std::string_view, Stats> perMethod;
-    std::size_t nextCallId = 0;
-    std::size_t maxDepthSeen = 0;
+    // Construction parameters. All fields have sensible defaults so callers can
+    // brace-init with named arguments: `arc::TracerSpy{{.minDepth = 1}}`.
+    struct Params
+    {
+        // Skip recording events at depth < minDepth. Stats still accumulate.
+        // Useful to suppress noisy top-level test scaffolding.
+        std::size_t minDepth = defaultMinDepth;
+        // Skip recording events at depth >= maxDepth. Stats still accumulate.
+        std::size_t maxDepth = defaultMaxDepth;
+        // Ring buffer capacity for the event log; oldest entries evict on overflow.
+        std::size_t maxEvents = defaultMaxEvents;
+        // When false, event log is paused at construction. Stats still accumulate.
+        // Toggle via `startRecording()` / `stopRecording()`.
+        bool recording = defaultRecording;
+    };
 
     TracerSpy() = default;
-    explicit TracerSpy(std::size_t maxDepth) : maxDepthLog(maxDepth) {}
+    explicit TracerSpy(Params p)
+        : minDepthLog(p.minDepth)
+        , maxDepthLog(p.maxDepth)
+        , recording(p.recording)
+        , events(p.maxEvents)
+    {}
 
-    static std::vector<std::size_t>& parentStack();
+    // Pause/resume appending to the event ring. Stats accumulate regardless of
+    // recording state. Resuming mid-call may yield orphan Enter/Exit pairs.
+    void startRecording() { recording = true; }
+    void stopRecording()  { recording = false; }
+    bool isRecording() const { return recording; }
+
+    // Discard all recorded events and stats, then apply new Params. Useful
+    // between test phases to scope tracing to a single window without
+    // tearing down the graph.
+    void reset(Params p);
+    // Reset but preserve params
+    void reset(std::optional<bool> recording = std::nullopt)
+    {
+        reset({
+            .minDepth = minDepthLog,
+            .maxDepth = maxDepthLog,
+            .maxEvents = events.max_size(),
+            .recording = recording.value_or(this->recording)
+        });
+    }
+
+    arc::CircularBuffer<Event> const& getEvents() const { return events; }
+    std::map<std::string_view, Stats> const& getStats() const { return perMethod; }
+    std::size_t getTotalCalls() const { return nextCallId; }
+    std::size_t getMaxDepthSeen() const { return maxDepthSeen; }
+    std::size_t getMinDepth() const { return minDepthLog; }
+    std::size_t getMaxDepth() const { return maxDepthLog; }
+
+    bool impl(Spy::enable) { startRecording(); return true; }
+    bool impl(Spy::disable) { stopRecording(); return true; }
 
     template<class Method, class Caller, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, Caller const& impl_fn, Args&&... args)
+    decltype(auto) impl(Spy::intercept, Method, Caller const& impl_fn, Args&&... args)
     {
+        // Hard bypass when paused: no id, no stats, no stack, no events.
+        // Caller observes a pure forward to the underlying implementation.
+        if (!recording)
+            return impl_fn(std::forward<Args>(args)...);
+
         auto& stack = parentStack();
         std::size_t const d = stack.size();
         std::size_t const id = nextCallId++;
@@ -93,7 +148,7 @@ struct TracerSpy : arc::Node
 
         std::string_view const name = arc::typeName<Method>;
         std::string_view const nodeName = arc::typeName<typename Caller::NodeHandle>;;
-        bool const recordThis = d < maxDepthLog;
+        bool const recordThis = d >= minDepthLog && d < maxDepthLog;
 
         if (recordThis)
         {
@@ -175,6 +230,20 @@ struct TracerSpy : arc::Node
     void writeSummary(std::ostream& os, Format fmt) const;
 
 private:
+    std::size_t minDepthLog = defaultMinDepth;
+    std::size_t maxDepthLog = defaultMaxDepth;
+    bool recording = defaultRecording;
+
+    // Bounded ring buffer: oldest events are evicted when capacity is reached.
+    // Per-method `Stats` are independent and accumulate across evictions, so the
+    // summary remains accurate even when the trace itself has been truncated.
+    arc::CircularBuffer<Event> events{defaultMaxEvents};
+    std::map<std::string_view, Stats> perMethod;
+    std::size_t nextCallId = 0;
+    std::size_t maxDepthSeen = 0;
+
+    static std::vector<std::size_t>& parentStack();
+
     void recordExit(std::size_t id, std::size_t d, std::string_view name, std::string_view nodeName,
                     std::chrono::nanoseconds dt,
                     std::string_view retType, std::string retValue, bool hasValue);

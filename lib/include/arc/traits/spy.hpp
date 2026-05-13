@@ -18,13 +18,17 @@ struct SpyOnly : detail::SpyBase
 {
     struct Meta : detail::SpyBase::Meta
     {
-        struct ImplQualified : detail::SpyBase::Meta::Methods
+        struct Impl : detail::SpyBase::Meta::Impl
         {
-            struct SpyOnly : detail::SpyBase::Meta::MethodTags
-            {
-                using Impl = detail::SpyBase::Meta::Methods;
-            };
-            static void impl() = delete;
+            using SpyOnly = detail::SpyBase::Meta::Impl::SpyBase;
+        private:
+            using SpyBase = detail::SpyBase::Meta::Impl::SpyBase;
+        };
+        struct ImplQualified : detail::SpyBase::Meta::ImplQualified
+        {
+            using SpyOnly = detail::SpyBase::Meta::ImplQualified::SpyBase;
+        private:
+            using SpyBase = detail::SpyBase::Meta::ImplQualified::SpyBase;
         };
     };
 
@@ -41,13 +45,17 @@ struct Spy : detail::SpyBase
 {
     struct Meta : detail::SpyBase::Meta
     {
-        struct ImplQualified : detail::SpyBase::Meta::Methods
+        struct Impl : detail::SpyBase::Meta::Impl
         {
-            struct Spy : detail::SpyBase::Meta::MethodTags
-            {
-                using Impl = detail::SpyBase::Meta::Methods;
-            };
-            static void impl() = delete;
+            using Spy = detail::SpyBase::Meta::Impl::SpyBase;
+        private:
+            using SpyBase = detail::SpyBase::Meta::Impl::SpyBase;
+        };
+        struct ImplQualified : detail::SpyBase::Meta::ImplQualified
+        {
+            using Spy = detail::SpyBase::Meta::ImplQualified::SpyBase;
+        private:
+            using SpyBase = detail::SpyBase::Meta::ImplQualified::SpyBase;
         };
     };
 

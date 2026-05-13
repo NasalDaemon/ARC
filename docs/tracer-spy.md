@@ -84,7 +84,7 @@ Event schema:
 | `ret` | exit | Return value (omitted when not formattable) |
 | `what` | throw | `std::exception::what()`, or `"<unknown>"` for non-`std::exception` throws |
 | `calls`, `exc`, `total_ns`, `max_ns` | summary | Per-method aggregates |
-| `total_calls`, `max_depth` | summary_meta | Whole-run aggregates |
+| `total_calls`, `max_depth`, `events_emitted`, `events_in_buffer`, `events_evicted`, `events_capacity` | summary_meta | Whole-run aggregates. `events_evicted > 0` means the ring buffer dropped its oldest events; per-method stats are unaffected. |
 
 ## API
 
@@ -97,14 +97,36 @@ struct TracerSpy : Node
 
     enum class Format { Jsonl, Human };
 
-    int maxDepthLog = 64;        // Skip recording events deeper than this; stats still accumulate.
-    std::vector<Event> events;   // Public for direct inspection / custom rendering.
-    std::map<std::string, Stats, std::less<>> perMethod;
-    std::uint64_t nextCallId = 0;
-    int maxDepthSeen = 0;
+    static constexpr std::size_t defaultMaxEvents = 32 * 1024;
+
+    struct Params
+    {
+        std::size_t minDepth = 0;                 // Skip events at depth < minDepth (stats still accumulate).
+        std::size_t maxDepth = 64;                // Skip events at depth >= maxDepth (stats still accumulate).
+        std::size_t maxEvents = defaultMaxEvents; // Ring buffer capacity; oldest evict on overflow.
+        bool        recording = true;             // Construct paused; toggle via start/stopRecording().
+    };
 
     TracerSpy();
-    explicit TracerSpy(int maxDepth);
+    explicit TracerSpy(Params p);
+
+    void startRecording();          // Resume the bypassed call path.
+    void stopRecording();           // Pause: calls are forwarded with zero recording or stats overhead.
+    bool isRecording() const;
+
+    // Discard events + stats, apply new Params (resizes ring + zeroes ids).
+    void reset(Params p);
+    // Same as reset() but keep current min/maxDepth + maxEvents;
+    // optionally override recording (defaults to current value).
+    void reset(std::optional<bool> recording = std::nullopt);
+
+    // Read-only accessors. State is otherwise private.
+    arc::CircularBuffer<Event> const& getEvents()       const;  // ring buffer; oldest entries evict on overflow
+    std::map<std::string_view, Stats> const& getStats() const;  // per-method aggregates; survive eviction
+    std::size_t getTotalCalls()    const;                       // every intercepted call, filtered or not
+    std::size_t getMaxDepthSeen()  const;
+    std::size_t getMinDepth()      const;
+    std::size_t getMaxDepth()      const;
 
     // Render trace events followed by the summary block.
     void write(std::ostream& os, Format fmt) const;
@@ -147,20 +169,47 @@ graph.global->write(trace, arc::TracerSpy::Format::Jsonl);
 CHECK(trace.str().find("\"method\":\"app::trait::Storage::get\"") != std::string::npos);
 ```
 
-### Bound recording depth on huge tests
+### Tune recording window and buffer size via `Params`
 
 ```cpp
 arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{
-    .global{ARC_EMPLACE(8)},   // explicit TracerSpy(int maxDepth)
+    .global{{
+        .minDepth = 1,        // skip top-level test-driver calls
+        .maxDepth = 8,        // skip deep recursion
+        .maxEvents = 16384,   // ring size; oldest evict on overflow
+    }},
     .main{}
 };
-// Stats accumulate for all calls; events deeper than 8 are not recorded.
+// Stats accumulate for every call regardless of min/maxDepth filters.
+// `events_evicted` in summary_meta reports how many entries were dropped by the ring.
+```
+
+> **Golden-file traces:** when diffing JSONL output across runs, size `maxEvents` above the expected event count, otherwise eviction will shift the recorded prefix between runs and break the diff.
+
+The event log is an `arc::CircularBuffer`, so each event also has a stable buffer slot id via the iterator's `id()` / `is_valid_id()` — useful when post-processing across multiple `write*` calls.
+
+### Runtime toggle via the Spy trait
+
+`enable()` and `disable()` are trait methods of `arc::trait::Spy`. They call `startRecording()`/`stopRecording()`, allowing arbitrary nodes in the graph to toggle spying. This can be helpful in reducing noise when only specific phases of execution are of interest.
+
+```cpp
+struct MyNode : arc::NodeImpl<MyTrait>
+{
+    void doSomething()
+    {
+        // ...
+        getGlobal(arc::spy).enable();   // start recording from here
+        // ...
+        getGlobal(arc::spy).disable();  // stop recording from here
+        // ...
+    }
+};
 ```
 
 ### Inspect events programmatically
 
 ```cpp
-for (auto const& e : graph.global->events)
+for (auto const& e : graph.global->getEvents())
     if (e.kind == arc::TracerSpy::Event::Kind::Throw)
         std::println("Exception in {}: {}", e.method, e.what);
 ```

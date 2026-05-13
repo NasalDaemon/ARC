@@ -20,7 +20,6 @@ target_sources(arc_lib_compiled PRIVATE src/tracer_spy.cpp)
 target_link_libraries(arc_module_lib PRIVATE arc_lib)
 target_include_directories(arc_module_lib PUBLIC  macros/include)
 target_include_directories(arc_module_lib PRIVATE src/include)
-target_sources(arc_module_lib PRIVATE modules/tracer_spy.cpp)
 
 target_generate_arc_headers(arc_lib INCLUDE_DIR include)
 
@@ -40,5 +39,6 @@ if(ARC_STACKTRACE_ENABLED)
 endif()
 
 if(CMAKE_CXX_MODULE_STD)
+    target_sources(arc_module_lib PRIVATE modules/tracer_spy.cpp)
     target_compile_definitions(arc_module_lib PUBLIC ARC_IMPORT_STD=1)
 endif()

@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ARC_MANUAL_TRAIT_HPP
 #define INCLUDE_ARC_MANUAL_TRAIT_HPP
 
+#include "arc/args.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/invoke_method_fwd.hpp"

@@ -46,7 +46,7 @@ ARC provides higher-order node wrappers for use in cluster definitions. See `/ar
 
 | Type | Cluster usage | Description |
 |------|--------------|-------------|
-| `arc::TracerSpy` | `arc::GraphWithGlobal<cluster::App, arc::TracerSpy>` (as global) | Built-in `arc::trait::Spy` implementation. Records every intercepted trait call losslessly into an in-memory event log (id, parent, depth, method, args, return, timing, exceptions). Render on demand as JSONL or human-readable text via `write(os, Format)`. Designed for agentic debugging of integration tests. See [docs/tracer-spy.md](../../../docs/tracer-spy.md). |
+| `arc::TracerSpy` | `arc::GraphWithGlobal<cluster::App, arc::TracerSpy>` (as global) | Built-in `arc::trait::Spy` implementation. Records every intercepted trait call into an `arc::CircularBuffer` event log (id, parent, depth, method, args, return, timing, exceptions); oldest events evict on overflow while per-method stats stay accurate. Render on demand as JSONL or human-readable text via `write(os, Format)`. Designed for agentic debugging of integration tests. See [docs/tracer-spy.md](../../../docs/tracer-spy.md). |
 
 ## Access Control & Composition
 
@@ -279,13 +279,14 @@ graph.global->write(file,      arc::TracerSpy::Format::Jsonl);   // JSONL for ag
 ```
 
 **Key properties:**
-- Recording is lossless and format-agnostic; rendering is on demand via `write` / `writeTrace` / `writeSummary`.
-- Each event carries stable `id` + `parent` so callers can rebuild the call tree without parsing indentation.
-- Each event carries the intercepted `node` handle name (read from the spy caller's `Context::NodeHandle`) for instant grounding back to the cluster definition.
-- Argument and return values are best-effort formatted (`std::formattable`); non-formattable types degrade to type-name-only.
-- `evt: "summary"` block per method (calls, exceptions, total/max time) makes run-to-run regression diffing trivial.
-- Use `arc::TracerSpy{maxDepth}` to bound recording depth on large tests; statistics still accumulate for skipped events.
-- Public `events` vector exposes the raw recording for custom post-processing (flame graphs, golden-file checks, etc.).
+- Format-agnostic recording; render on demand via `write` / `writeTrace` / `writeSummary`.
+- Ring buffer (`CircularBuffer<Event>`, default cap 32 Ki); oldest events evict on overflow. Per-method `Stats` survive eviction — `summary_meta` reports `events_evicted`.
+- Each event: `id`+`parent` (call tree), `depth`, `node` handle type, args/return (best-effort `std::formattable`), timing.
+- `startRecording()`/`stopRecording()` — hard bypass; zero stats/id overhead when paused. Nodes inside the graph can scope tracing via `self.getGlobal(arc::trait::spy).enable()`/`.disable()`.
+- `Params`: `minDepth`/`maxDepth` filter noise, `maxEvents` sizes ring, `recording=false` pauses recording.
+- `reset(Params)` clears all state and applies new Params; `reset()` keeps current Params.
+- Accessors: `getEvents()`, `getStats()`, `getTotalCalls()`, `getMaxDepthSeen()`.
+- For golden-file diffing, size `maxEvents` above expected event count to avoid prefix drift.
 
 Full reference and JSONL schema: [docs/tracer-spy.md](../../../docs/tracer-spy.md).
 

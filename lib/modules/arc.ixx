@@ -2,6 +2,7 @@ module;
 
 #if !ARC_IMPORT_STD
 #include "arc/arc.hpp"
+#include "arc/nodes/tracer_spy.tpp"
 #endif
 
 export module arc;

@@ -4,6 +4,22 @@
 
 namespace arc {
 
+void TracerSpy::reset(Params p)
+{
+    // CircularBuffer's move-assign deliberately preserves writeIndex
+    // monotonicity (to invalidate stale IDs across reassignment), so a
+    // plain `events = CircularBuffer{...}` keeps end_id growing. Destroy
+    // and re-construct in place to get a fresh buffer with begin_id = 0.
+    std::destroy_at(&events);
+    std::construct_at(&events, p.maxEvents);
+    perMethod.clear();
+    nextCallId = 0;
+    maxDepthSeen = 0;
+    minDepthLog = p.minDepth;
+    maxDepthLog = p.maxDepth;
+    recording = p.recording;
+}
+
 std::vector<std::size_t>& TracerSpy::parentStack()
 {
     thread_local std::vector<std::size_t> s;
@@ -24,25 +40,41 @@ void TracerSpy::writeTrace(std::ostream& os, Format fmt) const
 
 void TracerSpy::writeSummary(std::ostream& os, Format fmt) const
 {
-    if (fmt == Format::Jsonl)
+    switch (fmt)
     {
-        for (auto const& [m, s] : perMethod)
+        case Format::Jsonl:
         {
+            for (auto const& [m, s] : perMethod)
+            {
+                std::println(os,
+                    R"({{"evt":"summary","method":"{}","calls":{},"exc":{},"total_ns":{},"max_ns":{}}})",
+                    jsonEscape(m), s.calls, s.exceptions, s.total.count(), s.maxTime.count());
+            }
             std::println(os,
-                R"({{"evt":"summary","method":"{}","calls":{},"exc":{},"total_ns":{},"max_ns":{}}})",
-                jsonEscape(m), s.calls, s.exceptions, s.total.count(), s.maxTime.count());
+                R"({{"evt":"summary_meta","total_calls":{},"max_depth":{},"events_emitted":{},"events_in_buffer":{},"events_evicted":{},"events_capacity":{}}})",
+                nextCallId, maxDepthSeen, events.end_id(), events.size(), events.begin_id(), events.max_size());
+            break;
         }
-        std::println(os,
-            R"({{"evt":"summary_meta","total_calls":{},"max_depth":{}}})",
-            nextCallId, maxDepthSeen);
-    }
-    else
-    {
-        std::println(os, "=== TracerSpy summary ===");
-        for (auto const& [m, s] : perMethod)
-            std::println(os, "  {:<60} calls={:>6} exc={:>3} total={}ns max={}ns",
-                m, s.calls, s.exceptions, s.total.count(), s.maxTime.count());
-        std::println(os, "  total_calls={} max_depth={}", nextCallId, maxDepthSeen);
+        case Format::Human:
+        {
+            std::println(os, "=== TracerSpy summary ===");
+            for (auto const& [m, s] : perMethod)
+            {
+                if constexpr (compiler < gcc(15))
+                {
+                    std::println(os, "  {} calls={} exc={} total={}ns max={}ns",
+                        m, s.calls, s.exceptions, s.total.count(), s.maxTime.count());
+                }
+                else
+                {
+                    std::println(os, "  {:<60} calls={:>6} exc={:>3} total={}ns max={}ns",
+                        m, s.calls, s.exceptions, s.total.count(), s.maxTime.count());
+                }
+            }
+            std::println(os, "  total_calls={} max_depth={} events={}/{} evicted={}",
+                nextCallId, maxDepthSeen, events.size(), events.max_size(), events.begin_id());
+            break;
+        }
     }
 }
 
@@ -173,7 +205,7 @@ void TracerSpy::writeEventHuman(std::ostream& os, Event const& e) const
     }
 }
 
-/*static*/ std::string TracerSpy::jsonEscape(std::string_view s)
+std::string TracerSpy::jsonEscape(std::string_view s)
 {
     std::string out;
     out.reserve(s.size());

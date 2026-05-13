@@ -409,27 +409,41 @@ struct LoggerSpy : arc::Node
 };
 ```
 
-### Conditional Spying
+### Runtime enable / disable
 
-Enable/disable spying at runtime:
+Both `arc::trait::Spy` and `arc::trait::SpyOnly<T>` declare two optional toggle methods:
+
+```arc
+trait arc::detail::SpyBase
+{
+    // ...
+    enable()  -> bool { return false; }
+    disable() -> bool { return false; }
+}
+```
+
+The defaults return `false` (not supported). A spy that implements runtime toggling overrides them and returns `true`. This allows any node in the graph to scope spying to specific phases of execution.
 
 ```cpp
 struct ConditionalSpy : arc::Node
 {
     using Traits = arc::Traits<arc::trait::Spy>;
 
+    bool impl(arc::trait::Spy::enable)  { active = true;  return true; }
+    bool impl(arc::trait::Spy::disable) { active = false; return true; }
+
     template<class Method, class... Args>
     decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
     {
-        // Spy logic only when enabled
-        if (enabled)
+        if (active)
             recordCall<Method>();
         return impl_fn(std::forward<Args>(args)...);
     }
 
-    bool enabled = true;
+    bool active = true;
 };
 ```
+`arc::TracerSpy` implements both methods. See [TracerSpy](tracer-spy.md#runtime-toggle-via-the-spy-trait) for an example.
 
 ## Performance Considerations
 
