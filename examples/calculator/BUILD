@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-load("//bazel:cpp_module.bzl", "cc_module_bundle")
+load("//bazel:cpp_module.bzl", "cpp_module")
 load("//bazel:arc_gen.bzl", "arc_module_library")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -34,7 +34,7 @@ arc_graph(
     },
 )
 
-cc_module_bundle(
+cpp_module(
     name = "calc_main",
     srcs = ["src/main.cpp"],
     module_deps = [":calc_lib", ":batch_graph", ":interactive_graph"],
@@ -96,7 +96,7 @@ arc_graph(
     nodes = GRAPH_NODES,
 )
 
-cc_module_bundle(
+cpp_module(
     name = "calc_test_srcs",
     srcs = glob(["tests/test_*.cpp"]),
     module_deps = [

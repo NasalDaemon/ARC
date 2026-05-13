@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-load("//bazel:cpp_module.bzl", "cc_module_bundle")
+load("//bazel:cpp_module.bzl", "cpp_module")
 load("//bazel:arc_gen.bzl", "arc_module_library")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -31,7 +31,7 @@ arc_graph(
     nodes = GRAPH_NODES,
 )
 
-cc_module_bundle(
+cpp_module(
     name = "fs_in_memory_repl",
     srcs = ["in_memory_repl.cpp"],
     module_deps = [":fs_lib", ":in_memory_repl_graph"],
@@ -42,7 +42,7 @@ cc_binary(
     deps = [":fs_in_memory_repl"],
 )
 
-cc_module_bundle(
+cpp_module(
     name = "fs_disk_repl",
     srcs = ["disk_repl.cpp"],
     module_deps = [":fs_lib", ":disk_repl_graph"],
@@ -107,7 +107,7 @@ arc_graph(
     },
 )
 
-cc_module_bundle(
+cpp_module(
     name = "fs_test_srcs",
     srcs = glob(["tests/test_*.cpp"]),
     module_deps = [

@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load("//bazel:cpp_module.bzl", "cc_module_bundle")
+load("//bazel:cpp_module.bzl", "cpp_module")
 load("//bazel:arc_gen.bzl", "arc_header_library", "arc_module_library")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -124,6 +124,7 @@ arc_module_library(
         "test_datastore/test_datastore.cpp",
         "test_datastore/test_single_listener.cpp",
         "test_protocol.cpp",
+        "test_tracer_spy.cpp",
     ],
     deps = ["//lib:arc_headers"],
 )
@@ -137,7 +138,7 @@ arc_module_library(
 # arc_tests_module test binary
 ###########################################################################
 
-cc_module_bundle(
+cpp_module(
     name = "module_test_srcs",
     srcs = glob(
         ["test_*.cpp", "test_datastore/*.cpp", "test_repeater/main.cpp"],
@@ -171,7 +172,7 @@ cc_test(
 # arc_tests_mock test binary
 ###########################################################################
 
-cc_module_bundle(
+cpp_module(
     name = "mock_test_srcs",
     srcs = [
         "test_combine.cpp",
@@ -205,7 +206,7 @@ arc_module_library(
     ],
 )
 
-cc_module_bundle(
+cpp_module(
     name = "thread_test_srcs",
     srcs = glob(["test_thread/test_*.cpp"]),
     module_deps = [":thread_lib"],

@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
-load("//bazel:cpp_module.bzl", "cc_module_bundle")
+load("//bazel:cpp_module.bzl", "cpp_module")
 load("//bazel:arc_gen.bzl", "arc_module_library")
 
 arc_module_library(
@@ -9,7 +9,7 @@ arc_module_library(
     tags = ["manual"],
 )
 
-cc_module_bundle(
+cpp_module(
     name = "bench99_seq_main",
     srcs = ["main.cpp"],
     module_deps = [":bench99_seq_lib"],

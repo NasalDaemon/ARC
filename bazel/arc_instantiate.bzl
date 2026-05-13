@@ -1,7 +1,7 @@
 """Macros to generate ARC instantiation sources."""
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//bazel:cpp_module.bzl", "cpp_module", "cpp_module_group")
+load("//bazel:cpp_module.bzl", "cpp_module")
 load("@arc_module_deps//:module_deps.bzl", "MODULE_PROVIDER_TARGETS")
 
 def _write_src_impl(ctx):
@@ -46,8 +46,8 @@ def arc_graph(
     whether graph_module or graph_header is supplied.  Exactly one must be set.
 
     Module variant (graph_module):
-        Creates one cpp_module partition per node, then groups them under
-        `name` via cpp_module_group.
+        Bundles one module partition per node into a single cpp_module target
+        named `name`.
 
         nodes: dict of {node_name: node_module}
             node_name   — dot-path of the node in the graph (e.g. "alice")
@@ -75,22 +75,28 @@ def arc_graph(
 
 def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, kwargs):
     hash_str = _graph_type_hash(graph_type)
-    child_targets = []
     tags = kwargs.get("tags", [])
     testonly = kwargs.get("testonly", False)
+    pkg = native.package_name()
+
+    all_mods = []
+    module_names = {}
+    known_direct_deps_map = {}
+    computed_module_deps = []
+    seen = {}
 
     for node_name, node_module in nodes.items():
         safe_node = node_module.replace(".", "_").replace(":", "__")
-        child_name = name + "__" + safe_node
+        child_prefix = name + "__" + safe_node
+        out_file = child_prefix + "_arc_inst.ixx"
+        src_name = child_prefix + "_gensrc"
 
-        out_file = child_name + "_arc_inst.cpp"
         module_name = "{node_module}:{impl_partition}_{hash}".format(
             node_module = node_module,
             impl_partition = impl_partition,
             hash = hash_str,
         )
 
-        src_name = child_name + "_gensrc"
         _write_src(
             name = src_name,
             out = out_file,
@@ -118,36 +124,29 @@ ARC_INSTANTIATE(({graph_type}), {node_name})
             ),
         )
 
-        # Direct imports are statically known; resolve provider targets automatically.
-        known_direct_deps = [
+        all_mods.append(":" + src_name)
+        module_names[pkg + "/" + out_file] = module_name
+
+        direct_deps = [
             "{node_module}:{impl_partition}".format(
-                node_module = node_module,
-                impl_partition = impl_partition,
-            ),
+                node_module = node_module, impl_partition = impl_partition),
             graph_module,
             "arc",
         ]
-        computed_module_deps = [
-            MODULE_PROVIDER_TARGETS[m]
-            for m in known_direct_deps
-            if m in MODULE_PROVIDER_TARGETS
-        ]
+        known_direct_deps_map[module_name] = direct_deps
+        for dep_module in direct_deps:
+            label = MODULE_PROVIDER_TARGETS.get(dep_module)
+            if label != None and label not in seen:
+                seen[label] = True
+                computed_module_deps.append(label)
 
-        cpp_module(
-            name = child_name,
-            module_name = module_name,
-            src = ":" + src_name,
-            module_deps = computed_module_deps,
-            known_direct_deps = known_direct_deps,
-            leaf = True,
-            tags = tags,
-            testonly = testonly,
-        )
-        child_targets.append(":" + child_name)
-
-    cpp_module_group(
+    cpp_module(
         name = name,
-        module_deps = child_targets,
+        mods = all_mods,
+        module_names = module_names,
+        module_deps = computed_module_deps,
+        known_direct_deps_map = known_direct_deps_map,
+        leaf = True,
         **kwargs
     )
 

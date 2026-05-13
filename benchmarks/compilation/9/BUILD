@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
-load("//bazel:cpp_module.bzl", "cc_module_bundle")
+load("//bazel:cpp_module.bzl", "cpp_module")
 load("//bazel:arc_gen.bzl", "arc_module_library")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -28,7 +28,7 @@ arc_graph(
     tags = ["manual"],
 )
 
-cc_module_bundle(
+cpp_module(
     name = "bench9_main",
     srcs = ["main.cpp"],
     module_deps = [":bench9_lib", ":bench9_graph"],
