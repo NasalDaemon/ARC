@@ -29,6 +29,7 @@ add_executable(arc_tests_module
     test_datastore/test_single_listener.cpp
     test_protocol.cpp
     test_spy.cpp
+    test_tracer_spy.cpp
     test_union.cpp
     test_virtual.cpp
     test_repeater/main.cpp
@@ -100,6 +101,7 @@ target_generate_arc_modules(arc_tests_module
         test_null_trait.cpp
         test_protocol.cpp
         test_spy.cpp
+        test_tracer_spy.cpp
         test_virtual.cpp
 )
 

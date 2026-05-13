@@ -50,8 +50,12 @@ Think of it as **Aspect-Oriented Programming (AOP)** for traits - you can inject
 
 When a spy exists in the context, trait calls are routed through `getGlobal(trait::spy).intercept(method, impl_fn, args...)`. The spy receives:
 - **method**: The trait method tag (e.g., `trait::Storage::get`)
-- **impl_fn**: The actual implementation (callable)
+- **impl_fn**: The actual implementation (callable). `impl_fn` is an implementation defined instance `ImplFn`, exposing compile-time identity of the intercepted node:
+  - `typename ImplFn::Context` — the full context type at the call site, useful for context-aware spy logic.
+  - `typename ImplFn::NodeHandle` — user-facing node type as named in the cluster (e.g. `app::node::Mirror`), read directly off `Context::NodeHandle`.
 - **args**: The method arguments
+
+The call operator on `ImplFn` simply forwards to the original implementation, so spies that ignore the type info continue to work unchanged.
 
 The spy has complete control over execution:
 - **Before**: Inspect/modify arguments, validate, log

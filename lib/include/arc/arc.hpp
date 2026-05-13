@@ -14,6 +14,7 @@
 #include "arc/nodes/lazy.hpp"
 #include "arc/nodes/narrow.hpp"
 #include "arc/nodes/thread.hpp"
+#include "arc/nodes/tracer_spy.hpp"
 #include "arc/nodes/union.hpp"
 #include "arc/nodes/virtual.hpp"
 #include "arc/nodes/with_assert_handler.hpp"

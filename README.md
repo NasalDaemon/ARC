@@ -303,6 +303,7 @@ int main()
 - [Embedding ARC DSL into source files](docs/arc-embed.md)
 - [Selective runtime polymorphism](docs/runtime-polymorphism.md)
 - [Spy trait for global method interception](docs/spy-trait.md)
+- [TracerSpy: built-in tracing spy for tests and agentic debugging](docs/tracer-spy.md)
 
 ### Compilable [examples](examples/)
 - [Filesystem](examples/filesystem): In-memory filesystem with CLI interface

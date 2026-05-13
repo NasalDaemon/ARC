@@ -42,6 +42,12 @@ ARC provides higher-order node wrappers for use in cluster definitions. See `/ar
 | `arc::AnyThread<Node>` | `shared = node::Shared : arc::AnyThread` | No thread restriction — accessible from any thread. |
 | `arc::OnDynThread<Node>` | `worker = node::Worker : arc::OnDynThread` | Thread ID assigned at construction time. |
 
+## Debugging & Observability
+
+| Type | Cluster usage | Description |
+|------|--------------|-------------|
+| `arc::TracerSpy` | `arc::GraphWithGlobal<cluster::App, arc::TracerSpy>` (as global) | Built-in `arc::trait::Spy` implementation. Records every intercepted trait call losslessly into an in-memory event log (id, parent, depth, method, args, return, timing, exceptions). Render on demand as JSONL or human-readable text via `write(os, Format)`. Designed for agentic debugging of integration tests. See [docs/tracer-spy.md](../../../docs/tracer-spy.md). |
+
 ## Access Control & Composition
 
 | Type | Cluster usage | Description |
@@ -256,6 +262,32 @@ cluster GlobalSpies
 ```
 
 Zero overhead when no spy is present. Use for testing, profiling, audit logging, input validation, or debug tracing.
+
+---
+
+## TracerSpy
+
+Turnkey global spy for integration tests — the easy path before writing a custom `arc::trait::Spy`.
+
+```cpp
+arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{ .global{}, .main{ /* ... */ } };
+
+graph->api.asTrait(trait::request).handle("GET", "/items/42");
+
+graph.global->write(std::cout, arc::TracerSpy::Format::Human);   // indented tree + summary
+graph.global->write(file,      arc::TracerSpy::Format::Jsonl);   // JSONL for agents / diffing
+```
+
+**Key properties:**
+- Recording is lossless and format-agnostic; rendering is on demand via `write` / `writeTrace` / `writeSummary`.
+- Each event carries stable `id` + `parent` so callers can rebuild the call tree without parsing indentation.
+- Each event carries the intercepted `node` handle name (read from the spy caller's `Context::NodeHandle`) for instant grounding back to the cluster definition.
+- Argument and return values are best-effort formatted (`std::formattable`); non-formattable types degrade to type-name-only.
+- `evt: "summary"` block per method (calls, exceptions, total/max time) makes run-to-run regression diffing trivial.
+- Use `arc::TracerSpy{maxDepth}` to bound recording depth on large tests; statistics still accumulate for skipped events.
+- Public `events` vector exposes the raw recording for custom post-processing (flame graphs, golden-file checks, etc.).
+
+Full reference and JSONL schema: [docs/tracer-spy.md](../../../docs/tracer-spy.md).
 
 ---
 

@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ARC_INVOKE_METHOD_HPP
 #define INCLUDE_ARC_INVOKE_METHOD_HPP
 
+#include "arc/context_fwd.hpp"
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/invoke_method_fwd.hpp"
@@ -16,7 +17,26 @@ namespace arc {
 
 namespace detail {
 
-    template<class View, class Node, class Method, class... Args>
+    // Wrapper around the spy-dispatch callable that surfaces compile-time
+    // identity of the intercepted node so spies can read it off `impl_fn`.
+    template<class ContextT, class Inner>
+    struct SpyCaller
+    {
+        using Context = ContextT;
+        // The intercepted node's user-facing handle — the same type a cluster
+        // definition names via `foo = node::Foo` (or its higher-order wrapper).
+        // Read directly off the context's `NodeHandle` typedef.
+        using NodeHandle = ContextT::NodeHandle;
+
+        Inner inner;
+
+        ARC_INLINE constexpr decltype(auto) operator()(auto&&... args) const
+        {
+            return inner(ARC_FWD(args)...);
+        }
+    };
+
+    template<class Context, class View, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethodWithGlobal(std::nullptr_t, View&& view, Node& node, Method method, Args&&... args)
     {
         static_assert(CanInvokeMethod<Node, Method, Args...>);
@@ -27,12 +47,12 @@ namespace detail {
             return invokeMethodDefault(view, method, ARC_FWD(args)...);
     }
 
-    template<class GlobalTraitView, class View, class Node, class Method, class... Args>
+    template<class Context, class GlobalTraitView, class View, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethodWithGlobal(GlobalTraitView global, View&& view, Node& node, Method method, Args&&... args)
     {
         static_assert(CanInvokeMethod<Node, Method, Args...>);
         static_assert(HasMethods<View>);
-        auto const caller = [&](auto&&... spyArgs) -> decltype(auto)
+        auto caller = [&](auto&&... spyArgs) -> decltype(auto)
         {
             if constexpr (ImplementsMethod<Node, Method, Args...>)
                 return node.impl(Method{}, static_cast<Args&&>(*static_cast<std::remove_reference_t<Args>*>(std::addressof(spyArgs)))...);
@@ -40,7 +60,7 @@ namespace detail {
                 return invokeMethodDefault(view, Method{}, static_cast<Args&&>(*static_cast<std::remove_reference_t<Args>*>(std::addressof(spyArgs)))...);
         };
 
-        return global.intercept(method, caller, ARC_FWD(args)...);
+        return global.intercept(method, SpyCaller<Context, decltype(caller)>(std::move(caller)), ARC_FWD(args)...);
     }
 
     template<class Context, class Trait, class Node>
@@ -56,7 +76,7 @@ namespace detail {
     ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args)
     {
         static_assert(CanInvokeMethod<Node, Method, Args...>);
-        return invokeMethodWithGlobal(getGlobal<Context, Trait>(node), node, node, method, ARC_FWD(args)...);
+        return invokeMethodWithGlobal<Context>(getGlobal<Context, Trait>(node), node, node, method, ARC_FWD(args)...);
     }
 
     template<class Method>

@@ -149,7 +149,7 @@ struct TraitView final : Trait::Meta::Methods
     requires CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
     ARC_INLINE constexpr decltype(auto) impl(this Self&& self, Method method, Args&&... args)
     {
-        return detail::invokeMethodWithGlobal(detail::getGlobal<ContextOf<Node>, Trait>(self.alias.get()), self, self.alias.get(), method, ARC_FWD(args)...);
+        return detail::invokeMethodWithGlobal<ContextOf<Node>>(detail::getGlobal<ContextOf<Node>, Trait>(self.alias.get()), self, self.alias.get(), method, ARC_FWD(args)...);
     }
 
     template<class Self, IsMethodOf<Trait> Method>
@@ -171,7 +171,7 @@ private:
 
         ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
         {
-            return detail::invokeMethodWithGlobal(detail::getGlobal<ContextOf<Node>, Trait>(self.alias.get()), TraitView({}, self.alias, {}), self.alias.get(), Method{}, ARC_FWD(args)...);
+            return detail::invokeMethodWithGlobal<ContextOf<Node>>(detail::getGlobal<ContextOf<Node>, Trait>(self.alias.get()), TraitView({}, self.alias, {}), self.alias.get(), Method{}, ARC_FWD(args)...);
         }
     };
 

@@ -354,6 +354,11 @@ export namespace arc {
         using test::Graph;
         using test::GraphWithGlobal;
     }
+    // nodes/tracer_spy.hpp
+    using arc::TracerSpy;
+    namespace node {
+        using node::TracerSpy;
+    }
     // nodes/thread.hpp
     using arc::ThreadEnvironment;
     using arc::OnThread;
