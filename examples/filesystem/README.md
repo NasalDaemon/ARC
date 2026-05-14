@@ -229,7 +229,7 @@ This makes each component **independently evolvable**. You could replace `Memory
 
 ### Pattern 4: Declarative Wiring
 
-The cluster definition in [`clusters.ixx.arc`](./clusters.ixx.arc) is a **complete, readable specification** of how components connect:
+The cluster definition in [`src/clusters.ixx.arc`](./src/clusters.ixx.arc) is a **complete, readable specification** of how components connect:
 
 ```arc
 cluster Filesystem [Root]
@@ -268,20 +268,20 @@ This makes the architecture **visible and refactorable**. The `LineReader` depen
 
 ## Files
 
-- [`in_memory_repl.cpp`](./in_memory_repl.cpp) - In-memory filesystem REPL entry point
-- [`disk_repl.cpp`](./disk_repl.cpp) - Disk-backed filesystem REPL entry point
-- [`clusters.ixx.arc`](./clusters.ixx.arc) - Cluster definitions and component wiring
-- [`graphs.ixx`](./graphs.ixx) - Graph type aliases for different storage backends
-- [`traits.ixx.arc`](./traits.ixx.arc) - Trait definitions with `pre`/`post` contracts
-- [`types.ixx`](./types.ixx) - Filesystem entry types (`Entry`, `DiskEntry`) and error handling
-- [`nodes/filesystem.ixx`](./nodes/filesystem.ixx) - Filesystem nexus coordinator node
-- [`nodes/memory_storage.ixx`](./nodes/memory_storage.ixx) - In-memory storage backend
-- [`nodes/disk_storage.ixx`](./nodes/disk_storage.ixx) - Disk-based storage backend
-- [`nodes/path_ops.ixx`](./nodes/path_ops.ixx) - Path manipulation utilities
-- [`nodes/terminal_line_reader.ixx`](./nodes/terminal_line_reader.ixx) - Terminal input with history and cursor support
-- [`nodes/command_handler.ixx`](./nodes/command_handler.ixx) - REPL command dispatch
-- [`nodes/console_output.ixx`](./nodes/console_output.ixx) - Console output implementation
-- [`nodes/repl.ixx`](./nodes/repl.ixx) - Interactive REPL node
+- [`src/in_memory_repl.cpp`](./src/in_memory_repl.cpp) - In-memory filesystem REPL entry point
+- [`src/disk_repl.cpp`](./src/disk_repl.cpp) - Disk-backed filesystem REPL entry point
+- [`src/clusters.ixx.arc`](./src/clusters.ixx.arc) - Cluster definitions and component wiring
+- [`src/graphs.ixx`](./src/graphs.ixx) - Graph type aliases for different storage backends
+- [`src/traits.ixx.arc`](./src/traits.ixx.arc) - Trait definitions with `pre`/`post` contracts
+- [`src/types.ixx`](./src/types.ixx) - Filesystem entry types (`Entry`, `DiskEntry`) and error handling
+- [`src/nodes/filesystem.ixx`](./src/nodes/filesystem.ixx) - Filesystem nexus coordinator node
+- [`src/nodes/memory_storage.ixx`](./src/nodes/memory_storage.ixx) - In-memory storage backend
+- [`src/nodes/disk_storage.ixx`](./src/nodes/disk_storage.ixx) - Disk-based storage backend
+- [`src/nodes/path_ops.ixx`](./src/nodes/path_ops.ixx) - Path manipulation utilities
+- [`src/nodes/terminal_line_reader.ixx`](./src/nodes/terminal_line_reader.ixx) - Terminal input with history and cursor support
+- [`src/nodes/command_handler.ixx`](./src/nodes/command_handler.ixx) - REPL command dispatch
+- [`src/nodes/console_output.ixx`](./src/nodes/console_output.ixx) - Console output implementation
+- [`src/nodes/repl.ixx`](./src/nodes/repl.ixx) - Interactive REPL node
 - [`tests/`](./tests/) - BDD-style unit and integration tests
 
 ## Testing
@@ -300,13 +300,13 @@ cmake --build build --target arc_example_filesystem_tests
 
 | Concept | Where to Look | Key Takeaway |
 |---------|---------------|---------------|
-| **Trait Contracts** | [`traits.ixx.arc`](./traits.ixx.arc) | `pre`/`post` contracts with `nonEmpty()` helper |
-| **Node Implementation** | [`nodes/*.ixx`](./nodes/) | Direct method names matching trait signatures |
-| **Cluster Wiring** | [`clusters.ixx.arc`](./clusters.ixx.arc) | Declarative dependency injection with Root parameters |
-| **Swappable Backends** | [`graphs.ixx`](./graphs.ixx) | Parameterizing clusters with Root types |
+| **Trait Contracts** | [`src/traits.ixx.arc`](./src/traits.ixx.arc) | `pre`/`post` contracts with `nonEmpty()` helper |
+| **Node Implementation** | [`src/nodes/*.ixx`](./src/nodes/) | Direct method names matching trait signatures |
+| **Cluster Wiring** | [`src/clusters.ixx.arc`](./src/clusters.ixx.arc) | Declarative dependency injection with Root parameters |
+| **Swappable Backends** | [`src/graphs.ixx`](./src/graphs.ixx) | Parameterizing clusters with Root types |
 | **BDD Testing** | [`tests/`](./tests/) | `SCENARIO`/`GIVEN`/`WHEN`/`THEN` with mocks |
-| **Nexus Pattern** | [`nodes/filesystem.ixx`](./nodes/filesystem.ixx) | Coordinating multiple dependencies |
-| **Domain-Driven I/O** | [`nodes/terminal_line_reader.ixx`](./nodes/terminal_line_reader.ixx) | LineReader queries Filesystem directly for tab completion |
+| **Nexus Pattern** | [`src/nodes/filesystem.ixx`](./src/nodes/filesystem.ixx) | Coordinating multiple dependencies |
+| **Domain-Driven I/O** | [`src/nodes/terminal_line_reader.ixx`](./src/nodes/terminal_line_reader.ixx) | LineReader queries Filesystem directly for tab completion |
 | **Testable REPL** | [`tests/test_repl.cpp`](./tests/test_repl.cpp) | Mock `LineReader` to test REPL without terminal |
 
 ## Related Documentation

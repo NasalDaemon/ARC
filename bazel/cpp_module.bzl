@@ -101,10 +101,8 @@ def _get_compiler_and_toolchain(ctx):
     is_gcc = "gcc" in cc_toolchain.compiler and "clang" not in cc_toolchain.compiler
     return compiler, cc_toolchain, feature_configuration, is_gcc
 
-def _stdlib_flags(ctx, is_gcc):
-    if is_gcc:
-        return []
-    return [opt for opt in ctx.fragments.cpp.cxxopts if opt.startswith("-stdlib=")]
+def _user_cxxopts(ctx):
+    return ctx.fragments.cpp.cxxopts
 
 # ---------------------------------------------------------------------------
 # Provider collection helpers
@@ -187,7 +185,7 @@ def _create_static_lib(ctx, cc_toolchain, feature_configuration, objs, lib_name)
         executable  = archiver_path,
         arguments   = [args],
         env         = env,
-        mnemonic    = "CppModuleArchive",
+        mnemonic    = "CppCompileModuleArchive",
         inputs      = depset(direct = objs, transitive = [cc_toolchain.all_files]),
         outputs     = [output_file],
         progress_message = "Archiving module objects into {}".format(lib_name),
@@ -211,6 +209,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
         mapper, dep_gcms = _gcc_write_mapper(
             ctx, module_name, gcm, needed_modules,
             suffix = "" if not safe_name else "_" + safe_name)
+        user_cxxopts = _user_cxxopts(ctx)
         if ctx.attr.leaf:
             ctx.actions.run(
                 inputs = depset(
@@ -221,11 +220,11 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                 executable = compiler,
                 env        = _GCC_ENV,
                 arguments  = [
-                    "-std=c++23", "-fmodules-ts",
+                    "-fmodules-ts",
                     "-fmodule-mapper=" + mapper.path,
                     "-x", "c++", "-c", src.path, "-o", obj.path,
-                ] + include_flags + define_flags + ctx.attr.copts,
-                mnemonic         = "CppModuleCompile",
+                ] + user_cxxopts + include_flags + define_flags + ctx.attr.copts,
+                mnemonic         = "CppCompileModule",
                 progress_message = "Compiling C++ module {} [{}]".format(module_name, ctx.label),
             )
         else:
@@ -238,11 +237,11 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                 executable = compiler,
                 env        = _GCC_ENV,
                 arguments  = [
-                    "-std=c++23", "-fmodules-ts",
+                    "-fmodules-ts",
                     "-fmodule-mapper=" + mapper.path,
                     "-fmodule-only", "-x", "c++", "-c", src.path,
-                ] + include_flags + define_flags + ctx.attr.copts,
-                mnemonic         = "CppModulePrecompile",
+                ] + user_cxxopts + include_flags + define_flags + ctx.attr.copts,
+                mnemonic         = "CppCompileModulePrecompile",
                 progress_message = "Precompiling C++ module {} [{}]".format(module_name, ctx.label),
             )
             ctx.actions.run(
@@ -254,16 +253,16 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                 executable = compiler,
                 env        = _GCC_ENV,
                 arguments  = [
-                    "-std=c++23", "-fmodules-ts",
+                    "-fmodules-ts",
                     "-fmodule-mapper=" + mapper.path,
                     "-x", "c++", "-c", src.path, "-o", obj.path,
-                ] + include_flags + define_flags + ctx.attr.copts,
-                mnemonic         = "CppModuleCompileObj",
+                ] + user_cxxopts + include_flags + define_flags + ctx.attr.copts,
+                mnemonic         = "CppCompileModuleObj",
                 progress_message = "Compiling C++ module object {}".format(prefix),
             )
         return gcm, obj
     else:
-        stdlib = _stdlib_flags(ctx, is_gcc)
+        user_cxxopts = _user_cxxopts(ctx)
         pcm = ctx.actions.declare_file(prefix + ".pcm")
         ctx.actions.run(
             inputs = depset(
@@ -273,12 +272,11 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
             outputs    = [pcm],
             executable = compiler,
             arguments  = [
-                "-std=c++23",
                 "-x", "c++-module", "--precompile",
-            ] + stdlib + module_flags + include_flags + define_flags + ctx.attr.copts + [
+            ] + user_cxxopts + module_flags + include_flags + define_flags + ctx.attr.copts + [
                 src.path, "-o", pcm.path,
             ],
-            mnemonic         = "CppModulePrecompile",
+            mnemonic         = "CppCompileModulePrecompile",
             progress_message = "Precompiling C++ module {} [{}]".format(module_name, ctx.label),
         )
         obj = ctx.actions.declare_file(prefix + ".o")
@@ -290,10 +288,9 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
             outputs    = [obj],
             executable = compiler,
             arguments  = [
-                "-std=c++23",
                 "-c", pcm.path, "-o", obj.path,
-            ] + module_flags,
-            mnemonic         = "CppModuleCompileObj",
+            ] + user_cxxopts + module_flags,
+            mnemonic         = "CppCompileModuleObj",
             progress_message = "Compiling C++ module object {}".format(prefix),
         )
         return pcm, obj
@@ -319,11 +316,11 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
             executable = compiler,
             env        = _GCC_ENV,
             arguments  = [
-                "-std=c++23", "-fmodules-ts",
+                "-fmodules-ts",
                 "-fmodule-mapper=" + mapper.path,
                 "-c", src.path, "-o", obj.path,
-            ] + include_flags + define_flags + ctx.attr.copts,
-            mnemonic         = "CppModuleCompileSrc",
+            ] + _user_cxxopts(ctx) + include_flags + define_flags + ctx.attr.copts,
+            mnemonic         = "CppCompileModuleSrc",
             progress_message = "Compiling {} with modules".format(src.short_path),
         )
     else:
@@ -335,13 +332,11 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
             ),
             outputs    = [obj],
             executable = compiler,
-            arguments  = [
-                "-std=c++23",
-            ] + _stdlib_flags(ctx, is_gcc) + ["-c",
+            arguments  = _user_cxxopts(ctx) + ["-c",
             ] + module_flags + include_flags + define_flags + ctx.attr.copts + [
                 src.path, "-o", obj.path,
             ],
-            mnemonic         = "CppModuleCompileSrc",
+            mnemonic         = "CppCompileModuleSrc",
             progress_message = "Compiling {} with modules".format(src.short_path),
         )
     return obj
@@ -582,4 +577,3 @@ cpp_module = rule(
     toolchains = use_cc_toolchain(),
     fragments  = ["cpp"],
 )
-

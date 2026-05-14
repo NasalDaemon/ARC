@@ -1,10 +1,10 @@
-#include <doctest/doctest.h>
-
 #include "arc/macros.hpp"
 
 
 import arc.tests.null_trait;
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::null_trait {
 

@@ -1,4 +1,3 @@
-#include <doctest/doctest.h>
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -9,6 +8,8 @@
 
 import arc.tests.virtual_;
 import arc;
+
+#include "doctest.h"
 
 
 /* arc-begin

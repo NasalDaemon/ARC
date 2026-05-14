@@ -1,11 +1,11 @@
-#include <doctest/doctest.h>
-
 #if !ARC_IMPORT_STD
 #include <cstdio>
 #endif
 
 import arc.tests.repeater.cluster;
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::repeater {
 

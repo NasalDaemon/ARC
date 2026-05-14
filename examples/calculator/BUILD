@@ -1,13 +1,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
 load("//bazel:cpp_module.bzl", "cpp_module")
-load("//bazel:arc_gen.bzl", "arc_module_library")
+load("//bazel:arc_gen.bzl", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
-arc_module_library(
+arc_module(
     name = "calc_lib",
-    arcs = glob(["src/*.ixx.arc"]),
-    mods = glob(["src/*.ixx", "src/nodes/*.ixx", "src/nodes/impl/*.ixx"]),
-    srcs = glob(["src/*.cpp", "src/nodes/impl/*.cpp"], exclude = ["src/main.cpp"]),
+    arcs = glob(["src/**/*.ixx.arc"]),
+    mods = glob(["src/**/*.ixx"]),
+    srcs = glob(["src/**/*.cpp"], exclude = ["src/main.cpp"]),
 )
 
 GRAPH_NODES = {
@@ -49,7 +49,7 @@ cc_binary(
 # Tests
 ###########################################################################
 
-arc_module_library(
+arc_module(
     name = "calc_test_graphs",
     mods = ["tests/graphs.ixx"],
 )
@@ -110,7 +110,7 @@ cpp_module(
         ":test_repl_graph",
         ":integration_graph",
     ],
-    deps = ["@doctest//doctest:doctest"],
+    deps = ["//tests:doctest"],
 )
 
 cc_test(

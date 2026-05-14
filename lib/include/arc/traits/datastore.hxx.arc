@@ -2,6 +2,7 @@
 
 namespace arc {
 
+// Implemented by arc::DataStoreNode<SharedData> aka arc::node::DataStore<SharedData>
 template<class SharedData>
 trait DataStore [Types]
 {
@@ -58,6 +59,7 @@ trait DataStore [Types]
     notifyAll(auto const& event) -> void
 }
 
+// Implemented by nodes listening to arc::DataStoreNode<SharedData>
 template<class SharedData>
 trait DataListener [Types]
 {

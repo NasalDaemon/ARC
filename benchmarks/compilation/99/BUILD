@@ -1,9 +1,9 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("//bazel:cpp_module.bzl", "cpp_module")
-load("//bazel:arc_gen.bzl", "arc_module_library")
+load("//bazel:arc_gen.bzl", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
-arc_module_library(
+arc_module(
     name = "bench99_lib",
     arcs = glob(["traits/*.ixx.arc", "*.ixx.arc"]),
     mods = glob(["nodes/*.ixx", "nodes/*.impl.ixx"]),
@@ -130,4 +130,3 @@ cc_test(
     deps = [":bench99_main"],
     tags = ["manual"],
 )
-

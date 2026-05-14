@@ -1,9 +1,9 @@
-#include <doctest/doctest.h>
-
 import examples.filesystem.repl;
 import examples.filesystem.traits;
 import arc;
 import std;
+
+#include "doctest.h"
 
 using namespace examples::filesystem;
 

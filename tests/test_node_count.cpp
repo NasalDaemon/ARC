@@ -1,6 +1,8 @@
 import arc.tests.count;
 import arc;
 
+#include "doctest.h"
+
 /* arc-begin
 
 export module arc.tests.count;

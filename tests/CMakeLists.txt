@@ -3,6 +3,8 @@ add_subdirectory(abc)
 find_package(doctest REQUIRED)
 
 add_library(arc_tests test_main.cpp)
+target_include_directories(arc_tests PUBLIC include)
+
 add_library(arc::tests ALIAS arc_tests)
 target_compile_definitions(arc_tests PUBLIC DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1)
 

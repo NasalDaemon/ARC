@@ -63,6 +63,7 @@ trait UserFunctions
         post(self.list().empty())
 }
 
+// Combined trait for built-in and user-defined functions
 trait Functions = BuiltinFunctions + UserFunctions
 
 trait Formatter

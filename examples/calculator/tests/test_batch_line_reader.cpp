@@ -1,10 +1,10 @@
-#include <doctest/doctest.h>
-
 import examples.calculator.node.batch_line_reader;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
 import std;
+
+#include "doctest.h"
 
 using namespace examples::calculator;
 

@@ -1,4 +1,3 @@
-#include <doctest/doctest.h>
 #include "arc/macros.hpp"
 
 // TODO: Why do we need to include ranges again with GCC?
@@ -10,6 +9,8 @@ import arc.tests.thread.collection;
 import arc.tests.thread.global_scheduler;
 import arc.tests.thread.poster;
 import arc;
+
+#include "doctest.h"
 
 /* arc-begin
 

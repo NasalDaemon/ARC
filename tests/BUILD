@@ -1,14 +1,23 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//bazel:cpp_module.bzl", "cpp_module")
-load("//bazel:arc_gen.bzl", "arc_header_library", "arc_module_library")
+load("//bazel:arc_gen.bzl", "arc_header_library", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
+
+# Wrapper that exposes "doctest.h" (quote-include form) to all test targets
+cc_library(
+    name = "doctest",
+    hdrs = ["include/doctest.h"],
+    strip_include_prefix = "include",
+    deps = ["@doctest//doctest:doctest"],
+    defines = ["DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1"],
+    visibility = ["//visibility:public"],
+)
 
 # Test main library (provides doctest main)
 cc_library(
     name = "arc_tests_lib",
     srcs = ["test_main.cpp"],
-    deps = ["@doctest//doctest:doctest"],
-    defines = ["DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1"],
+    deps = [":doctest"],
     visibility = ["//visibility:public"],
     alwayslink = True,
 )
@@ -71,7 +80,6 @@ cc_test(
         ":abc_src_lib",
         ":arc_tests_headers_lib",
         "//lib:arc_headers",
-        "@doctest//doctest:doctest",
     ],
 )
 
@@ -79,7 +87,7 @@ cc_test(
 # ABC Module-based library
 ###########################################################################
 
-arc_module_library(
+arc_module(
     name = "abc_lib",
     arcs = glob(["abc/modules/abc/**/*.ixx.arc"]),
     mods = glob(["abc/modules/abc/*.ixx"]),
@@ -98,7 +106,7 @@ arc_graph(
 # Test modules (arc.tests.*)
 ###########################################################################
 
-arc_module_library(
+arc_module(
     name = "test_lib",
     arcs = [
         "test_domain/domain.ixx.arc",
@@ -126,12 +134,13 @@ arc_module_library(
         "test_protocol.cpp",
         "test_tracer_spy.cpp",
     ],
-    deps = ["//lib:arc_headers"],
+    deps = ["//lib:arc_headers", ":doctest"],
 )
 
-arc_module_library(
+arc_module(
     name = "mock_mod",
     embed_arcs = ["test_mock.cpp"],
+    deps = [":doctest"],
 )
 
 ###########################################################################
@@ -140,8 +149,8 @@ arc_module_library(
 
 cpp_module(
     name = "module_test_srcs",
-    srcs = glob(
-        ["test_*.cpp", "test_datastore/*.cpp", "test_repeater/main.cpp"],
+    srcs = ["test_repeater/main.cpp"] + glob(
+        ["test_*.cpp", "test_datastore/*.cpp"],
         exclude = [
             "test_main.cpp",         # test framework entry point, not a test
             "test_abc_headers.cpp",  # arc_tests_headers
@@ -157,7 +166,7 @@ cpp_module(
         ":abc_alice_graph",
         ":test_lib",
     ],
-    deps = ["@doctest//doctest:doctest"],
+    deps = [":doctest"],
 )
 
 cc_test(
@@ -180,7 +189,7 @@ cpp_module(
         "test_mock.cpp",
     ],
     module_deps = [":mock_mod"],
-    deps = ["@doctest//doctest:doctest"],
+    deps = [":doctest"],
 )
 
 cc_test(
@@ -195,7 +204,7 @@ cc_test(
 # arc_tests_thread test binary
 ###########################################################################
 
-arc_module_library(
+arc_module(
     name = "thread_lib",
     arcs = glob(["test_thread/*.ixx.arc"]),
     mods = glob(["test_thread/*.ixx"]),
@@ -204,13 +213,14 @@ arc_module_library(
         "test_thread/test_collection.cpp",
         "test_thread/test_union.cpp",
     ],
+    deps = [":doctest"],
 )
 
 cpp_module(
     name = "thread_test_srcs",
     srcs = glob(["test_thread/test_*.cpp"]),
     module_deps = [":thread_lib"],
-    deps = ["@doctest//doctest:doctest", "//lib:arc_headers"],
+    deps = [":doctest", "//lib:arc_headers"],
 )
 
 cc_test(

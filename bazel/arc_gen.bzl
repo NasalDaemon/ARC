@@ -21,7 +21,7 @@ def _sanitize(s):
     return s.replace(".", "_").replace(":", "__")
 
 
-def arc_module_library(
+def arc_module(
         name,
         srcs = [],
         mods = [],
@@ -75,7 +75,7 @@ def arc_module_library(
         module_name = MODULE_SOURCES.get(key)
         if module_name == None:
             fail(
-                "arc_module_library: cannot find module name for '{}' ({}). ".format(key, kind) +
+                "arc_module: cannot find module name for '{}' ({}). ".format(key, kind) +
                 "Key not found in MODULE_SOURCES. Run bazel clean --expunge to refresh the scan."
             )
         return module_name

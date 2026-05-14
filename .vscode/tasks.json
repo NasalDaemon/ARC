@@ -69,20 +69,35 @@
 		},
 		{
 			"type": "shell",
+			"group": "build",
+			"label": "CMake build",
+			"linux": {
+				"command": "ln -sf cmake-build/compile_commands.json compile_commands.json && time cmake --build cmake-build --config ${input:BuildType} && ctest --test-dir cmake-build --build-config ${input:BuildType} --output-on-failure"
+			},
+			"windows": {
+				"command": "ptime cmake --build cmake-build --config ${input:BuildType} && ctest --test-dir cmake-build --build-config ${input:BuildType} --output-on-failure"
+			},
+			"options": {
+				"cwd": "${workspaceFolder}/"
+			},
+			"presentation": {
+				"clear": true,
+				"showReuseMessage": false
+			}
+		},
+		{
+			"type": "shell",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
-			"label": "CMake build",
-			"linux": {
-				"command": "time cmake --build . --config ${input:BuildType} && ctest --build-config ${input:BuildType} --output-on-failure"
-			},
-			"windows": {
-				"command": "ptime cmake --build . --config ${input:BuildType} && ctest --build-config ${input:BuildType} --output-on-failure"
-			},
+			"label": "Bazel build",
 			"options": {
-				"cwd": "${workspaceFolder}/cmake-build",
+				"env": {
+					"BAZEL_CUSTOM_ARGS": "--config=${input:BazelConfig}",
+				},
 			},
+			"command": "bazel test //... -j auto $BAZEL_CUSTOM_ARGS --test_output=errors && rm -f compile_commands.json && bazel-compile-commands --command --resolve -b \"$BAZEL_CUSTOM_ARGS\" //... && echo Updated compile_commands.json || echo Failed to update compile_commands.json",
 			"presentation": {
 				"clear": true,
 				"showReuseMessage": false
@@ -92,14 +107,21 @@
 			"type": "shell",
 			"group": "build",
 			"label": "CMake configure and build",
-			"dependsOn": ["CMake configure", "CMake build"],
+			"dependsOn": [
+				"CMake configure",
+				"CMake build"
+			],
 			"dependsOrder": "sequence"
 		},
 		{
 			"type": "shell",
 			"group": "build",
 			"label": "CMake clean reconfigure and build",
-			"dependsOn": ["RM build dir", "Conan install", "CMake configure and build"],
+			"dependsOn": [
+				"RM build dir",
+				"Conan install",
+				"CMake configure and build"
+			],
 			"dependsOrder": "sequence"
 		}
 	],
@@ -119,6 +141,12 @@
 			"type": "pickString",
 			"options": ["TRUE", "FALSE"],
 			"description": "Whether to use 'import std'"
+		},
+		{
+			"id": "BazelConfig",
+			"type": "pickString",
+			"options": ["clang", "gcc"],
+			"description": "Compiler to use for Bazel build"
 		}
 	],
 }

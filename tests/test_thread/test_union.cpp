@@ -1,13 +1,21 @@
+#include "arc/macros.hpp"
+
+#if !ARC_IMPORT_STD
+#include "doctest.h"
 #include <atomic>
 #include <doctest/doctest.h>
 #include <typeindex>
 #include <utility>
-#include "arc/macros.hpp"
+#endif
 
 import arc.tests.thread.union_;
 import arc.tests.thread.global_scheduler;
 import arc.tests.thread.poster;
 import arc;
+
+#if ARC_IMPORT_STD
+#include "doctest.h"
+#endif
 
 /* arc-begin
 

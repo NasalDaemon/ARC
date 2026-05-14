@@ -1,5 +1,3 @@
-#include <doctest/doctest.h>
-
 #if !ARC_IMPORT_STD
 #include <exception>
 #include <chrono>
@@ -11,6 +9,8 @@
 
 import arc.tests.test_tracer_spy;
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::test_tracer_spy {
 

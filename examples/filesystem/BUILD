@@ -1,13 +1,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
 load("//bazel:cpp_module.bzl", "cpp_module")
-load("//bazel:arc_gen.bzl", "arc_module_library")
+load("//bazel:arc_gen.bzl", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
-arc_module_library(
+arc_module(
     name = "fs_lib",
-    arcs = glob(["*.ixx.arc"]),
-    mods = glob(["*.ixx", "nodes/*.ixx", "nodes/impl/*.ixx"]),
-    srcs = glob(["nodes/impl/*.cpp"]),
+    arcs = glob(["src/**/*.ixx.arc"]),
+    mods = glob(["src/**/*.ixx"]),
+    srcs = glob(["src/nodes/**/*.cpp"]),
 )
 
 GRAPH_NODES = {
@@ -33,19 +33,19 @@ arc_graph(
 
 cpp_module(
     name = "fs_in_memory_repl",
-    srcs = ["in_memory_repl.cpp"],
+    srcs = ["src/in_memory_repl.cpp"],
     module_deps = [":fs_lib", ":in_memory_repl_graph"],
+)
+
+cpp_module(
+    name = "fs_disk_repl",
+    srcs = ["src/disk_repl.cpp"],
+    module_deps = [":fs_lib", ":disk_repl_graph"],
 )
 
 cc_binary(
     name = "arc_example_filesystem_in_memory_repl",
     deps = [":fs_in_memory_repl"],
-)
-
-cpp_module(
-    name = "fs_disk_repl",
-    srcs = ["disk_repl.cpp"],
-    module_deps = [":fs_lib", ":disk_repl_graph"],
 )
 
 cc_binary(
@@ -57,7 +57,7 @@ cc_binary(
 # Tests
 ###########################################################################
 
-arc_module_library(
+arc_module(
     name = "fs_test_mocks",
     mods = ["tests/mocks.ixx"],
 )
@@ -119,7 +119,7 @@ cpp_module(
         ":test_terminal_line_reader_graph",
         ":test_repl_graph",
     ],
-    deps = ["@doctest//doctest:doctest"],
+    deps = ["//tests:doctest"],
 )
 
 cc_test(

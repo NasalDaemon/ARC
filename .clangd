@@ -1,6 +1,12 @@
 CompileFlags:
-  CompilationDatabase: cmake-build/
+  CompilationDatabase: .
   Add: [
     -DDI_CLANGD=1,
-    -DDI_COMPRESS_TYPES=1
+    -DDI_COMPRESS_TYPES=1,
   ]
+
+---
+If:
+  PathMatch: lib/include/.*
+CompileFlags:
+  Remove: [-DARC_IMPORT_STD*]

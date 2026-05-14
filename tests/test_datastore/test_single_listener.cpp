@@ -1,5 +1,3 @@
-#include <doctest/doctest.h>
-
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -8,6 +6,8 @@
 
 import arc;
 import arc.tests.datastore.single;
+
+#include "doctest.h"
 
 /* arc-begin
 export module arc.tests.datastore.single;

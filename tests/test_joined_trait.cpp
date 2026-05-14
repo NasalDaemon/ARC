@@ -1,8 +1,9 @@
-#include <doctest/doctest.h>
 #include "arc/macros.hpp"
 
 import arc.tests.joined_trait;
 import arc;
+
+#include "doctest.h"
 
 /* arc-begin
 

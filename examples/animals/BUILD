@@ -1,7 +1,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("//bazel:arc_gen.bzl", "arc_module_library")
+load("//bazel:arc_gen.bzl", "arc_module")
 
-arc_module_library(
+arc_module(
     name = "animals_lib",
     arcs = glob(["*.ixx.arc"]),
     mods = glob(["nodes/*.ixx"]),

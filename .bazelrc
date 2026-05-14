@@ -1,17 +1,19 @@
+build --repo_env=BAZEL_CXXOPTS="-std=c++23"
 build --cxxopt=-std=c++23
-build --repo_env=CC=cc
-build --repo_env=CXX=c++
-# Use libstdc++ by default since it's more widely available, but allow switching to libc++ with --config=libcxx
-build --config=libstdcxx
-
-# Force use of GCC (with libstdc++)
-build:gcc --repo_env=CC=gcc --repo_env=CXX=g++ --config=libstdcxx
-# Force use of Clang (with libc++)
-build:clang --repo_env=CC=clang --repo_env=CXX=clang++ --config=libcxx
+build --cxxopt=-Werror
+build --cxxopt=-Wall
+build --cxxopt=-Wextra
+build --cxxopt=-Wpedantic
+build --cxxopt=-fdiagnostics-color=always
+build --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1  # libstdc++ is default
 
 # Force a particular standard library
-build:libcxx --cxxopt=-stdlib=libc++ --cxxopt=-Wno-unused-command-line-argument --linkopt=-lc++
-build:libstdcxx --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1  # gcc/libstdc++ default
+build:libcxx --cxxopt=-stdlib=libc++ --linkopt=-lc++
+
+# Force use of GCC (with libstdc++)
+build:gcc --repo_env=CC=gcc --repo_env=CXX=g++
+# Force use of Clang (with libc++)
+build:clang --repo_env=CC=clang --repo_env=CXX=clang++ --config=libcxx --cxxopt=-Wno-unused-command-line-argument
 
 build --incompatible_enable_cc_toolchain_resolution=false
 build --check_direct_dependencies=off
@@ -19,12 +21,12 @@ build --check_direct_dependencies=off
 # Custom module rules use the compiler directly with -fmodule-file flags that embed absolute paths,
 # which are incompatible with sandboxing. Use local strategy for module compilation actions.
 build --strategy=Genrule=local
-build --strategy=CppModulePrecompile=local
-build --strategy=CppModuleCompileObj=local
-build --strategy=CppModuleCompileSrc=local
-build --strategy=CppModuleCompile=local
-build --strategy=CppModuleArchive=local
-build --strategy=CppStdModulePrecompile=local
-build --strategy=CppStdModuleCompileObj=local
-build --strategy=CppStdModuleCompile=local
-build --strategy=CppModuleCompilePcm=local
+build --strategy=CppCompileModulePrecompile=local
+build --strategy=CppCompileModuleObj=local
+build --strategy=CppCompileModuleSrc=local
+build --strategy=CppCompileModule=local
+build --strategy=CppCompileModuleArchive=local
+build --strategy=CppCompileStdModulePrecompile=local
+build --strategy=CppCompileStdModuleObj=local
+build --strategy=CppCompileStdModuleCompile=local
+build --strategy=CppCompileModulePcm=local

@@ -1,7 +1,7 @@
-#include <doctest/doctest.h>
-
 import arc.tests.embedded;
 import arc;
+
+#include "doctest.h"
 
 /* arc-begin
 export module arc.tests.embedded;

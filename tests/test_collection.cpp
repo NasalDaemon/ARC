@@ -1,4 +1,3 @@
-#include <doctest/doctest.h>
 #include "arc/macros.hpp"
 
 // TODO: Why do we need to include ranges again with GCC?
@@ -8,6 +7,8 @@
 
 import arc;
 import arc.tests.collection;
+
+#include "doctest.h"
 
 namespace arc::tests::collection {
 

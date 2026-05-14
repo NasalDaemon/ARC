@@ -1,5 +1,3 @@
-#include <doctest/doctest.h>
-
 #if !ARC_IMPORT_STD
 #include <type_traits>
 #endif
@@ -7,6 +5,8 @@
 import arc;
 import abc.graph;
 import abc.ellie;
+
+#include "doctest.h"
 
 using namespace abc;
 

@@ -1,14 +1,17 @@
 #include "arc/macros.hpp"
 
-#include <doctest/doctest.h>
-
 #if !ARC_IMPORT_STD
+#include "doctest.h"
 #include <concepts>
 #include <cstdio>
 #include <utility>
 #endif
 
 import arc;
+
+#if ARC_IMPORT_STD
+#include "doctest.h"
+#endif
 
 namespace arc::tests::union_ {
 

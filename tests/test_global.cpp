@@ -1,5 +1,3 @@
-#include <doctest/doctest.h>
-
 #if !ARC_IMPORT_STD
 #include <print>
 #include <string_view>
@@ -7,6 +5,8 @@
 
 import arc.tests.global;
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::global {
 

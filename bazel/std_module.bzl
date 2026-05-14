@@ -52,7 +52,7 @@ def _std_module_impl(ctx):
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file], transitive = [cc_toolchain.all_files]),
             outputs = [gcm],
-            mnemonic = "CppStdModulePrecompile",
+            mnemonic = "CppCompileStdModulePrecompile",
             progress_message = "Precompiling std module (GCC)",
         )
         ctx.actions.run(
@@ -65,7 +65,7 @@ def _std_module_impl(ctx):
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file, gcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
-            mnemonic = "CppStdModuleCompile",
+            mnemonic = "CppCompileStdModuleCompile",
             progress_message = "Compiling std module object (GCC)",
         )
         pcm = gcm
@@ -87,7 +87,7 @@ def _std_module_impl(ctx):
             ],
             inputs = depset(transitive = [cc_toolchain.all_files]),
             outputs = [pcm],
-            mnemonic = "CppStdModulePrecompile",
+            mnemonic = "CppCompileStdModulePrecompile",
             progress_message = "Precompiling std module (Clang)",
         )
         obj = ctx.actions.declare_file("std.o")
@@ -96,7 +96,7 @@ def _std_module_impl(ctx):
             arguments = ["-std=c++23", "-c", pcm.path, "-o", obj.path],
             inputs = depset(direct = [pcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
-            mnemonic = "CppStdModuleCompileObj",
+            mnemonic = "CppCompileStdModuleObj",
             progress_message = "Compiling std module object (Clang)",
         )
 

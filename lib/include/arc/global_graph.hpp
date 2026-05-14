@@ -5,6 +5,7 @@
 
 #include "arc/context.hpp"
 #include "arc/cluster.hpp"
+#include "arc/ensure.hpp"
 #include "arc/graph.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"

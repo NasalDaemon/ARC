@@ -1,5 +1,3 @@
-#include <doctest/doctest.h>
-
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -9,6 +7,8 @@
 
 import arc.tests.contracts;
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::contracts {
 

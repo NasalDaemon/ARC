@@ -1,4 +1,3 @@
-#include <doctest/doctest.h>
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -8,6 +7,8 @@
 #endif
 
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::combine {
 

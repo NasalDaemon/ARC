@@ -1,11 +1,11 @@
-#include <doctest/doctest.h>
-
 import examples.calculator.tests.graphs;
 import examples.calculator.graphs;
 import examples.calculator.types;
 import examples.calculator.traits;
 import arc;
 import std;
+
+#include "doctest.h"
 
 using namespace examples::calculator;
 using namespace examples::calculator::tests;

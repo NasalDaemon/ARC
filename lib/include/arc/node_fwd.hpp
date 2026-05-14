@@ -95,7 +95,6 @@ struct WrappedImpl
     template<class Context>
     struct Node : Interface, detail::WrappedImplNode<NodeT>
     {
-        using IsWrappedImpl = void;
         using Interface::Interface;
 
         template<class F>

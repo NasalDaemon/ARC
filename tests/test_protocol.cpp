@@ -1,5 +1,3 @@
-#include <doctest/doctest.h>
-
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -13,6 +11,8 @@
 
 import arc.tests.protocol_test;
 import arc;
+
+#include "doctest.h"
 
 namespace arc::tests::protocol_test {
 
