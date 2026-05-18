@@ -10,7 +10,7 @@ import arc.tests.thread.global_scheduler;
 import arc.tests.thread.poster;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 /* arc-begin
 

@@ -147,6 +147,9 @@ def _collect_cc_info(deps):
             for inc in ctx.system_includes.to_list():
                 if inc not in all_includes:
                     all_includes.append(inc)
+            for inc in ctx.quote_includes.to_list():
+                if inc not in all_includes:
+                    all_includes.append(inc)
     return all_hdrs, all_includes
 
 # ---------------------------------------------------------------------------
@@ -198,7 +201,7 @@ def _create_static_lib(ctx, cc_toolchain, feature_configuration, objs, lib_name)
 
 def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_name,
                               needed_modules, include_flags, define_flags, all_hdrs,
-                              safe_name = None):
+                              expanded_copts, safe_name = None):
     """Compile a single .ixx module interface file. Returns (pcm, obj)."""
     module_flags, module_pcm_files = _module_flags(needed_modules)
     prefix = ctx.label.name if not safe_name else ctx.label.name + "_" + safe_name
@@ -223,7 +226,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                     "-fmodules-ts",
                     "-fmodule-mapper=" + mapper.path,
                     "-x", "c++", "-c", src.path, "-o", obj.path,
-                ] + user_cxxopts + include_flags + define_flags + ctx.attr.copts,
+                ] + user_cxxopts + include_flags + define_flags + expanded_copts,
                 mnemonic         = "CppCompileModule",
                 progress_message = "Compiling C++ module {} [{}]".format(module_name, ctx.label),
             )
@@ -240,7 +243,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                     "-fmodules-ts",
                     "-fmodule-mapper=" + mapper.path,
                     "-fmodule-only", "-x", "c++", "-c", src.path,
-                ] + user_cxxopts + include_flags + define_flags + ctx.attr.copts,
+                ] + user_cxxopts + include_flags + define_flags + expanded_copts,
                 mnemonic         = "CppCompileModulePrecompile",
                 progress_message = "Precompiling C++ module {} [{}]".format(module_name, ctx.label),
             )
@@ -256,7 +259,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                     "-fmodules-ts",
                     "-fmodule-mapper=" + mapper.path,
                     "-x", "c++", "-c", src.path, "-o", obj.path,
-                ] + user_cxxopts + include_flags + define_flags + ctx.attr.copts,
+                ] + user_cxxopts + include_flags + define_flags + expanded_copts,
                 mnemonic         = "CppCompileModuleObj",
                 progress_message = "Compiling C++ module object {}".format(prefix),
             )
@@ -273,7 +276,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
             executable = compiler,
             arguments  = [
                 "-x", "c++-module", "--precompile",
-            ] + user_cxxopts + module_flags + include_flags + define_flags + ctx.attr.copts + [
+            ] + user_cxxopts + module_flags + include_flags + define_flags + expanded_copts + [
                 src.path, "-o", pcm.path,
             ],
             mnemonic         = "CppCompileModulePrecompile",
@@ -296,7 +299,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
         return pcm, obj
 
 def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
-                 include_flags, define_flags, all_hdrs):
+                 include_flags, define_flags, all_hdrs, expanded_copts):
     """Compile a single .cpp source file against modules. Returns obj."""
     obj = ctx.actions.declare_file(
         src.basename.replace("/", "_") + "." + ctx.label.name + ".o")
@@ -319,7 +322,7 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
                 "-fmodules-ts",
                 "-fmodule-mapper=" + mapper.path,
                 "-c", src.path, "-o", obj.path,
-            ] + _user_cxxopts(ctx) + include_flags + define_flags + ctx.attr.copts,
+            ] + _user_cxxopts(ctx) + include_flags + define_flags + expanded_copts,
             mnemonic         = "CppCompileModuleSrc",
             progress_message = "Compiling {} with modules".format(src.short_path),
         )
@@ -333,7 +336,7 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
             outputs    = [obj],
             executable = compiler,
             arguments  = _user_cxxopts(ctx) + ["-c",
-            ] + module_flags + include_flags + define_flags + ctx.attr.copts + [
+            ] + module_flags + include_flags + define_flags + expanded_copts + [
                 src.path, "-o", obj.path,
             ],
             mnemonic         = "CppCompileModuleSrc",
@@ -391,6 +394,9 @@ def _make_empty_cc_info(impl_cc_infos):
 def _cpp_module_impl(ctx):
     compiler, cc_toolchain, feature_configuration, is_gcc = _get_compiler_and_toolchain(ctx)
 
+    # Expand Make variables (e.g. $(BINDIR), $(GENDIR)) in user-supplied copts.
+    expanded_copts = [ctx.expand_make_variables("copts", opt, {}) for opt in ctx.attr.copts]
+
     mod_modules, mod_hdrs, mod_includes, mod_defines = _collect_module_info(ctx.attr.module_deps)
     cc_hdrs, cc_includes = _collect_cc_info(ctx.attr.deps)
     impl_hdrs, impl_includes = _collect_cc_info(ctx.attr.implementation_deps)
@@ -423,6 +429,10 @@ def _cpp_module_impl(ctx):
             tl = dep[CppModuleInfo].transitive_link_cc_infos
             if tl != None:
                 impl_cc_infos.append(tl)
+    # deps: propagate linking context (compilation context already collected above).
+    for dep in ctx.attr.deps:
+        if CcInfo in dep:
+            impl_cc_infos.append(CcInfo(linking_context = dep[CcInfo].linking_context))
     # implementation_deps: propagate linking only, drop compilation_context.
     for dep in ctx.attr.implementation_deps:
         if CcInfo in dep:
@@ -503,7 +513,7 @@ def _cpp_module_impl(ctx):
         pcm, obj = _compile_module_interface(
             ctx, compiler, cc_toolchain, is_gcc, spec.file, spec.name,
             needed_modules, include_flags, define_flags, all_hdrs,
-            safe_name = safe_name)
+            expanded_copts, safe_name = safe_name)
         all_objs.append(obj)
         entries.append(struct(
             name = spec.name, pcm = pcm, obj = obj, direct_deps = spec.direct_deps))
@@ -515,7 +525,7 @@ def _cpp_module_impl(ctx):
     all_mod_modules = mod_modules + entries
     for src_file in ctx.files.srcs:
         obj = _compile_src(ctx, compiler, cc_toolchain, is_gcc, src_file,
-                           all_mod_modules, include_flags, define_flags, all_hdrs)
+                           all_mod_modules, include_flags, define_flags, all_hdrs, expanded_copts)
         all_objs.append(obj)
 
     # --- Archive and return ---
@@ -556,7 +566,7 @@ def _cpp_module_impl(ctx):
 cpp_module = rule(
     implementation = _cpp_module_impl,
     attrs = {
-        "mods":                  attr.label_list(allow_files = [".ixx"]),
+        "mods":                  attr.label_list(allow_files = [".ixx", ".cppm"]),
         "srcs":                  attr.label_list(allow_files = [".cpp", ".cc"]),
         # Per-file MODULE_SOURCES overrides for generated .ixx outputs whose
         # short_path is not in the scanner map. Key: file short_path.

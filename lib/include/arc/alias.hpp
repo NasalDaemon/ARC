@@ -28,6 +28,7 @@ struct Alias final
 
     template<class Self>
     ARC_INLINE constexpr auto& get(this Self&& self) { return std::forward_like<Self&>(*self.impl); }
+    ARC_INLINE constexpr auto& getImpl(this auto&& self) { return self.get(); }
     ARC_INLINE constexpr auto* operator->(this auto&& self) { return std::addressof(self.get()); }
 
 private:
@@ -48,6 +49,7 @@ struct Alias<T, Key, Keys...> final
 
     ARC_INLINE constexpr auto& get(this auto&& self) { return self; }
     ARC_INLINE constexpr auto* operator->(this auto&& self) { return std::addressof(self); }
+    ARC_INLINE constexpr auto& getImpl(this auto&& self) { return self.alias.getImpl(); }
 
     ARC_INLINE constexpr auto impl(this auto&& self, auto&&... args)
         -> decltype(self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...))

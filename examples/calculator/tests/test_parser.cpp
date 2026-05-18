@@ -4,7 +4,7 @@ import examples.calculator.traits;
 import arc;
 import std;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 using namespace examples::calculator;
 

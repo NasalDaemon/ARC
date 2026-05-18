@@ -4,6 +4,7 @@
 #include "arc/detail/cast.hpp"
 #include "arc/args.hpp"
 #include "arc/cluster.hpp"
+#include "arc/ensure.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"

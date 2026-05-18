@@ -7,6 +7,7 @@
 #include "arc/cluster.hpp"
 #include "arc/detached.hpp"
 #include "arc/detail/compress.hpp"
+#include "arc/ensure.hpp"
 #include "arc/environment.hpp"
 #include "arc/global_context.hpp"
 #include "arc/key.hpp"

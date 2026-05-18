@@ -3,6 +3,11 @@
 
 #include "arc/macros.hpp"
 
+#if !ARC_IMPORT_STD
+#include <cstddef>
+#include <cstdint>
+#endif
+
 namespace arc::detail {
 
 template<std::size_t N>

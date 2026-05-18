@@ -10,7 +10,7 @@
 import arc.tests.mock;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 /* arc-begin
 

@@ -4,6 +4,7 @@
 #include "arc/detail/as_ref.hpp"
 #include "arc/detail/select.hpp"
 #include "arc/cluster.hpp"
+#include "arc/context.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/ensure.hpp"
 #include "arc/factory.hpp"

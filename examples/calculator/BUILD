@@ -110,13 +110,13 @@ cpp_module(
         ":test_repl_graph",
         ":integration_graph",
     ],
-    deps = ["//tests:doctest"],
+    deps = ["//doctest:doctest"],
 )
 
 cc_test(
     name = "arc_example_calculator_tests",
     deps = [
         ":calc_test_srcs",
-        "//tests:arc_tests_lib",
+        "//doctest:doctest",
     ],
 )

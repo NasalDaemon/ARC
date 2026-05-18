@@ -318,8 +318,8 @@
     }
 
 #define ARC_INSTANTIATE(graph, dotPath) \
-    template struct ::arc::detail::NodeOf<std::remove_pointer_t<std::remove_cvref_t<decltype(ARC_DEPAREN(graph)::dotPath)>>>::Node< \
-        ::arc::ContextOf<std::remove_pointer_t<std::remove_cvref_t<decltype(ARC_DEPAREN(graph)::dotPath)>>>>;
+    template struct ::arc::detail::NodeOf<::arc::GetNodeTypeToInstantiate<decltype(ARC_DEPAREN(graph)::dotPath)>>::Node< \
+        ::arc::ContextOf<::arc::GetNodeTypeToInstantiate<decltype(ARC_DEPAREN(graph)::dotPath)>>>;
 
 #define ARC_INSTANTIATE_BOX(Main, InFacade, ... /* interfaces */) \
     ARC_INSTANTIATE((::arc::Box<Main, InFacade, ## __VA_ARGS__>::Graph), main)

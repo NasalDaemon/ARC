@@ -5,7 +5,7 @@
 import arc.tests.repeater.cluster;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::repeater {
 

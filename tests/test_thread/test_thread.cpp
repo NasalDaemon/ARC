@@ -2,7 +2,7 @@
 
 #if !ARC_IMPORT_STD
 #include <typeinfo>
-#include "doctest.h"
+#include "arc/doctest.h"
 #endif
 
 import arc.tests.thread.cluster;
@@ -11,7 +11,7 @@ import arc.tests.thread.poster;
 import arc;
 
 #if ARC_IMPORT_STD
-#include "doctest.h"
+#include "arc/doctest.h"
 #endif
 
 namespace arc::tests::thread {

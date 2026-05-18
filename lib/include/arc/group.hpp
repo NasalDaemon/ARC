@@ -86,19 +86,19 @@ struct Group
 ARC_MODULE_EXPORT
 struct NoGroup : Group
 {
-    // Default group can only connect to itself (read+write access)
-    static GroupWriteAccess connectionsTo(NoGroup const*);
-    static GroupWriteAccess connectionsFrom(NoGroup const*);
+    // Default group allows connections to/from any group as long as the counterpart allows it
+    static GroupWriteAccess connectionsTo(Group const*);
+    static GroupWriteAccess connectionsFrom(Group const*);
 };
 
 ARC_MODULE_EXPORT
 template<class SourceGroup, class TargetGroup>
-concept IsReadPermittedGroup = detail::IsGroupReadTo<SourceGroup, TargetGroup> or detail::IsGroupReadFrom<TargetGroup, SourceGroup>;
+concept IsReadPermittedGroup = detail::IsGroupReadTo<SourceGroup, TargetGroup> and detail::IsGroupReadFrom<TargetGroup, SourceGroup>;
 
 ARC_MODULE_EXPORT
 template<class SourceGroup, class TargetGroup>
 concept IsWritePermittedGroup = IsReadPermittedGroup<SourceGroup, TargetGroup>
-                            and (detail::IsGroupWriteTo<SourceGroup, TargetGroup> or detail::IsGroupWriteFrom<TargetGroup, SourceGroup>);
+                            and (detail::IsGroupWriteTo<SourceGroup, TargetGroup> and detail::IsGroupWriteFrom<TargetGroup, SourceGroup>);
 
 ARC_MODULE_EXPORT
 template<class SourceGroup, class TargetGroup>

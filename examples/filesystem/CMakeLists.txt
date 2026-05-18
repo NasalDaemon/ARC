@@ -99,7 +99,7 @@ if(ARC_BUILD_TESTS)
 
     target_link_libraries(arc_example_filesystem_tests PUBLIC
         arc_example_filesystem_modules
-        arc::tests
+        arc::doctest
     )
 
     add_test(arc_example_filesystem_tests arc_example_filesystem_tests)

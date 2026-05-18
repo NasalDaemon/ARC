@@ -276,6 +276,7 @@ export namespace arc {
     using arc::NodeHasDepends;
     using arc::NodeDependencyListed;
     using arc::NodeDependenciesSatisfied;
+    using arc::GetNodeTypeToInstantiate;
     // node_with_fwd.hpp
     using arc::Build;
     using arc::Uses;

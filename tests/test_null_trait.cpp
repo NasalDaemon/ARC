@@ -4,7 +4,7 @@
 import arc.tests.null_trait;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::null_trait {
 

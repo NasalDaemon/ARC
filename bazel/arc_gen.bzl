@@ -10,10 +10,10 @@ module_deps parameters are required.
 
 load("//bazel:cpp_module.bzl", "cpp_module")
 load("@arc_module_deps//:module_deps.bzl",
-     "MODULE_DIRECT_DEPS", "MODULE_PROVIDER_TARGETS", "MODULE_SOURCES")
+     "FILE_DIRECT_DEPS", "MODULE_DIRECT_DEPS", "MODULE_PROVIDER_TARGETS", "MODULE_SOURCES")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-_GENERATOR = "//generator_lib:generator"
+_GENERATOR = "@arc//generator_lib:generator"
 
 
 def _sanitize(s):
@@ -73,6 +73,15 @@ def arc_module(
     def _lookup_module_name(src, kind):
         key = pkg + "/" + src
         module_name = MODULE_SOURCES.get(key)
+        if module_name == None:
+            # When this macro runs from an external repo's BUILD file (e.g. @arc//tests
+            # loaded by a consumer workspace), MODULE_SOURCES keys carry a "../repo+/"
+            # prefix that pkg does not include. Fall back to a suffix search.
+            suffix = "/" + key
+            for k, v in MODULE_SOURCES.items():
+                if k.endswith(suffix):
+                    module_name = v
+                    break
         if module_name == None:
             fail(
                 "arc_module: cannot find module name for '{}' ({}). ".format(key, kind) +
@@ -140,11 +149,15 @@ def arc_module(
             if label != None and label not in computed_module_deps:
                 computed_module_deps.append(label)
 
-    # Arc-generated modules need arc_headers (generator emits the include).
-    arc_headers = "//lib:arc_headers"
-    final_deps = list(deps)
-    if (arcs or embed_arcs) and arc_headers not in final_deps:
-        final_deps = [arc_headers] + final_deps
+    # Resolve module imports from .cpp implementation sources too — main.cpp
+    # and similar consumer files import modules that may live in other targets.
+    for src in srcs:
+        for dep_name in FILE_DIRECT_DEPS.get(pkg + "/" + src, []):
+            if dep_name in provided_modules:
+                continue
+            label = MODULE_PROVIDER_TARGETS.get(dep_name)
+            if label != None and label not in computed_module_deps:
+                computed_module_deps.append(label)
 
     cpp_module(
         name = name,
@@ -152,7 +165,7 @@ def arc_module(
         srcs = srcs,
         module_names = module_names,
         module_deps = computed_module_deps,
-        deps = final_deps,
+        deps = deps,
         includes = includes,
         defines = defines,
         copts = copts,
@@ -254,12 +267,17 @@ def arc_header_library(
             )
             gen_hdrs.append(":" + gen_name)
 
+    arc_headers = "@arc//lib:arc_headers"
+    final_deps = list(deps)
+    if (arcs or embed_arcs) and arc_headers not in final_deps:
+        final_deps = [arc_headers] + final_deps
+
     cc_library(
         name = name,
         hdrs = gen_hdrs + hdrs,
         srcs = srcs,
         includes = all_includes,
-        deps = deps,
+        deps = final_deps,
         defines = defines,
         copts = copts,
         **kwargs

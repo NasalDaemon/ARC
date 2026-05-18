@@ -1,6 +1,9 @@
 #ifndef INCLUDE_ARC_UNION_FWD_HPP
 #define INCLUDE_ARC_UNION_FWD_HPP
 
+#include "arc/context_fwd.hpp"
+#include "arc/macros.hpp"
+
 namespace arc {
 
 namespace detail {

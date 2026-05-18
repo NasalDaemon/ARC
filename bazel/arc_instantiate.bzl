@@ -38,6 +38,7 @@ def arc_graph(
         graph_module = None,
         graph_header = None,
         impl_partition = "impl",
+        common_modules = [],
         deps = [],
         **kwargs):
     """Generate and compile ARC instantiation sources.
@@ -68,12 +69,12 @@ def arc_graph(
         fail("arc_graph: exactly one of graph_module or graph_header must be set")
 
     if graph_module != None:
-        _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, kwargs)
+        _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, common_modules, kwargs)
     else:
         _arc_instantiate_header(name, graph_header, graph_type, nodes, deps, kwargs)
 
 
-def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, kwargs):
+def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, common_modules, kwargs):
     hash_str = _graph_type_hash(graph_type)
     tags = kwargs.get("tags", [])
     testonly = kwargs.get("testonly", False)
@@ -84,6 +85,8 @@ def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partitio
     known_direct_deps_map = {}
     computed_module_deps = []
     seen = {}
+
+    common_imports = "\n".join(["import {m};".format(m = m) for m in common_modules])
 
     for node_name, node_module in nodes.items():
         safe_node = node_module.replace(".", "_").replace(":", "__")
@@ -113,6 +116,7 @@ import :{impl_partition};
 
 import {graph_module};
 import arc;
+{common_imports}
 
 ARC_INSTANTIATE(({graph_type}), {node_name})
 """.format(
@@ -121,6 +125,7 @@ ARC_INSTANTIATE(({graph_type}), {node_name})
                 graph_module = graph_module,
                 graph_type = graph_type,
                 node_name = node_name,
+                common_imports = common_imports,
             ),
         )
 
@@ -132,7 +137,7 @@ ARC_INSTANTIATE(({graph_type}), {node_name})
                 node_module = node_module, impl_partition = impl_partition),
             graph_module,
             "arc",
-        ]
+        ] + list(common_modules)
         known_direct_deps_map[module_name] = direct_deps
         for dep_module in direct_deps:
             label = MODULE_PROVIDER_TARGETS.get(dep_module)

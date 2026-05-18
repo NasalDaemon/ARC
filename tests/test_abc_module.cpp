@@ -6,7 +6,7 @@ import arc;
 import abc.graph;
 import abc.ellie;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 using namespace abc;
 

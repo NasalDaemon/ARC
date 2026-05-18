@@ -6,11 +6,13 @@ Prints absolute paths (one per line) for:
   - All .ixx.arc files (ARC DSL module sources)
   - All .cpp/.cc files that contain arc-begin blocks (arc_embed_module sources)
 
+Accepts one or more --root=<absolute_path> arguments. Each root is walked.
+
 Used by module_scan.bzl to register precise file watches so that the module
 dependency scan only re-runs when a module-affecting file changes, not on
 every .cpp implementation file edit.
 
-Usage: python3 list_module_files.py <workspace_root>
+Usage: python3 list_module_files.py --root=<workspace_root> [--root=<other_root> ...]
 """
 
 import os
@@ -22,7 +24,7 @@ _SKIP_DIRS = frozenset({
 })
 
 
-def main(workspace):
+def walk_root(workspace):
     for root, dirs, files in os.walk(workspace, followlinks=False):
         dirs[:] = sorted(
             d for d in dirs
@@ -41,8 +43,21 @@ def main(workspace):
                     pass
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: list_module_files.py <workspace_root>", file=sys.stderr)
+def main(argv):
+    roots = []
+    for arg in argv:
+        if arg.startswith("--root="):
+            roots.append(arg[len("--root="):])
+        else:
+            # Backward compat: positional workspace arg.
+            roots.append(arg)
+    if not roots:
+        print("Usage: list_module_files.py --root=<workspace_root> [--root=...]",
+              file=sys.stderr)
         sys.exit(1)
-    main(sys.argv[1])
+    for r in roots:
+        walk_root(r)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

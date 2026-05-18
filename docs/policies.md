@@ -19,10 +19,6 @@ A **policy** defines **groups** and their permitted connections:
 ```cpp
 policy SafetyClass
 {
-    ASIL_D    // Highest automotive safety level
-    ASIL_B    // Medium level
-    QM        // Quality managed (non-safety)
-
     QM -> ASIL_B     // QM can read from ASIL_B
     ASIL_B => ASIL_D // ASIL_B can write to ASIL_D
 }
@@ -41,13 +37,26 @@ policy SafetyClass
 
 **Note:** There is no write-only access - write (`=>`) always includes read.
 
+### Special Group Names
+
+| Name | Shorthand | Matches |
+|------|-----------|---------|
+| `@nogroup` | `~` | Unclassified nodes only (nodes with no explicit group assignment) |
+| `@any` | `*` | Node in any consenting group (unclassified nodes consent by default) |
+
+Mutual consent still applies — `@any` is not a unilateral bypass. Same-group connections are always permitted separately and are unaffected.
+
+`@nogroup` scopes the same open-to-all behaviour to unclassified nodes only.
+
+**Note:** `*` means `@any` inside a policy block. Inside a cluster connection block it means `@all` (all sibling nodes). The two are unambiguous by position.
+
 ### Connection Rules
 
 - Same-group connections are always permitted (with write access)
-- Different-group connections require explicit arrows
+- Different-group connections require explicit arrows in **both** policies (both sides must consent — see external group linking below)
 - **Connections are NOT transitive**: `A -> B` and `B -> C` does not imply `A -> C`
 - Nodes without a group use the **default group** (`@nogroup` or `~`)
-- Without explicit `@nogroup` rules, unclassified nodes can only connect to each other
+- Unclassified nodes defer to the other group's policy — if the other group explicitly permits a connection to/from `@nogroup`, it is allowed
 
 ### Multiple Group Membership
 
@@ -64,10 +73,6 @@ Permission semantics for JoinedGroups:
 ```cpp
 policy Access
 {
-    Admin
-    User
-    Guest
-
     Guest -> User     // Guest can read User
     Admin => User     // Admin can write to User
 }
@@ -87,28 +92,45 @@ multiNode = Node : InGroup<policy::Access::User, policy::Access::Admin>
 ```cpp
 policy SecurityLevel
 {
-    Untrusted
-    Trusted
-    Privileged
-
     Untrusted -> Trusted -> Privileged  // Read up the chain
     Untrusted <= Trusted <= Privileged  // Write down the chain
 }
 ```
 
-**Group aliases** allow linking policies:
+**Group aliases** reference groups from other policies (aliases must be declared explicitly):
 
 ```cpp
 policy CombinedPolicy
 {
-    Public
-    Confidential
-    External = SecurityLevel::Untrusted  // Alias to another policy
+    External = SecurityLevel::Untrusted  // Alias (explicit); Public/Confidential auto-created below
 
     Public -> Confidential
     External => Public  // External can write to Public
+    Public -> External  // Public declares it can read External
 }
 ```
+
+**External group linking requires mutual consent.** A connection between a local group and an external alias — or between two external aliases — is only active when **both** policies declare their side of the link.
+
+```cpp
+// In policy Compartment:
+policy Compartment
+{
+    EdgeAlias = SecurityLevel::Untrusted  // alias (explicit); Internal auto-created below
+
+    EdgeAlias -> Internal  // Internal permits Untrusted nodes to read it
+}
+
+// In policy SecurityLevel:
+policy SecurityLevel
+{
+    InternalAlias = Compartment::Internal  // alias (explicit); Untrusted auto-created below
+
+    Untrusted -> InternalAlias  // Untrusted declares it wants to read Internal
+}
+```
+
+Both declarations are required — either policy omitting its side blocks the connection entirely. Neither policy can unilaterally open cross-policy access.
 
 ### Applying to Nodes
 
@@ -137,10 +159,6 @@ Clusters can inherit a classification for all contained nodes:
 ```cpp
 policy SafetyClass
 {
-    ASIL_D
-    ASIL_C
-    QM
-
     QM -> ASIL_C -> ASIL_D  // Read up
     ASIL_D => ASIL_C => QM  // Write down
 }
@@ -170,13 +188,6 @@ Common patterns for safety and security standards. All follow the principle: **l
 ```cpp
 policy ASIL
 {
-    ASIL_D  // Highest
-    ASIL_C
-    ASIL_B
-    ASIL_A
-    QM      // Quality Managed
-
-    // Explicit form:
     QM -> ASIL_A -> ASIL_B -> ASIL_C -> ASIL_D  // Read up
     ASIL_D => ASIL_C => ASIL_B => ASIL_A => QM  // Write down
 
@@ -190,12 +201,6 @@ policy ASIL
 ```cpp
 policy DAL
 {
-    DAL_A  // Catastrophic
-    DAL_B  // Hazardous
-    DAL_C  // Major
-    DAL_D  // Minor
-    DAL_E  // No effect
-
     DAL_A <-|=> DAL_B <-|=> DAL_C <-|=> DAL_D <-|=> DAL_E
 }
 ```
@@ -205,12 +210,6 @@ policy DAL
 ```cpp
 policy SIL
 {
-    SIL_4
-    SIL_3
-    SIL_2
-    SIL_1
-    NonSafety
-
     SIL_4 <-|=> SIL_3 <-|=> SIL_2 <-|=> SIL_1 <-|=> NonSafety
 }
 ```
@@ -220,11 +219,6 @@ policy SIL
 ```cpp
 policy SecurityZone
 {
-    Critical
-    Secured
-    Internal
-    DMZ
-
     // Inner zones read from outer, write to outer
     Critical <-|=> Secured <-|=> Internal <-|=> DMZ
     // No direct path from DMZ to Critical
@@ -238,11 +232,6 @@ Classic Multi-Level Security ("no read up, no write down") cannot be directly re
 ```cpp
 policy Clearance
 {
-    Unclassified
-    Confidential
-    Secret
-    TopSecret
-
     TopSecret -> Secret -> Confidential -> Unclassified  // Read down
 }
 ```

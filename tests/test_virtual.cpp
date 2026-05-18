@@ -9,7 +9,7 @@
 import arc.tests.virtual_;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 
 /* arc-begin

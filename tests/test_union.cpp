@@ -1,7 +1,7 @@
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
-#include "doctest.h"
+#include "arc/doctest.h"
 #include <concepts>
 #include <cstdio>
 #include <utility>
@@ -10,7 +10,7 @@
 import arc;
 
 #if ARC_IMPORT_STD
-#include "doctest.h"
+#include "arc/doctest.h"
 #endif
 
 namespace arc::tests::union_ {

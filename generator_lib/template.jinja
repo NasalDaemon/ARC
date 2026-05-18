@@ -733,7 +733,8 @@ struct {{ trait.name }} : ::arc::Trait
     requires requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_)
     {
         {% if trait.has_protocol %}
-        requires ::arc::Implements<{{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ trait.protocol_name }}>;
+        requires ::arc::IsTraitViewOf<{{ trait.impl_name }}, {{ trait.name }}>
+              or ::arc::Implements<{{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ trait.protocol_name }}>;
         {% endif %}
         typename {{ trait.impl_name }}::Traits;
         {% for require in trait.requires %}

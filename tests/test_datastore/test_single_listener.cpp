@@ -7,7 +7,7 @@
 import arc;
 import arc.tests.datastore.single;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 /* arc-begin
 export module arc.tests.datastore.single;

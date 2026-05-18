@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_NODES_WITH_ASSERT_HANDLER_HPP
 
 #include "arc/assert_handlers.hpp"
+#include "arc/macros.hpp"
 #include "arc/nodes/map_info.hpp"
 
 namespace arc {

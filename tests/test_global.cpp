@@ -6,7 +6,7 @@
 import arc.tests.global;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::global {
 

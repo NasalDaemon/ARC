@@ -3,7 +3,7 @@
 import arc.tests.joined_trait;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 /* arc-begin
 

@@ -80,7 +80,7 @@ void TracerSpy::writeSummary(std::ostream& os, Format fmt) const
 
 void TracerSpy::recordExit(std::size_t id, std::size_t d, std::string_view name, std::string_view nodeName,
                             std::chrono::nanoseconds dt,
-                            std::string_view retType, std::string retValue, bool hasValue)
+                            std::string_view retType, std::string retValue, bool hasValue) const
 {
     Event e;
     e.kind = Event::Kind::Exit;
@@ -96,7 +96,7 @@ void TracerSpy::recordExit(std::size_t id, std::size_t d, std::string_view name,
 }
 
 void TracerSpy::recordThrow(std::size_t id, std::size_t d, std::string_view name, std::string_view nodeName,
-                             std::chrono::nanoseconds dt, std::string what)
+                             std::chrono::nanoseconds dt, std::string what) const
 {
     Event e;
     e.kind = Event::Kind::Throw;

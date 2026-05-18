@@ -6,6 +6,7 @@
 
 #if !ARC_IMPORT_STD
 #include <cstddef>
+#include <memory>
 #include <new>
 #endif
 

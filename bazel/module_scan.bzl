@@ -1,6 +1,6 @@
 """Repository rule that scans C++20 module sources to build a precise dep map.
 
-Runs bazel/scan_module_deps.py over the workspace source tree and writes
+Runs bazel/scan_module_deps.py over the workspace source tree(s) and writes
 a generated repository containing module_deps.bzl with:
 
   MODULE_DIRECT_DEPS      {module_name: [directly-imported module names]}
@@ -12,42 +12,51 @@ cpp_module.bzl loads these to compute the minimal PCM set needed by each
 compilation action, so that modifying one module only recompiles actions
 that genuinely depend on it.
 
-arc_gen.bzl and cpp_module.bzl load MODULE_SOURCES and MODULE_PROVIDER_TARGETS
-to automatically infer module names and dependency labels from source content,
-eliminating the need for module_prefix / module_name / module_deps parameters.
-
-Usage in MODULE.bazel:
-  arc_module_scan = use_repo_rule("//bazel:module_scan.bzl", "arc_module_scan")
-  arc_module_scan(name = "arc_module_deps")
-
-Then in cpp_module.bzl:
-  load("@arc_module_deps//:module_deps.bzl", "MODULE_DIRECT_DEPS", "FILE_DIRECT_DEPS")
+When ARC is consumed as a bazel_dep, the scan walks BOTH the main workspace
+(consumer) and ARC's own external workspace, so that ARC's modules
+(e.g. arc.ixx) appear in the scan output with their canonical Bazel
+short_path (../arc+/lib/modules/arc.ixx).
 """
 
 def _arc_module_scan_impl(rctx):
-    workspace   = rctx.workspace_root
-    script      = workspace.get_child("bazel").get_child("scan_module_deps.py")
-    list_script = workspace.get_child("bazel").get_child("list_module_files.py")
+    main_workspace = rctx.workspace_root
 
-    # Watch the scanner and file-lister scripts so changes to them re-trigger.
-    rctx.watch(script)
-    rctx.watch(list_script)
+    # Scripts live in ARC's repo; resolve via label so consumers don't need to
+    # copy them into their own bazel/ directory.
+    script_path      = rctx.path(Label("@arc//bazel:scan_module_deps.py"))
+    list_script_path = rctx.path(Label("@arc//bazel:list_module_files.py"))
 
-    # Watch only the files that actually affect module deps:
+    rctx.watch(script_path)
+    rctx.watch(list_script_path)
+
+    # Root descriptors: (absolute_path, short_path_prefix, repo_label_prefix)
+    #   short_path_prefix: prefix prepended to MODULE_SOURCES / FILE_DIRECT_DEPS keys
+    #   repo_label_prefix: prefix prepended to generated MODULE_PROVIDER_TARGETS labels
+    roots = [(str(main_workspace), "", "")]
+
+    # ARC's own workspace. When ARC is the main module this resolves to the
+    # same path as main_workspace and is dropped to avoid double-walking.
+    arc_module_path = rctx.path(Label("@arc//:MODULE.bazel"))
+    arc_workspace = arc_module_path.dirname
+    if str(arc_workspace) != str(main_workspace):
+        canonical_name = arc_workspace.basename  # e.g. "arc+"
+        roots.append((
+            str(arc_workspace),
+            "../" + canonical_name + "/",
+            "@arc",
+        ))
+
+    # Watch only files that actually affect module deps:
     #   .ixx / .ixx.arc — module interface units and ARC DSL sources
     #   arc-embed .cpp  — .cpp files containing arc-begin/arc-end blocks
-    #
-    # Plain .cpp implementation files do NOT change module deps and are NOT
-    # watched, so editing them will NOT re-trigger this expensive scan.
     #
     # CAVEAT: adding a brand-new .ixx/.ixx.arc file requires
     #   bazel clean --expunge
     # to force rediscovery (since we are not watching directory structure).
-    list_result = rctx.execute(
-        ["python3", str(list_script), str(workspace)],
-        working_directory = str(workspace),
-        quiet = True,
-    )
+    list_args = ["python3", str(list_script_path)]
+    for path, _, _ in roots:
+        list_args.append("--root=" + path)
+    list_result = rctx.execute(list_args, quiet = True)
     if list_result.return_code != 0:
         fail("arc_module_scan: file listing failed:\n" + list_result.stderr)
 
@@ -56,11 +65,10 @@ def _arc_module_scan_impl(rctx):
         if f:
             rctx.watch(rctx.path(f))
 
-    result = rctx.execute(
-        ["python3", str(script), str(workspace)],
-        working_directory = str(workspace),
-        quiet = True,
-    )
+    scan_args = ["python3", str(script_path)]
+    for path, short_prefix, label_prefix in roots:
+        scan_args.append("--root={}|{}|{}".format(path, short_prefix, label_prefix))
+    result = rctx.execute(scan_args, quiet = True)
 
     if result.return_code != 0:
         fail("arc_module_scan: dep scan failed:\n" + result.stderr)

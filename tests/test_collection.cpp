@@ -8,7 +8,7 @@
 import arc;
 import arc.tests.collection;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::collection {
 

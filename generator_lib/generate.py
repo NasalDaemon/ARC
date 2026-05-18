@@ -176,6 +176,7 @@ def get_value(t: Tree | Token) -> str:
 
 NO_TRAIT = ("~", "@notrait")
 NO_GROUP = ("~", "@nogroup")
+ANY_GROUP = ("*", "@any")
 PARENT_NODE = ("..", "@parent")
 GLOBAL_NODE = ("^", "@global")
 GLOBAL_TRAIT = ("^", "@global")
@@ -1182,20 +1183,28 @@ class Policy:
 
     def walk(self, children):
         NO_GROUP_NAME = "::arc::NoGroup"
-        aliases: dict[str, str] = {g: NO_GROUP_NAME for g in NO_GROUP}
+        ANY_GROUP_NAME = "::arc::Group"
+        aliases: dict[str, str] = {g: NO_GROUP_NAME for g in NO_GROUP} | {g: ANY_GROUP_NAME for g in ANY_GROUP}
         groups: dict[str, Group] = {}
+
+        def resolve(name: str) -> str | Group:
+            if name in aliases:
+                return aliases[name]
+            if name not in groups:
+                groups[name] = Group(name)
+            return groups[name]
+
         for c in children:
             current_token = c
             try:
-                if c.data == imported('group_name'):
-                    group_val = get_value(c.children[0])
-                    groups[group_val] = Group(group_val)
-                elif c.data == imported('group_alias'):
+                if c.data == imported('group_alias'):
                     alias = get_value(c.children[0])
                     group_type = reconstruct(c.children[1])
                     if alias in aliases:
                         if aliases[alias] != group_type:
                             raise SyntaxError(f"{get_pos(c)} Alias '{alias}' changed from {aliases[alias]} to {group_type}")
+                    elif alias in groups:
+                        raise SyntaxError(f"{get_pos(c)} '{alias}' already implicitly defined as a local group; cannot redefine as alias")
                     else:
                         aliases[alias] = group_type
                 elif c.data == imported('group_connection'):
@@ -1203,16 +1212,10 @@ class Policy:
                         current_token = c.children[i]
                         lnames, arrow, rnames = (c.children[i], c.children[i+1], c.children[i+2])
                         pos = get_pos(arrow)
-                        lnodes = [get_value(name) for name in lnames.children]
-                        lnodes = [groups.get(names, aliases.get(names, names)) for names in lnodes]
-                        rnodes = [get_value(name) for name in rnames.children]
-                        rnodes = [groups.get(names, aliases.get(names, names)) for names in rnodes]
+                        lnodes = [resolve(get_value(name)) for name in lnames.children]
+                        rnodes = [resolve(get_value(name)) for name in rnames.children]
 
                         def addConnection(source: str | Group, target: str | Group, write: bool):
-                            if not isinstance(target, Group) and target != NO_GROUP_NAME:
-                                raise SyntaxError(f"{pos} Cannot target external group '{target}' in policy '{self.name}'. "
-                                                  f"External groups can only gain access to the groups in the current policy '{self.name}'. "
-                                                  f"To allow access to {target}, a connection must be added in the target's policy.")
                             if not isinstance(source, Group) and not isinstance(target, Group):
                                 raise SyntaxError(f"{pos} Cannot connect two aliases '{source}' and '{target}' in group '{self.name}'")
                             if isinstance(source, Group):
@@ -1246,9 +1249,6 @@ class Policy:
             except Exception as e:
                 print(f"ERROR: {get_pos(current_token)} raised exception: {e}")
                 raise
-
-        if not groups:
-            raise SyntaxError(f'Policy {self.name} has no groups defined')
 
         self.groups = list(groups.values())
         self.groups.sort(key=lambda v: v.name)

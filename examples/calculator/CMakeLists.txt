@@ -99,7 +99,7 @@ if(ARC_BUILD_TESTS)
 
     target_link_libraries(arc_example_calculator_tests PUBLIC
         arc_example_calculator_modules
-        arc::tests
+        arc::doctest
     )
 
     target_generate_arc_src(arc_example_calculator_tests

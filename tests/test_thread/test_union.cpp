@@ -1,7 +1,7 @@
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
-#include "doctest.h"
+#include "arc/doctest.h"
 #include <atomic>
 #include <doctest/doctest.h>
 #include <typeindex>
@@ -14,7 +14,7 @@ import arc.tests.thread.poster;
 import arc;
 
 #if ARC_IMPORT_STD
-#include "doctest.h"
+#include "arc/doctest.h"
 #endif
 
 /* arc-begin

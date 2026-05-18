@@ -83,6 +83,8 @@ struct Collection
 
         using ElementNode = detail::ToNodeState<typename ToNodeWrapper<NodeHandle>::template Node<detail::CompressContext<ElementContext>>>;
 
+        friend consteval ElementNode getNodeTypeToInstantiate(arc::AdlTag<Node>) { return std::declval<ElementNode>(); }
+
         struct Handle
         {
             Handle() = delete;

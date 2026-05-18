@@ -7,7 +7,7 @@
 import arc.tests.group;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::group {
 
@@ -18,9 +18,6 @@ namespace arc::tests::group {
 
 policy Class
 {
-    Low
-    Mid
-    High
     A = Other::A
 
     @nogroup -> Low,      Mid,      High
@@ -31,10 +28,9 @@ policy Class
 
 policy Other
 {
-    A
-    B
+    Low = Class::Low
 
-    A -> B
+    A -> B, Low
 }
 
 cluster Inner [Root]

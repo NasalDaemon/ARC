@@ -134,7 +134,7 @@ struct TracerSpy : arc::Node
     bool impl(Spy::disable) { stopRecording(); return true; }
 
     template<class Method, class Caller, class... Args>
-    decltype(auto) impl(Spy::intercept, Method, Caller const& impl_fn, Args&&... args)
+    decltype(auto) impl(Spy::intercept, Method, Caller const& impl_fn, Args&&... args) const
     {
         // Hard bypass when paused: no id, no stats, no stack, no events.
         // Caller observes a pure forward to the underlying implementation.
@@ -237,18 +237,18 @@ private:
     // Bounded ring buffer: oldest events are evicted when capacity is reached.
     // Per-method `Stats` are independent and accumulate across evictions, so the
     // summary remains accurate even when the trace itself has been truncated.
-    arc::CircularBuffer<Event> events{defaultMaxEvents};
-    std::map<std::string_view, Stats> perMethod;
-    std::size_t nextCallId = 0;
-    std::size_t maxDepthSeen = 0;
+    mutable arc::CircularBuffer<Event> events{defaultMaxEvents};
+    mutable std::map<std::string_view, Stats> perMethod;
+    mutable std::size_t nextCallId = 0;
+    mutable std::size_t maxDepthSeen = 0;
 
     static std::vector<std::size_t>& parentStack();
 
     void recordExit(std::size_t id, std::size_t d, std::string_view name, std::string_view nodeName,
                     std::chrono::nanoseconds dt,
-                    std::string_view retType, std::string retValue, bool hasValue);
+                    std::string_view retType, std::string retValue, bool hasValue) const;
     void recordThrow(std::size_t id, std::size_t d, std::string_view name, std::string_view nodeName,
-                     std::chrono::nanoseconds dt, std::string what);
+                     std::chrono::nanoseconds dt, std::string what) const;
 
     void writeEvent(std::ostream& os, Event const& e, Format fmt) const;
     void writeEventJsonl(std::ostream& os, Event const& e) const;

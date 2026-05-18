@@ -7,7 +7,7 @@
 import arc.tests.default_impl;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::default_impl {
 

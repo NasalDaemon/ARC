@@ -19,6 +19,7 @@ project(ARC VERSION 1.0 LANGUAGES CXX)
 
 option(ARC_COMPRESS_TYPES "Compress recursive type names for Context, Impl, Type" FALSE)
 option(ARC_BUILD_TESTS "Build tests for ARC" FALSE)
+option(ARC_BUILD_DOCTEST "Build doctest for ARC" FALSE)
 option(ARC_BUILD_BENCH "Build benchmarks for ARC" FALSE)
 option(ARC_BUILD_EXAMPLES "Build examples for ARC" FALSE)
 option(ARC_BUILD_LTO "Enable LTO when building tests/benchmarks/examples" TRUE)
@@ -27,6 +28,7 @@ option(ARC_STACKTRACE_ENABLED "Enable std::stacktrace support" FALSE)
 
 if(ARC_BUILD_TESTS)
     enable_testing()
+    set(ARC_BUILD_DOCTEST TRUE)
 endif()
 
 if(ARC_BUILD_TESTS OR ARC_BUILD_BENCH OR ARC_BUILD_EXAMPLES)
@@ -35,6 +37,10 @@ endif()
 
 add_subdirectory(generator_lib)
 add_subdirectory(lib)
+
+if(ARC_BUILD_DOCTEST)
+    add_subdirectory(doctest)
+endif()
 
 if(ARC_BUILD_BENCH)
     add_subdirectory(benchmarks/compilation)

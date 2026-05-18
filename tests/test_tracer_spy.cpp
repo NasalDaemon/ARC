@@ -10,7 +10,7 @@
 import arc.tests.test_tracer_spy;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace arc::tests::test_tracer_spy {
 

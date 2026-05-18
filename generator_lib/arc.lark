@@ -63,21 +63,21 @@ proto_state_arrow: R_RARROW  -> state_arrow_r
 proto_state_set: NAME ("|" NAME)*
 
 cluster_scope:  FQNAME [cluster_annotations] "{" node+ connection_block* "}"
-policy_scope:   FQNAME                       "{" group+ group_connection+ "}"
+policy_scope:   FQNAME                       "{" group_alias* group_connection+ "}"
 trait_scope:    FQNAME [trait_annotations]   "{" trait_body+ "}" -> trait_def
            |    FQNAME "=" trait_alias_rhs ("+" trait_alias_rhs)* -> trait_alias
 
 trait_alias_rhs: FQNAME [full_templ_args]
 
-group: group_name                          -> group_name
-     | group_name "=" cpp_type_no_typename -> group_alias
+group_alias: group_name "=" cpp_type_no_typename
 
 group_connection: group_names (group_arrow group_names)+
 
-group_name: GROUP_DEFAULT | NAME
+group_name: GROUP_DEFAULT | GROUP_ANY | NAME
 group_names: group_name ("," group_name)*
 
 GROUP_DEFAULT: "@nogroup" | "~"
+GROUP_ANY: "@any" | "*"
 
 L_RARROW:  "<" "-"+
 R_RARROW:      "-"+ ">"

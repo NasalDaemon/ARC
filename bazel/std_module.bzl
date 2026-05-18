@@ -109,7 +109,7 @@ def _std_module_impl(ctx):
             transitive_modules = [entry],
             transitive_hdrs = depset([]),
             transitive_includes = [],
-            transitive_defines = ["ARC_IMPORT_STD=1"],
+            transitive_defines = [],
             transitive_link_cc_infos = None,
         ),
         DefaultInfo(files = depset([pcm, obj])),

@@ -119,13 +119,13 @@ cpp_module(
         ":test_terminal_line_reader_graph",
         ":test_repl_graph",
     ],
-    deps = ["//tests:doctest"],
+    deps = ["//doctest:doctest"],
 )
 
 cc_test(
     name = "arc_example_filesystem_tests",
     deps = [
         ":fs_test_srcs",
-        "//tests:arc_tests_lib",
+        "//doctest:doctest",
     ],
 )

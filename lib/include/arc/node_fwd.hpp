@@ -177,5 +177,13 @@ concept NodeDependenciesSatisfied = requires { typename Node::Depends::template 
 
 } // namespace arc
 
+template<class T>
+auto getNodeTypeToInstantiate(arc::AdlTag<T>) -> T;
+
+namespace arc {
+    ARC_MODULE_EXPORT
+    template<class T>
+    using GetNodeTypeToInstantiate = decltype(getNodeTypeToInstantiate(arc::AdlTag<arc::detail::NodeOf<std::remove_pointer_t<std::remove_cvref_t<T>>>>{}));
+}
 
 #endif // INCLUDE_ARC_NODE_FWD_HPP

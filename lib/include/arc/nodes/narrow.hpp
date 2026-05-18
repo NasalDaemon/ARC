@@ -3,6 +3,7 @@
 
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
+#include "arc/ensure.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"

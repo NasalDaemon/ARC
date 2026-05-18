@@ -1,15 +1,5 @@
 add_subdirectory(abc)
 
-find_package(doctest REQUIRED)
-
-add_library(arc_tests test_main.cpp)
-target_include_directories(arc_tests PUBLIC include)
-
-add_library(arc::tests ALIAS arc_tests)
-target_compile_definitions(arc_tests PUBLIC DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1)
-
-target_link_libraries(arc_tests PUBLIC doctest::doctest)
-
 add_executable(arc_tests_headers
     test_abc_headers.cpp
     test_embedded_headers.cpp
@@ -64,7 +54,7 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION
     )
     target_link_libraries(arc_tests_thread PUBLIC
         arc::module
-        arc::tests
+        arc::doctest
     )
     add_test(arc_tests_thread arc_tests_thread)
 endif()
@@ -128,16 +118,16 @@ target_generate_arc_src(arc_tests_module
 target_link_libraries(arc_tests_headers PUBLIC
     arc::tests::abc::lib
     arc::headers
-    arc::tests
+    arc::doctest
 )
 target_link_libraries(arc_tests_module PUBLIC
     arc::tests::abc::module
     arc::module
-    arc::tests
+    arc::doctest
 )
 target_link_libraries(arc_tests_mock PUBLIC
     arc::module
-    arc::tests
+    arc::doctest
 )
 
 add_test(arc_tests_headers arc_tests_headers)

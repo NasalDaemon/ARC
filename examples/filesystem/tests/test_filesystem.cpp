@@ -5,7 +5,7 @@ import examples.filesystem.traits;
 import arc;
 import std;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 namespace examples::filesystem::tests {
 

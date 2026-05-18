@@ -3,25 +3,6 @@ load("//bazel:cpp_module.bzl", "cpp_module")
 load("//bazel:arc_gen.bzl", "arc_header_library", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
-# Wrapper that exposes "doctest.h" (quote-include form) to all test targets
-cc_library(
-    name = "doctest",
-    hdrs = ["include/doctest.h"],
-    strip_include_prefix = "include",
-    deps = ["@doctest//doctest:doctest"],
-    defines = ["DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1"],
-    visibility = ["//visibility:public"],
-)
-
-# Test main library (provides doctest main)
-cc_library(
-    name = "arc_tests_lib",
-    srcs = ["test_main.cpp"],
-    deps = [":doctest"],
-    visibility = ["//visibility:public"],
-    alwayslink = True,
-)
-
 ###########################################################################
 # ABC Headers-based tests
 ###########################################################################
@@ -30,6 +11,7 @@ arc_header_library(
     name = "arc_tests_headers_lib",
     embed_arcs = {"test_embedded_headers.cpp": "arc/tests/test_embedded_headers.hxx"},
     visibility = ["//visibility:public"],
+    testonly = True,
 )
 
 arc_header_library(
@@ -51,7 +33,7 @@ arc_header_library(
         "abc/headers/src/ellie.cpp",
     ],
     includes = ["abc/headers/include"],
-    deps = ["//lib:arc_headers"],
+    testonly = True,
 )
 
 
@@ -64,7 +46,8 @@ arc_graph(
         "bob": "abc/bob.tpp",
         "charlie.charlie": "abc/charlie.tpp",
     },
-    deps = [":abc_headers_lib", "//lib:arc_headers"],
+    deps = [":abc_headers_lib"],
+    testonly = True,
 )
 
 cc_test(
@@ -75,11 +58,10 @@ cc_test(
         "test_mem_ptr.cpp",
     ],
     deps = [
-        ":arc_tests_lib",
+        "//doctest:doctest",
         ":abc_headers_lib",
         ":abc_src_lib",
         ":arc_tests_headers_lib",
-        "//lib:arc_headers",
     ],
 )
 
@@ -92,7 +74,7 @@ arc_module(
     arcs = glob(["abc/modules/abc/**/*.ixx.arc"]),
     mods = glob(["abc/modules/abc/*.ixx"]),
     srcs = glob(["abc/modules/abc/*.cpp"]),
-    deps = ["//lib:arc_headers"],
+    testonly = True,
 )
 
 arc_graph(
@@ -100,6 +82,7 @@ arc_graph(
     graph_module = "abc.graph",
     graph_type = "arc::Graph<abc::cluster::AliceBob>",
     nodes = {"alice": "abc.alice"},
+    testonly = True,
 )
 
 ###########################################################################
@@ -134,13 +117,15 @@ arc_module(
         "test_protocol.cpp",
         "test_tracer_spy.cpp",
     ],
-    deps = ["//lib:arc_headers", ":doctest"],
+    deps = ["//doctest:doctest"],
+    testonly = True,
 )
 
 arc_module(
     name = "mock_mod",
     embed_arcs = ["test_mock.cpp"],
-    deps = [":doctest"],
+    deps = ["//doctest:doctest"],
+    testonly = True,
 )
 
 ###########################################################################
@@ -166,14 +151,15 @@ cpp_module(
         ":abc_alice_graph",
         ":test_lib",
     ],
-    deps = [":doctest"],
+    deps = ["//doctest:doctest"],
+    testonly = True,
 )
 
 cc_test(
     name = "arc_tests_module",
     deps = [
         ":module_test_srcs",
-        ":arc_tests_lib",
+        "//doctest:doctest",
     ],
 )
 
@@ -189,14 +175,15 @@ cpp_module(
         "test_mock.cpp",
     ],
     module_deps = [":mock_mod"],
-    deps = [":doctest"],
+    deps = ["//doctest:doctest"],
+    testonly = True,
 )
 
 cc_test(
     name = "arc_tests_mock",
     deps = [
         ":mock_test_srcs",
-        ":arc_tests_lib",
+        "//doctest:doctest",
     ],
 )
 
@@ -213,20 +200,22 @@ arc_module(
         "test_thread/test_collection.cpp",
         "test_thread/test_union.cpp",
     ],
-    deps = [":doctest"],
+    deps = ["//doctest:doctest"],
+    testonly = True,
 )
 
 cpp_module(
     name = "thread_test_srcs",
     srcs = glob(["test_thread/test_*.cpp"]),
     module_deps = [":thread_lib"],
-    deps = [":doctest", "//lib:arc_headers"],
+    deps = ["//doctest:doctest"],
+    testonly = True,
 )
 
 cc_test(
     name = "arc_tests_thread",
     deps = [
         ":thread_test_srcs",
-        ":arc_tests_lib",
+        "//doctest:doctest",
     ],
 )

@@ -15,7 +15,7 @@ ARC DSL is defined in `.ixx.arc` (module) or `.hxx.arc` (header) files. The CMak
 Each DSL entity is placed in a specific namespace within the enclosing namespace:
 
 | Entity | Generated namespace | Example |
-|--------|-------------------|---------|
+|--|--|--|
 | `trait` | `inline namespace trait` | `app::trait::Counter` (or just `app::Counter` since it's inline) |
 | `cluster` | `namespace cluster` | `app::cluster::App` |
 | `domain` | `namespace domain` | `shop::domain::ShopDomain` |
@@ -193,7 +193,7 @@ First state mentioned = default. All states must be reachable from it (generator
 **Invariant/predicate targets:** bare name `Open` → `proto.Open()`, parameterised `Connected(name)` → `proto.Connected(name)`, or `(cpp_expr)`.
 
 | Form | Check |
-|------|-------|
+|--|--|
 | `V implies Expr` | `!V \|\| Expr` — if variant active, target must hold |
 | `V iff Expr` | `V == Expr` — variant active exactly when target holds |
 | `name implies Expr` | predicate: `!ret \|\| Expr` checked after every call |
@@ -202,7 +202,7 @@ First state mentioned = default. All states must be reachable from it (generator
 **Contract clauses** (bare names or `(proto.X())` expressions):
 
 | Clause | Entry | Exit |
-|--------|-------|------|
+|--|--|--|
 | `to State` | — | post-state = State |
 | `is Pre` | Pre holds | — |
 | `is Pre then Post` | Pre holds | Post holds |
@@ -286,7 +286,7 @@ cluster <Name>
 ### Connection Arrows
 
 | Arrow | Meaning |
-|-------|---------|
+|--|--|
 | `a --> b` | `a` depends on `b` for the bracketed trait |
 | `a <-- b` | `b` depends on `a` |
 | `a <-> b` | Bidirectional (requires `[TraitA <-> TraitB]` header) |
@@ -294,7 +294,7 @@ cluster <Name>
 ### Special Markers
 
 | Keyword | Shorthand | Meaning |
-|---------|-----------|---------|
+|--|--|--|
 | `@parent` | `..` | Parent cluster |
 | `@global` | `^` | Global node |
 | `@all` | `*` | All sibling nodes and the parent (sink connections only) |
@@ -556,9 +556,8 @@ Policies enforce compile-time access control between node groups. The generated 
 ```arc
 policy SecurityLevel
 {
-    Privileged
-    Trusted
-    Untrusted
+    // Groups are created implicitly when first named in a connection.
+    // Only aliases (Name = ExternalType) need explicit declaration.
 
     // Arrow types:
     Untrusted -> Trusted       // Untrusted can read Trusted
@@ -576,14 +575,14 @@ policy SecurityLevel
 
 **Arrow summary:**
 
-| Arrow | Meaning |
-|-------|---------|
-| `A -> B` | A can read B |
-| `A => B` | A can read-write B |
-| `A <-> B` | Bidirectional read |
-| `A <=> B` | Bidirectional read-write |
-| `A <-\|=> B` | A writes B, B reads A |
-| `A <=\|-> B` | A reads B, B writes A |
+| Arrow | Meaning | Equivalent | Decomposition |
+|--|--|--|--|
+| `A -> B` | A can read B | `B <- A` | |
+| `A => B` | A can read-write B | `B <= A` | |
+| `A <-> B` | Bidirectional read | `B <-> A` | `A -> B` + `A <- B` |
+| `A <=> B` | Bidirectional read-write | `B <=> A` | `A => B` + `A <= B` |
+| `A <-\|=> B` | A read-writes B, B reads A | `B <=\|-> A` | `A => B` + `A <- B` |
+| `A <=\|-> B` | A reads B, B read-writes A | `B <-\|=> A` | `A -> B` + `A <= B` |
 
 No write-only access exists — write (`=>`) always includes read.
 
@@ -592,11 +591,24 @@ No write-only access exists — write (`=>`) always includes read.
 myNode = node::MyNode : arc::InGroup<policy::SecurityLevel::Privileged>
 ```
 
+**Special group names:**
+
+| Name | Shorthand | Meaning |
+|--|--|--|
+| `@nogroup` | `~` | Unclassified nodes only (nodes in no explicit group) |
+| `@any` | `*` | Node in any consenting group (unclassified nodes consent by default) |
+
+Mutual consent still applies — `@any` is not a bypass. Same-group connections are always permitted separately and are unaffected.
+
+`@nogroup` scopes the same behaviour to unclassified nodes only.
+
+Note: `*` means `@any` in policy context; in cluster connection blocks it means `@all` (all sibling nodes). The two uses are unambiguous by position.
+
 **Key rules:**
 - Same-group connections are always permitted (with write access)
-- Different-group connections require explicit arrows
+- Different-group connections require explicit arrows in **both** policies (see external group linking below)
 - Connections are **NOT transitive**: `A -> B` and `B -> C` does NOT imply `A -> C`
-- Nodes without a group use the default group (`@nogroup` or `~`); without explicit `@nogroup` rules, unclassified nodes can only connect to each other
+- Nodes without a group use the default group (`@nogroup` or `~`); unclassified nodes defer to whatever the other group's policy says — if the other group explicitly permits the connection, it is allowed
 
 **Multiple group membership:**
 ```arc
@@ -605,16 +617,40 @@ node = Node : arc::InGroup<policy::Access::User, policy::Access::Admin>
 - Reading: need permission to read from **any one** group (OR)
 - Writing: need permission to write to **all** groups (AND)
 
-**Group aliases** — link to groups in other policies:
+**Group aliases** — reference groups from other policies:
 ```arc
 policy CombinedPolicy
 {
-    Public
-    External = SecurityLevel::Untrusted  // Alias
+    External = SecurityLevel::Untrusted  // Alias (explicit declaration required)
 
-    External => Public
+    External => Public   // External gains read-write access to Public; Public auto-created
+    Public -> External   // Public declares it can read External
 }
 ```
+
+**External group linking (mutual consent):**
+
+A policy can declare a connection where one or both sides are external (aliased) groups. However, the connection is only active when **both** policies declare it — each side must explicitly permit the link.
+
+```arc
+// In policy SecurityLevel:
+policy SecurityLevel
+{
+    Internal = Compartment::Internal  // alias (explicit); Untrusted/Trusted auto-created below
+
+    Trusted -> Internal   // Trusted declares it wants to read Internal
+}
+
+// In policy Compartment:
+policy Compartment
+{
+    Edge = SecurityLevel::Trusted     // alias (explicit); Internal auto-created below
+
+    Edge -> Internal                  // Internal permits Edge (Trusted) to read it
+}
+```
+
+Both declarations are required — the connection is blocked if either policy omits its side. This means two independent policies can jointly agree to permit a cross-policy link without either policy being able to unilaterally open access.
 
 **Cluster inheritance** — clusters inherit the group classification applied at the parent level:
 ```arc

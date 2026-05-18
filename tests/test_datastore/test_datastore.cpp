@@ -12,7 +12,7 @@ import arc.tests.datastore.cluster;
 import arc.tests.datastore.types;
 import arc;
 
-#include "doctest.h"
+#include "arc/doctest.h"
 
 /* arc-begin
 module;

@@ -5,6 +5,7 @@
 
 #if !ARC_IMPORT_STD
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <functional>
 #include <type_traits>
