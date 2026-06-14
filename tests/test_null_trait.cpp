@@ -19,8 +19,7 @@ cluster Cluster [R = Root]
     node2 = R::Node
 
     // Link nodes with NoTrait to each other
-    // Only time that sink can have multiple nodes
-    [~] node1, node2
+    [~] node1 <-> node2
 }
 
 }

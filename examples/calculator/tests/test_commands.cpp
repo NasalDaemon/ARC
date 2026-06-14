@@ -53,7 +53,7 @@ SCENARIO("vars command")
             {
                 std::string out;
                 for (auto const& [name, value] : vars)
-                    out += name + "=" + std::to_string(value) + "\n";
+                    out += std::format("{}={}\n", name, value);
                 return out;
             }
         );

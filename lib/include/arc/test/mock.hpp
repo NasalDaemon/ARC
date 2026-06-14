@@ -1,9 +1,10 @@
 #ifndef INCLUDE_ARC_MOCK_HPP
 #define INCLUDE_ARC_MOCK_HPP
 
-#include "arc/circular_buffer.hpp"
-#include "arc/context_fwd.hpp"
 #include "arc/detail/cast.hpp"
+#include "arc/circular_buffer.hpp"
+#include "arc/nodes/combine.hpp"
+#include "arc/context_fwd.hpp"
 #include "arc/type_name.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/function.hpp"
@@ -21,6 +22,7 @@
 #include <any>
 #include <cstddef>
 #include <concepts>
+#include <format>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -32,6 +34,13 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#endif
+
+#if ARC_COMPILER_LT(GCC, 15)
+// GCC 14 doesn't properly support std::format with std::string/std::string_view
+#define ARC_GCC14_STR_FMT(...) std::string(__VA_ARGS__).c_str()
+#else
+#define ARC_GCC14_STR_FMT(...) __VA_ARGS__
 #endif
 
 namespace arc::test {
@@ -191,7 +200,7 @@ namespace detail {
                 else
                     throw std::runtime_error(std::format(
                         "Copying non-copyable ({}) in a mock return value. Consider using a copyable type, returning a reference, "
-                        "or defining the method instead of using methodReturns/implReturns.", typeName<T>));
+                        "or defining the method instead of using methodReturns/implReturns.", ARC_GCC14_STR_FMT(typeName<T>)));
             }
 
             static constexpr void destroy(Base const* self)
@@ -218,109 +227,120 @@ namespace detail {
         template<class T>
         std::string conversionError() const
         {
-            return std::format("MockReturn: cannot convert {} to {}", storedTypeName, arc::typeName<T>);
+            return std::format("MockReturn: cannot convert {} to {}", ARC_GCC14_STR_FMT(storedTypeName), ARC_GCC14_STR_FMT(arc::typeName<T>));
+        }
+
+        // Single conversion routine shared by every conversion operator and by the
+        // comparison operators, so the selection logic lives in one place and the
+        // comparison operators bind the stored object instead of copying it out.
+        // The value category and constness of the MockReturn are carried by Self
+        // (deduced from the caller), so one body covers every qualifier:
+        //  - reference targets bind a stored reference, or — only when *this is an
+        //    lvalue, so it outlives the result — the owned storage; an rvalue *this
+        //    over owned storage would dangle, so that throws.
+        //  - value targets copy, or move out of owned storage when *this is an
+        //    rvalue (the only path that supports move-only returns); a stored
+        //    reference is always copied, never moved, since the mock def still owns
+        //    the referent.
+        template<class T, class Self>
+        constexpr T convertTo(this Self&& self)
+        {
+            if constexpr (std::is_reference_v<T>)
+            {
+                using NoRef = std::remove_reference_t<T>;
+                using V = std::remove_cv_t<NoRef>;
+                if (auto* ref = std::get_if<Ref>(&self.value))
+                {
+                    if (ref->template convertibleTo<T>())
+                        return static_cast<T>(*static_cast<NoRef*>(ref->ptr));
+                }
+                else if constexpr (std::is_lvalue_reference_v<Self>)
+                {
+                    if (auto* any = std::get_if<std::any>(&self.value))
+                    {
+                        if (auto* p = std::any_cast<V>(any))
+                            return static_cast<T>(*p);
+                    }
+                    else if (auto* anyPtr = std::get_if<AnyUniquePtr>(&self.value))
+                    {
+                        if (auto* p = anyPtr->template get<V>())
+                            return static_cast<T>(*p);
+                    }
+                    else if constexpr (not std::is_const_v<std::remove_reference_t<Self>>)
+                    {
+                        if (self.returnDefault)
+                        {
+                            if constexpr (std::is_copy_constructible_v<V>)
+                                return static_cast<T>(self.value.template emplace<std::any>().template emplace<V>());
+                            else
+                                return static_cast<T>(*self.value.template emplace<AnyUniquePtr>(std::in_place_type<V>).template get<V>());
+                        }
+                    }
+                }
+                throw std::runtime_error(self.template conversionError<T>());
+            }
+            else
+            {
+                if (auto* any = std::get_if<std::any>(&self.value))
+                {
+                    if (auto* p = std::any_cast<T>(any))
+                    {
+                        if constexpr (std::is_rvalue_reference_v<Self&&>)
+                            return std::move(*p);
+                        else
+                            return *p;
+                    }
+                }
+                else if (auto* anyPtr = std::get_if<AnyUniquePtr>(&self.value))
+                {
+                    if (auto* p = anyPtr->template get<T>())
+                    {
+                        if constexpr (std::is_rvalue_reference_v<Self&&>)
+                            return std::move(*p);
+                        else
+                            return *p;
+                    }
+                }
+                else if (auto* ref = std::get_if<Ref>(&self.value))
+                {
+                    if constexpr (std::is_rvalue_reference_v<Self&&> and std::is_move_constructible_v<T>)
+                        if (ref->template convertibleTo<T&&>())
+                            return std::move(*static_cast<T*>(ref->ptr));
+                    if constexpr (std::is_copy_constructible_v<T>)
+                        if (ref->template convertibleTo<T const&>())
+                            return *static_cast<T const*>(ref->ptr);
+                }
+                else if constexpr (std::is_default_constructible_v<T>)
+                {
+                    if (self.returnDefault)
+                        return T();
+                }
+                throw std::runtime_error(self.template conversionError<T>());
+            }
         }
 
         template<class T>
-        constexpr operator T&() const &&
-        {
-            if (Ref const* ref = std::get_if<Ref>(&value))
-            {
-                if (ref->convertibleTo<T&>())
-                    return *static_cast<T*>(ref->ptr);
-            }
-            throw std::runtime_error(conversionError<T&>());
-        }
+        requires (not std::is_same_v<MockReturn, T>) and (not std::is_reference_v<T>)
+             and (not std::is_const_v<T>) and std::is_copy_constructible_v<T>
+        constexpr operator T() const & { return convertTo<T>(); }
 
         template<class T>
-        requires (not std::is_same_v<MockReturn, T>) and std::is_copy_constructible_v<T>
-        constexpr operator T() const &
-        {
-            if (std::any const* any = std::get_if<std::any>(&value))
-            {
-                if (T const* p = std::any_cast<T>(any))
-                    return *p;
-            }
-            else if (AnyUniquePtr const* anyPtr = std::get_if<AnyUniquePtr>(&value))
-            {
-                if (T const* p = anyPtr->get<T>())
-                    return *p;
-            }
-            else if (Ref const* ref = std::get_if<Ref>(&value))
-            {
-                if (ref->convertibleTo<T const&>())
-                    return *static_cast<T const*>(ref->ptr);
-            }
-            else if (returnDefault)
-            {
-                return T();
-            }
-            throw std::runtime_error(conversionError<T>());
-        }
+        requires (not std::is_same_v<MockReturn, T>) and (not std::is_reference_v<T>)
+             and (not std::is_const_v<T>)
+        constexpr operator T() && { return std::move(*this).convertTo<T>(); }
 
         template<class T>
-        constexpr operator T&() &
-        {
-            if (std::any* any = std::get_if<std::any>(&value))
-            {
-                if (T* p = std::any_cast<T>(any))
-                    return *p;
-            }
-            else if (AnyUniquePtr* anyPtr = std::get_if<AnyUniquePtr>(&value))
-            {
-                if (T* p = anyPtr->get<T>())
-                    return *p;
-            }
-            else if (Ref* ref = std::get_if<Ref>(&value))
-            {
-                if (ref->convertibleTo<T&>())
-                    return *static_cast<T*>(ref->ptr);
-            }
-            else if (returnDefault)
-            {
-                if constexpr (std::is_copy_constructible_v<T>)
-                    return value.emplace<std::any>().emplace<T>();
-                else
-                    return *value.emplace<AnyUniquePtr>(std::in_place_type<T>).template get<T>();
-            }
-            throw std::runtime_error(conversionError<T&>());
-        }
+        constexpr operator T&() & { return convertTo<T&>(); }
 
         template<class T>
-        constexpr operator T&&() &&
-        {
-            using TDecay = std::remove_cvref_t<T>;
-            if (std::any* any = std::get_if<std::any>(&value))
-            {
-                if (TDecay* p = std::any_cast<TDecay>(any))
-                    return std::forward<T>(*p);
-            }
-            else if (AnyUniquePtr* anyPtr = std::get_if<AnyUniquePtr>(&value))
-            {
-                if (TDecay* p = anyPtr->get<TDecay>())
-                    return std::forward<T>(*p);
-            }
-            else if (Ref* ref = std::get_if<Ref>(&value))
-            {
-                if (ref->convertibleTo<T&&>())
-                    return std::forward<T>(*static_cast<TDecay*>(ref->ptr));
-            }
-            else if (returnDefault)
-            {
-                if constexpr (std::is_copy_constructible_v<T>)
-                    return std::forward<T>(value.emplace<std::any>().emplace<std::remove_cvref_t<T>>());
-                else
-                    return std::forward<T>(*value.emplace<AnyUniquePtr>(std::in_place_type<T>).template get<T>());
-            }
-            throw std::runtime_error(conversionError<T&&>());
-        }
+        constexpr operator T&() const && { return std::move(*this).convertTo<T&>(); }
 
         template<class T>
         constexpr void emplace(auto&& arg)
         {
             storedTypeName = arc::typeName<T>;
             if constexpr (std::is_reference_v<T>)
-                value.emplace<Ref>(std::addressof(arg), typeId<std::remove_cvref_t<T>>, std::is_lvalue_reference_v<T>, std::is_const_v<std::remove_reference_t<T>>);
+                value.emplace<Ref>(const_cast<void*>(static_cast<void const*>(std::addressof(arg))), typeId<std::remove_cvref_t<T>>, std::is_lvalue_reference_v<T>, std::is_const_v<std::remove_reference_t<T>>);
             else if constexpr (std::is_copy_constructible_v<T>)
                 value.emplace<std::any>(std::in_place_type<T>, ARC_FWD(arg));
             else
@@ -341,12 +361,12 @@ namespace detail {
         template<class T>
         constexpr auto operator<=>(T const& other) const
         {
-            return static_cast<T const&>(*this) <=> other;
+            return convertTo<T const&>() <=> other;
         }
         template<class T>
         constexpr bool operator==(T const& other) const
         {
-            return static_cast<T const&>(*this) == other;
+            return convertTo<T const&>() == other;
         }
 
     private:
@@ -611,8 +631,17 @@ namespace detail {
             if (auto const it = self.impls.find(implType_); it != self.impls.end())
                 impl = self.getMockDef(it->second);
             if (impl == nullptr)
+            {
                 if (auto const it = self.impls.find(implTypeValues_); it != self.impls.end())
+                {
+                    if constexpr (not (... and std::is_constructible_v<std::decay_t<Args>, Args>))
+                        throw std::runtime_error(std::format(
+                            "Mock: defined signature {} is not callable with the called signature {}.",
+                            ARC_GCC14_STR_FMT(implSignature<Self, Method, std::decay_t<Args>...>()),
+                            ARC_GCC14_STR_FMT(implSignature<Self, Method, Args...>())));
                     impl = self.getMockDef(it->second);
+                }
+            }
 
             if (impl != nullptr)
             {
@@ -679,7 +708,7 @@ namespace detail {
                     result.setReturnDefault();
                     break;
                 case MockDefault::ThrowIfMissing:
-                    throw std::runtime_error(notDefinedError<Self, Method, Args...>());
+                    throw std::runtime_error(std::format("Mock implementation not defined for {}", ARC_GCC14_STR_FMT(implSignature<Self, Method, Args...>())));
                 }
                 return result;
             }
@@ -836,6 +865,25 @@ namespace detail {
         template<class R, class F, class... Args>
         static auto getTypes(R (F::*)(Args...) const) -> R(*)(Args...);
 
+        // Recover an argument from its type-erased storage for forwarding to a
+        // user-supplied impl. The stored object outlives the call, so the
+        // default is to reproduce the declared parameter type exactly via
+        // static_cast<Arg> (copy for a by-value param, bind for a reference) —
+        // this never disturbs the caller's argument. The sole exception is a
+        // by-value parameter of a move-only type, which cannot be copied: there
+        // we must move out of the stored object (static_cast<Arg&&>). The caller
+        // of such a method necessarily passed an rvalue, so the move is sound.
+        template<class Arg>
+        static constexpr decltype(auto) recoverArg(void* p) noexcept
+        {
+            using Stored = std::remove_cvref_t<Arg>;
+            Stored& ref = *static_cast<Stored*>(p);
+            if constexpr (not std::is_reference_v<Arg> and not std::is_copy_constructible_v<Stored>)
+                return static_cast<Arg&&>(ref);
+            else
+                return static_cast<Arg>(ref);
+        }
+
         template<class R, class Tag, class... Args>
         constexpr void defineImpl(R(*)(Tag, Args...), bool isConst, auto&& f)
         {
@@ -849,21 +897,21 @@ namespace detail {
                         if constexpr (std::is_void_v<R>)
                         {
                             result.reset();
-                            std::invoke(f, Tag{}, static_cast<Args>(*static_cast<std::remove_cvref_t<Args>*>(args[I]))...);
+                            std::invoke(f, Tag{}, recoverArg<Args>(args[I])...);
                         }
                         else
                         {
                             result.emplace<R>(
-                                std::invoke(f, Tag{}, static_cast<Args>(*static_cast<std::remove_cvref_t<Args>*>(args[I]))...));
+                                std::invoke(f, Tag{}, recoverArg<Args>(args[I])...));
                         }
                     }(std::index_sequence_for<Args...>{});
                 };
         }
 
         template<class Self, class Method, class... Args>
-        static constexpr std::string notDefinedError()
+        static constexpr std::string implSignature()
         {
-            std::string error = "Mock implementation not defined for impl(";
+            std::string error = "impl(";
             error += arc::typeName<Method>;
             ((error += ", ", error += arc::typeName<Args>), ...);
             if constexpr (std::is_const_v<Self>)
@@ -1178,6 +1226,9 @@ ARC_MODULE_EXPORT
 template<class DefaultTypes/* = EmptyTypes*/, class... MockedTraits>
 struct Mock : detail::MockBase
 {
+    template<IsNodeHandle... Nodes>
+    using Combine = arc::Combine<Mock, Nodes...>;
+
     using Traits = std::conditional_t<
         sizeof...(MockedTraits) == 0,
         arc::TraitsOpen<>,
@@ -1190,5 +1241,7 @@ struct Mock : detail::MockBase
 };
 
 }
+
+#undef ARC_GCC14_STR_FMT
 
 #endif // INCLUDE_ARC_MOCK_HPP

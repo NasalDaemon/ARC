@@ -42,19 +42,19 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<IsNodeHandle... Nodes>
+template<IsNodeHandle Fallback, IsNodeHandle... Nodes>
 struct Combine
 {
     template<class Context>
-    struct Cluster : arc::Cluster, detail::CombinePart<Cluster<Context>, Nodes>...
+    struct Cluster : arc::Cluster, detail::CombinePart<Cluster<Context>, Nodes>..., detail::CombinePart<Cluster<Context>, Fallback>
     {
         static constexpr bool isUnary()
         {
-            return (sizeof...(Nodes) == 1) and (... and (decltype(detail::CombinePart<Cluster, Nodes>::node)::isUnary()));
+            return (sizeof...(Nodes) == 0) and decltype(detail::CombinePart<Cluster, Fallback>::node)::isUnary();
         }
 
         template<IsTrait Trait>
-        static auto resolveLink(Trait, LinkPriorityMin)
+        static auto resolveLink(Trait, LinkPriorityMax)
             -> ResolvedLink<
                 detail::SelectIf<
                     ContextHasTraitPred,
@@ -63,22 +63,28 @@ struct Combine
                 >,
                 Trait>;
 
+        template<IsTrait Trait>
+        requires ContextHasTrait<typename detail::CombinePart<Cluster, Fallback>::Context, Trait>
+        static auto resolveLink(Trait, LinkPriorityMin)
+            -> ResolvedLink<typename detail::CombinePart<Cluster, Fallback>::Context, Trait>;
+
         template<IsNodeHandle N>
-        requires (... || std::is_same_v<N, Nodes>)
+        requires (std::is_same_v<N, Fallback> || ... || std::is_same_v<N, Nodes>)
         auto& get(this auto& self)
         {
             return detail::upCast<detail::CombinePart<Cluster, N>>(self).node;
         }
 
         template<std::size_t I>
-        requires (I < sizeof...(Nodes))
+        requires (I <= sizeof...(Nodes))
         auto& get(this auto& self)
         {
-            return detail::upCast<detail::CombinePart<Cluster, detail::TypeAt<I, Nodes...>>>(self).node;
+            return detail::upCast<detail::CombinePart<Cluster, detail::TypeAt<I, Fallback, Nodes...>>>(self).node;
         }
 
         constexpr void visit(this auto& self, auto&& visitor)
         {
+            self.template get<Fallback>().visit(visitor);
             (self.template get<Nodes>().visit(visitor), ...);
         }
     };

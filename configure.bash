@@ -11,10 +11,10 @@ while [[ "$#" -gt 0 ]]; do
             shift ;;
         -m|--std-module)
             STD_MODULE="$2"
-            ;;
+            shift ;;
         -e|--examples)
             BUILD_EXAMPLES="$2"
-            ;;
+            shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift

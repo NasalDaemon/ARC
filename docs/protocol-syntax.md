@@ -415,10 +415,11 @@ static_assert(arc::HasProtocol<app::trait::Network>);
 
 ### Querying protocol state at runtime
 
-Any trait handle exposes `asTrait(arc::protocol(trait))`, which returns a const view of the bound protocol. All state variant checkers and predicate methods are accessible through the view:
+Any trait handle exposes `.asTrait(arc::protocol(trait))` and `->asProtocol()`, which both return a view of the bound protocol. All state variant checkers and predicate methods are accessible through the view:
 
 ```cpp
-auto proto = graph.network.asTrait(trait::network).asTrait(arc::protocol(trait::network));
+auto proto = graph.network.asTrait(network).asTrait(arc::protocol(network));
+// auto proto = graph.network.asTrait(network)->asProtocol(); // equivalent
 
 // Nullary state
 bool isOpen  = proto.Open();   // true if in Open state

@@ -26,33 +26,6 @@ struct PeerNode : Node
     template<detail::IsDependsItem... DependTraits>
     using Uses = arc::Build<PeerNode>::template Uses<DependTraits...>;
 
-    // Also exposed in TraitNodeView
-    template<class Self>
-    requires IsElementContext<ContextOf<Self>>
-    constexpr auto const& getElementId(this Self& self)
-    {
-        using ThisNode = UnderlyingNode<Self>;
-        auto& node = detail::upCast<ThisNode>(self);
-        using ElementContext = ContextOf<Self>::Info::ElementContext;
-        auto& element = ContextOf<Self>{}.template getParentNode<ElementContext>(node);
-        auto memPtr = ElementContext{}.template getParentMemPtr<ElementContext>();
-        return memPtr.getClassFromMember(element).id;
-    }
-
-    // Also exposed in TraitNodeView
-    template<class Self>
-    requires IsElementContext<ContextOf<Self>>
-    constexpr auto getElementHandle(this Self const& self)
-    {
-        using ThisNode = UnderlyingNode<Self>;
-        auto& node = detail::upCast<ThisNode>(self);
-        using ElementContext = ContextOf<Self>::Info::ElementContext;
-        auto& element = ContextOf<Self>{}.template getParentNode<ElementContext>(node);
-        auto memPtr = ElementContext{}.template getParentMemPtr<ElementContext>();
-        return memPtr.getClassFromMember(element).getElementHandle();
-    }
-
-    // Only available to the node itself
     template<class Self>
     requires IsElementContext<ContextOf<Self>> and HasTrait<Self, trait::Peer>
     constexpr auto getPeers(this Self& self)

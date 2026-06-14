@@ -43,12 +43,12 @@ ARC_MODULE_EXPORT
 template<IsTrait Trait>
 struct AutoCompleteTraitView;
 
-template<IsTrait Trait, class ImplAlias>
+template<IsTrait Trait, class ImplAlias, class Types>
 struct TraitNodeView;
 
 // Preserve constness of ImplAlias when constructing from TraitView
-template<IsTrait Trait, class ImplAlias>
-TraitNodeView(Trait, ImplAlias&) -> TraitNodeView<Trait, ImplAlias>;
+template<IsTrait Trait, class ImplAlias, class Types>
+TraitNodeView(Trait, ImplAlias&, std::type_identity<Types>) -> TraitNodeView<Trait, ImplAlias, Types>;
 
 // Presents a view over a trait implementation, where only the trait trait functions are accessible
 ARC_MODULE_EXPORT

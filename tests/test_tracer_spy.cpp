@@ -77,7 +77,7 @@ SCENARIO(R"(TracerSpy emits a structured JSONL trace for agent debugging)")
         std::ostringstream trace;
 
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -125,7 +125,7 @@ SCENARIO(R"(TracerSpy emits a full JSONL + human trace for inspection)")
         std::ostringstream humanTrace;
 
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -172,7 +172,7 @@ SCENARIO(R"(TracerSpy records pointer arguments as address and pointee value)")
         std::ostringstream trace;
 
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -226,7 +226,7 @@ SCENARIO(R"(TracerSpy captures exceptions thrown across the trait boundary)")
         std::ostringstream trace;
 
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, ThrowRoot> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -254,7 +254,7 @@ SCENARIO(R"(TracerSpy ring buffer evicts oldest events while per-method stats su
     GIVEN(R"(a TracerSpy sized to 4 events)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{{.maxEvents = 4}},
+            .global{{.maxEvents = 4, .recording = true}},
             .main{}
         };
 
@@ -324,7 +324,7 @@ SCENARIO(R"(TracerSpy minDepth skips shallow events; stats still accumulate)")
     GIVEN(R"(a TracerSpy with minDepth = 1)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{{.minDepth = 1}},
+            .global{{.minDepth = 1, .recording = true}},
             .main{}
         };
 
@@ -351,7 +351,7 @@ SCENARIO(R"(TracerSpy maxDepth skips deep events; stats still accumulate)")
     GIVEN(R"(a TracerSpy with maxDepth = 1)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{{.maxDepth = 1}},
+            .global{{.maxDepth = 1, .recording = true}},
             .main{}
         };
 
@@ -379,7 +379,7 @@ SCENARIO(R"(TracerSpy can pause and resume event recording on the fly)")
     GIVEN(R"(a TracerSpy with default Params)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -467,7 +467,7 @@ SCENARIO(R"(TracerSpy reset(Params) clears state and applies new Params)")
     GIVEN(R"(a TracerSpy that has recorded some events)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -479,7 +479,7 @@ SCENARIO(R"(TracerSpy reset(Params) clears state and applies new Params)")
 
         WHEN(R"(reset is called with new Params)")
         {
-            graph.global->reset({.minDepth = 1, .maxEvents = 16});
+            graph.global->reset({.minDepth = 1, .maxEvents = 16, .recording = true});
 
             THEN(R"(all event/stats state is cleared and new Params are applied)")
             {
@@ -528,7 +528,7 @@ SCENARIO(R"(TracerSpy enable()/disable() trait methods toggle recording and retu
     GIVEN(R"(a TracerSpy with default Params)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 
@@ -586,7 +586,7 @@ SCENARIO(R"(TracerSpy enable()/disable() are idempotent)")
     GIVEN(R"(a TracerSpy already recording)")
     {
         arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
-            .global{},
+            .global{{.recording = true}},
             .main{}
         };
 

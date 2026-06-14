@@ -25,7 +25,7 @@ concept HasTrait = requires (T t, Trait trait) {
 };
 
 ARC_MODULE_EXPORT
-template<IsContext Context_, IsTrait Trait_>
+template<class Context_, class Trait_>
 struct ResolvedLink
 {
     using Context = Context_;
@@ -34,11 +34,7 @@ struct ResolvedLink
 
 ARC_MODULE_EXPORT
 template<class T>
-concept IsResolvedLink = requires
-{
-    typename T::Context;
-    typename T::Trait;
-};
+concept IsResolvedLink = IsContext<typename T::Context> and IsTrait<typename T::Trait>;
 
 ARC_MODULE_EXPORT
 struct LinkPriorityMin

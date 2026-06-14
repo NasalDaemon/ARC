@@ -98,10 +98,18 @@
 #   define ARC_CPP_VERSION __cplusplus
 #endif
 
-#if defined(_WIN32)
-#   define ARC_OS_WINDOWS 1
-#else
+#if defined(__linux__)
+#   define ARC_OS_LINUX 1
+#   define ARC_OS_MAC 0
 #   define ARC_OS_WINDOWS 0
+#elif defined(__APPLE__) && defined(__MACH__)
+#   define ARC_OS_LINUX 0
+#   define ARC_OS_MAC 1
+#   define ARC_OS_WINDOWS 0
+#elif defined(_WIN32)
+#   define ARC_OS_LINUX 0
+#   define ARC_OS_MAC 0
+#   define ARC_OS_WINDOWS 1
 #endif
 
 #if defined(__INTELLISENSE__) or defined(ARC_CLANGD)
@@ -196,7 +204,8 @@
         }; \
         struct GlobalResolver \
         { \
-            ARC_GLOBAL_TRAIT_RESOLVER(TraitName) \
+            ARC_TRAIT_RESOLVER(get ## TraitName, ::arc::Global<TraitName>) \
+            ARC_TRAIT_RESOLVER(getGlobal ## TraitName, ::arc::Global<TraitName>) \
         }; \
         struct Converter \
         { \
@@ -245,22 +254,25 @@
         return ::arc::invokeMethod(self, method ## _c, ARC_FWD(args)...); \
     }
 
+#define ARC_SIGNATURE_METHOD_BODY(method, ...) \
+    if constexpr (::arc::IsTraitView<Self>) \
+    { \
+        using Invoker = decltype(ARC_This_Trait::Meta::Signatures::method(self, ## __VA_ARGS__)); \
+        return Invoker{}.invoke(self, method ## _c, ## __VA_ARGS__); \
+    } \
+    else \
+    { \
+        /* If calling internally within a node, don't enforce the signature which may require graph context */ \
+        return ::arc::invokeMethod(self, method ## _c, ## __VA_ARGS__); \
+    }
+
 #define ARC_SIGNATURE_METHOD(method) \
     ARC_AS_FUNCTOR_METHOD(method) \
     template<class Self, class... Args> \
     requires ::arc::CanInvokeMethod<Self, ARC_This_Trait::method, Args...> \
     ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
     { \
-        if constexpr (::arc::IsTraitView<Self>) \
-        { \
-            using Invoker = decltype(ARC_This_Trait::Meta::Signatures::method(self, static_cast<Args&&>(args)...)); \
-            return Invoker{}.invoke(self, method ## _c, static_cast<Args&&>(args)...); \
-        } \
-        else \
-        { \
-            /* If calling internally within a node, don't enforce the signature which may require graph context */ \
-            return ::arc::invokeMethod(self, method ## _c, static_cast<Args&&>(args)...); \
-        } \
+        ARC_SIGNATURE_METHOD_BODY(method, static_cast<Args&&>(args)...) \
     }
 
 #define ARC_SIGNATURE_METHOD_TAG(method) \
@@ -278,8 +290,6 @@
         void function(this auto&) requires false; \
     )
 #define ARC_TRAIT_RESOLVER1(Trait) ARC_TRAIT_RESOLVER2(get ## Trait, Trait)
-
-#define ARC_GLOBAL_TRAIT_RESOLVER(Trait) ARC_TRAIT_RESOLVER2(getGlobal ## Trait, ::arc::Global<Trait>)
 
 #define ARC_TRAIT_CONVERTER(...) ARC_OVERLOAD(ARC_TRAIT_CONVERTER, __VA_ARGS__)(__VA_ARGS__)
 #define ARC_TRAIT_CONVERTER2(function, Trait) \
@@ -300,11 +310,12 @@
 #define ARC_LINK3(traitName, targetContext, targetTrait) \
     template<class T> requires ::arc::MatchesTrait<T, ARC_TYPENAME(ARC_DEPAREN(traitName))> \
     static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkPriorityMin); \
-    template<class T> \
-    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(T, ::arc::LinkExact<ARC_TYPENAME(ARC_DEPAREN(traitName))>);
+    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_DEPAREN(targetTrait)> resolveLink(ARC_DEPAREN(traitName), ::arc::LinkExact<ARC_TYPENAME(ARC_DEPAREN(traitName))>);
 
 #define ARC_LINK2(traitName, targetContext) \
-    ARC_LINK3(traitName, targetContext, T)
+    template<class T> requires ::arc::MatchesTrait<T, ARC_TYPENAME(ARC_DEPAREN(traitName))> \
+    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), T> resolveLink(T, ::arc::LinkPriorityMin); \
+    static ::arc::ResolvedLink<ARC_DEPAREN(targetContext), ARC_TYPENAME(ARC_DEPAREN(traitName))> resolveLink(ARC_DEPAREN(traitName), ::arc::LinkExact<ARC_TYPENAME(ARC_DEPAREN(traitName))>);
 
 #define ARC_LINK_TO_GLOBAL() \
     static void resolveLinkGlobal();

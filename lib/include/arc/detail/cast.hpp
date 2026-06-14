@@ -18,13 +18,13 @@
 namespace arc::detail {
 
 template<bool Const = true, class T>
-ARC_INLINE constexpr std::conditional_t<Const, T const&, T&> asConst(T& value)
+ARC_INLINE constexpr std::conditional_t<Const, T const, T>& asConst(T& value)
 {
     return value;
 }
 
 template<class Other, class T>
-ARC_INLINE constexpr std::conditional_t<std::is_const_v<Other>, T const&, T&> constLike(T& value)
+ARC_INLINE constexpr std::conditional_t<std::is_const_v<Other>, T const, T>& constLike(T& value)
 {
     return value;
 }

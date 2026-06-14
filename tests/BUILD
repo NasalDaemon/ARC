@@ -107,6 +107,7 @@ arc_module(
         "test_group.cpp",
         "test_embedded_modules.cpp",
         "test_global.cpp",
+        "test_invoke_method.cpp",
         "test_joined_trait.cpp",
         "test_node_count.cpp",
         "test_virtual.cpp",

@@ -11,7 +11,7 @@ build --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1  # libstdc++ is default
 build:libcxx --cxxopt=-stdlib=libc++ --linkopt=-lc++
 
 # Force use of GCC (with libstdc++)
-build:gcc --repo_env=CC=gcc --repo_env=CXX=g++
+build:gcc --repo_env=CC=gcc --repo_env=CXX=g++ --linkopt=-lstdc++exp
 # Force use of Clang (with libc++)
 build:clang --repo_env=CC=clang --repo_env=CXX=clang++ --config=libcxx --cxxopt=-Wno-unused-command-line-argument
 

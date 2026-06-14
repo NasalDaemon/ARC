@@ -2,6 +2,8 @@
 
 #if !ARC_IMPORT_STD
 #include <any>
+#include <memory>
+#include <optional>
 #include <span>
 #include <typeinfo>
 #include <vector>
@@ -16,11 +18,19 @@ import arc;
 
 export module arc.tests.mock;
 
-trait arc::tests::mock::Trait
+trait arc::tests::mock::Trait [Types]
 {
+    type MoveOnly
+    type OptionalInt
+
     takesNothing() const
     takesInt(int i)
     returnsRef() -> int&
+    returnsConstRef() const -> int const&
+    returnsValue() const -> int
+    returnsOptional() const -> Types::OptionalInt
+    returnsMoveOnly() const -> Types::MoveOnly
+    returnsRvalueRef() const -> int&&
 }
 
 arc-end */
@@ -43,14 +53,42 @@ struct MockTestNode : arc::Node
     {
         return self.getNode(trait::trait).returnsRef();
     }
+    int const& testConstRef(this auto& self)
+    {
+        return self.getNode(trait::trait).returnsConstRef();
+    }
+    int testValue(this auto& self)
+    {
+        return self.getNode(trait::trait).returnsValue();
+    }
+    std::optional<int> testOptional(this auto& self)
+    {
+        return self.getNode(trait::trait).returnsOptional();
+    }
+    std::unique_ptr<int> testMoveOnly(this auto& self)
+    {
+        return self.getNode(trait::trait).returnsMoveOnly();
+    }
+    int&& testRvalueRef(this auto& self)
+    {
+        return self.getNode(trait::trait).returnsRvalueRef();
+    }
 };
+
+struct MockTypes
+{
+    using MoveOnly = std::unique_ptr<int>;
+    using OptionalInt = std::optional<int>;
+};
+
+using MockTestGraph = arc::test::Graph<MockTestNode, arc::test::Mock<MockTypes>>;
 
 TEST_CASE("arc::test::Mock")
 {
     REQUIRE(TypeId::of<int&>() != TypeId::of<int&&>());
     REQUIRE(TypeId::of<int&>() != TypeId::of<int const&>());
 
-    arc::test::Graph<MockTestNode> g{.mocks{test::MockParams{}}};
+    MockTestGraph g{.mocks{test::MockParams{}}};
     int i = 101;
 
     CHECK(not g.mocks->callLoggingEnabled());
@@ -208,9 +246,33 @@ TEST_CASE("arc::test::Mock")
     CHECK(123 == g.node->testRef());
 }
 
+TEST_CASE("arc::test::Mock trait call through a trait view")
+{
+    MockTestGraph g;
+    g.mocks->setThrowIfMissing();
+    g.mocks->enableCallCounting();
+
+    g.mocks->define([](trait::Trait::takesInt, int i) { return i + 1; });
+
+    // Obtain a TraitView over the mock's Trait implementation and call through it,
+    // rather than going through the node-under-test's accessor methods.
+    arc::IsTraitViewOf<trait::Trait> auto view = g.mocks.asTrait(trait::trait);
+
+    CHECK(43 == view.takesInt(42));
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::takesInt>());
+
+    // A reference return binds through the view to the def's referent.
+    int storage = 7;
+    g.mocks->define([&](trait::Trait::returnsRef) -> int& { return storage; });
+    int& r = view.returnsRef();
+    r = 99;
+    CHECK(99 == storage);
+    CHECK(1 == g.mocks->methodCallCount<trait::Trait::returnsRef>());
+}
+
 TEST_CASE("arc::test::Mock::methodReturns single value repeats")
 {
-    arc::test::Graph<MockTestNode> g;
+    MockTestGraph g;
     g.mocks->setThrowIfMissing();
 
     g.mocks->methodReturns<trait::Trait::takesInt>(42);
@@ -224,7 +286,7 @@ TEST_CASE("arc::test::Mock::methodReturns single value repeats")
 
 TEST_CASE("arc::test::Mock::implReturns single value")
 {
-    arc::test::Graph<MockTestNode> g;
+    MockTestGraph g;
     g.mocks->setThrowIfMissing();
 
     SUBCASE("repeats the same value")
@@ -256,7 +318,7 @@ TEST_CASE("arc::test::Mock::implReturns single value")
 
 TEST_CASE("arc::test::Mock::methodReturnsN")
 {
-    arc::test::Graph<MockTestNode> g;
+    MockTestGraph g;
     g.mocks->setThrowIfMissing();
     g.mocks->enableCallCounting();
 
@@ -300,7 +362,7 @@ TEST_CASE("arc::test::Mock::methodReturnsN")
 
 TEST_CASE("arc::test::Mock::implReturnsN")
 {
-    arc::test::Graph<MockTestNode> g;
+    MockTestGraph g;
     g.mocks->setThrowIfMissing();
     g.mocks->enableCallCounting();
 
@@ -345,6 +407,116 @@ TEST_CASE("arc::test::Mock::implReturnsN")
         g.mocks->implReturnsN<trait::Trait::takesInt, int>(50, 60);
         CHECK(50 == g.node->testInt(0));
         CHECK(60 == g.node->testInt(0));
+    }
+}
+
+// Exercises every combination of {value stored, reference stored} against every
+// kind of method return type {value, T&, T const&, std::optional<T>, move-only}.
+// The conversion must be unambiguous and behave identically on every compiler:
+// a reference return bound to a stored value (which would dangle) throws, a
+// value return copies, and a converting-constructor return type (std::optional)
+// is not confused with its element type.
+TEST_CASE("arc::test::Mock MockReturn conversion matrix")
+{
+    MockTestGraph g;
+    g.mocks->setThrowIfMissing();
+    int storage = 100;
+
+    SUBCASE("value return: def returns a value -> copied out")
+    {
+        g.mocks->define([](trait::Trait::returnsValue) { return 7; });
+        CHECK(7 == g.node->testValue());
+        CHECK(7 == g.node->testValue()); // repeatable
+    }
+    SUBCASE("value return: def returns a reference -> copied out (referent untouched)")
+    {
+        g.mocks->define([&](trait::Trait::returnsValue) -> int const& { return storage; });
+        CHECK(100 == g.node->testValue());
+        storage = 101;
+        CHECK(101 == g.node->testValue());
+    }
+
+    SUBCASE("lvalue-ref return: def returns a reference -> bound through")
+    {
+        g.mocks->define([&](trait::Trait::returnsRef) -> int& { return storage; });
+        int& r = g.node->testRef();
+        r = 55;
+        CHECK(55 == storage);
+    }
+    SUBCASE("lvalue-ref return: def returns a value -> throws (would dangle)")
+    {
+        g.mocks->define([](trait::Trait::returnsRef) { return 5; });
+        CHECK_THROWS(g.node->testRef());
+    }
+
+    SUBCASE("const-ref return: def returns a reference -> bound through (the GCC/Clang divergence case)")
+    {
+        g.mocks->define([&](trait::Trait::returnsConstRef) -> int const& { return storage; });
+        int const& r = g.node->testConstRef();
+        CHECK(100 == r);
+        storage = 77;
+        CHECK(77 == r);
+    }
+    SUBCASE("const-ref return: def returns a non-const reference -> bound through")
+    {
+        g.mocks->define([&](trait::Trait::returnsConstRef) -> int& { return storage; });
+        CHECK(100 == g.node->testConstRef());
+    }
+    SUBCASE("const-ref return: def returns a value -> throws (would dangle)")
+    {
+        g.mocks->define([](trait::Trait::returnsConstRef) { return 9; });
+        CHECK_THROWS(g.node->testConstRef());
+    }
+
+    SUBCASE("optional return: def returns the optional -> not confused with its element type")
+    {
+        g.mocks->define([](trait::Trait::returnsOptional) { return std::optional<int>{42}; });
+        CHECK(std::optional<int>{42} == g.node->testOptional());
+    }
+    SUBCASE("optional return: empty optional round-trips")
+    {
+        g.mocks->define([](trait::Trait::returnsOptional) { return std::optional<int>{}; });
+        CHECK(not g.node->testOptional().has_value());
+    }
+    SUBCASE("optional return: via methodReturns")
+    {
+        g.mocks->methodReturns<trait::Trait::returnsOptional>(std::optional<int>{13});
+        CHECK(std::optional<int>{13} == g.node->testOptional());
+    }
+
+    SUBCASE("move-only return: def returns a fresh move-only value each call -> moved out")
+    {
+        g.mocks->define([](trait::Trait::returnsMoveOnly) { return std::make_unique<int>(123); });
+        auto p = g.node->testMoveOnly();
+        REQUIRE(p != nullptr);
+        CHECK(123 == *p);
+        auto p2 = g.node->testMoveOnly();
+        REQUIRE(p2 != nullptr);
+        CHECK(123 == *p2);
+    }
+
+    SUBCASE("rvalue-ref return through a trait view: def returns a reference")
+    {
+        auto view = g.mocks.asTrait(trait::trait);
+        g.mocks->define([&](trait::Trait::returnsRvalueRef) -> int&& { return std::move(storage); });
+        int&& moved = view.returnsRvalueRef();
+        CHECK(100 == moved);
+        CHECK(&moved == &storage);
+    }
+
+    SUBCASE("stored value on a named MockReturn binds to a reference and persists")
+    {
+        g.mocks->define([](trait::Trait::returnsRef) { return 0; });
+        auto stored = g.mocks->impl(trait::Trait::returnsRef{}); // named lvalue MockReturn holding a value
+        int& a = stored;
+        int& b = stored;
+        CHECK(&a == &b);
+        a = 88;
+        CHECK(88 == b);
+        int copy = stored; // value conversion of the same holder
+        CHECK(88 == copy);
+        int const& c = stored;
+        CHECK(88 == c);
     }
 }
 

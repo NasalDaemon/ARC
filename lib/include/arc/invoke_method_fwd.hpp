@@ -63,6 +63,18 @@ ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args
 }
 
 ARC_MODULE_EXPORT
+template<class ReturnType, class T>
+ARC_INLINE constexpr ReturnType convertTo(T&& value)
+{
+    if constexpr (std::is_same_v<test::detail::MockReturn, std::remove_cvref_t<T>>)
+        return ARC_FWD(value).template convertTo<ReturnType>();
+    else if constexpr (std::is_convertible_v<T, ReturnType>)
+        return ARC_FWD(value);
+    else
+        return ARC_FWD(value).operator ReturnType();
+}
+
+ARC_MODULE_EXPORT
 struct InvokerParams
 {
     bool isConst = false;
@@ -190,11 +202,11 @@ private:
         }
         else
         {
-            using T = decltype(arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...));
-            if constexpr (std::is_convertible_v<T, ReturnType>)
-                return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
-            else if constexpr (std::is_same_v<T, test::detail::MockReturn>)
-                return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...).operator ReturnType&&();
+            decltype(auto) value = arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
+            if constexpr (std::is_same_v<decltype(value), ReturnType> and not std::is_rvalue_reference_v<ReturnType>)
+                return value;
+            else
+                return convertTo<ReturnType>(ARC_FWD(value));
         }
     }
 };

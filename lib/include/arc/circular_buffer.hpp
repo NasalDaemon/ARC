@@ -189,7 +189,7 @@ struct CircularBuffer
         maxSize = capacity_of_mask(mask);
         if constexpr (not Growing)
         {
-            buffer.data = std::make_unique_for_overwrite<Storage[]>(maxSize);
+            buffer.data = Storage(maxSize);
             buffer.mask = mask;
         }
     }
@@ -210,11 +210,11 @@ struct CircularBuffer
         if constexpr (Growing)
         {
             std::size_t const mask = min_mask(mask_for(size));
-            buffer.data = std::make_unique_for_overwrite<Storage[]>(capacity_of_mask(mask));
+            buffer.data = Storage(capacity_of_mask(mask));
             buffer.mask = mask;
         }
 
-        T* outStorage = reinterpret_cast<T*>(buffer.data.get());
+        T* outStorage = buffer.data.storageAt(0);
         for (decltype(auto) elem : ARC_FWD(range))
         {
             if constexpr (std::ranges::view<R>)
@@ -644,7 +644,7 @@ private:
         buffer = Buffer(std::move(buffer), newMask, readIndex, writeIndex, readIndex);
     }
 
-    using Storage = detail::Storage<T>;
+    using Storage = detail::StorageBuffer<T>;
 
     struct Buffer
     {
@@ -677,7 +677,7 @@ private:
             if (capacity == 0)
                 return;
 
-            data = std::make_unique_for_overwrite<Storage[]>(capacity);
+            data = Storage(capacity);
             std::size_t index = 0;
             try
             {
@@ -710,16 +710,15 @@ private:
         }
 
         std::size_t mask = 0; // always {power of 2} - 1
-        std::unique_ptr<Storage[]> data;
+        Storage data;
 
         constexpr auto* value_at(this auto& self, std::size_t index) noexcept
         {
             return std::launder(self.storage_at(index));
         }
-        template<class Self>
-        constexpr auto* storage_at(this Self& self, std::size_t index) noexcept
+        constexpr auto* storage_at(this auto& self, std::size_t index) noexcept
         {
-            return self.data[index & self.mask].storage();
+            return self.data.storageAt(index & self.mask);
         }
     };
 

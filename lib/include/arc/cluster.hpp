@@ -113,14 +113,9 @@ struct Cluster
     }
 
     template<IsTrait Trait, class Self>
-    constexpr auto hasTrait(this Self const&, Trait = {})
+    constexpr auto hasTrait(this Self const&, Trait = {}) -> std::bool_constant<detail::HasLink<Self, Trait>>
     {
-        constexpr bool value =
-            detail::HasLink<Self, Trait> and
-            requires (AdlTag<detail::ResolveLinkContext<Self, Trait>> adlTag) {
-                getNodePointer(adlTag);
-            };
-        return std::bool_constant<value>{};
+        return {};
     }
 
     template<class Context>

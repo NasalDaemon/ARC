@@ -341,7 +341,7 @@ Use `@notrait` (or `~`) for traitless, type-safe connections. The client gains a
 ```arc
 [@notrait] client --> provider
 // Shorthand for: [arc::NoTrait<Provider>] client --> provider
-// Client accesses via: getNode(arc::noTrait<Provider>)->doWork()
+// Client accesses via: getNode<Provider>()->doWork()
 ```
 
 Multiple no-trait sinks in one line: `[@notrait] logger, metrics`
@@ -598,9 +598,9 @@ myNode = node::MyNode : arc::InGroup<policy::SecurityLevel::Privileged>
 | `@nogroup` | `~` | Unclassified nodes only (nodes in no explicit group) |
 | `@any` | `*` | Node in any consenting group (unclassified nodes consent by default) |
 
-Mutual consent still applies — `@any` is not a bypass. Same-group connections are always permitted separately and are unaffected.
+Mutual consent still applies — `@any` is not a unilateral bypass. Same-group connections are always permitted separately and are unaffected.
 
-`@nogroup` scopes the same behaviour to unclassified nodes only.
+`@nogroup` scopes the same open-to-all behaviour to unclassified nodes only.
 
 Note: `*` means `@any` in policy context; in cluster connection blocks it means `@all` (all sibling nodes). The two uses are unambiguous by position.
 

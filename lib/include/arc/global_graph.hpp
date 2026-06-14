@@ -59,6 +59,10 @@ namespace detail {
 
         public:
             template<class T>
+            requires ContextHasTrait<GlobalContext, T>
+            static auto resolveLink(T, LinkPriorityMax) -> ResolvedLink<GlobalContext, T>;
+
+            template<class T>
             static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<MainContext, T>;
 
             ARC_NODE(GlobalContext, global)

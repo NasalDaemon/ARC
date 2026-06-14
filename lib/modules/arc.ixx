@@ -70,10 +70,25 @@ export namespace arc {
         using key::Element;
         using key::Elements;
         using key::allElements;
+        using key::Collection;
+        using key::collection;
     }
     using arc::Collection;
+    using arc::DynamicCollection;
+    using arc::StaticCollection;
     namespace node {
         using node::Collection;
+        using node::DynamicCollection;
+        using node::StaticCollection;
+    }
+    // traits/collection_control.hxx
+    inline namespace trait {
+        using trait::CollectionControl;
+        using trait::collectionControl;
+        using trait::DynamicCollectionControlExt;
+        using trait::dynamicCollectionControlExt;
+        using trait::DynamicCollectionControl;
+        using trait::dynamicCollectionControl;
     }
     // nodes/combine.hpp
     using arc::Combine;
@@ -126,7 +141,9 @@ export namespace arc {
     using arc::EventItem;
     inline namespace trait {
         using trait::DataStore;
+        using trait::dataStore;
         using trait::DataListener;
+        using trait::dataListener;
     }
     // depends.hpp
     using arc::Depends;
@@ -214,6 +231,7 @@ export namespace arc {
     using arc::CanInvokeMethod;
     using arc::invokeMethodDefault;
     using arc::invokeMethod;
+    using arc::convertTo;
     using arc::InvokerParams;
     using arc::NullNormalInvoker;
     using arc::InvokeMethod;
@@ -357,6 +375,7 @@ export namespace arc {
         using test::GraphWithGlobal;
     }
     // nodes/tracer_spy.hpp
+    using arc::TracerSpyParams;
     using arc::TracerSpy;
     namespace node {
         using node::TracerSpy;

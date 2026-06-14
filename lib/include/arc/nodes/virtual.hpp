@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_VIRTUAL_HPP
 
 #include "arc/detail/as_ref.hpp"
+#include "arc/detail/cast.hpp"
 #include "arc/detail/select.hpp"
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
@@ -330,6 +331,13 @@ struct Virtual
             return next->impl;
         }
 
+        template<IsNodeHandle T, class Self>
+        constexpr detail::ConstLike<Self, ImplOf<T>>* getIf(this Self& self)
+        {
+            Impl<T>* p = dynamic_cast<Impl<T>*>(self.implBase.get());
+            return p ? std::addressof(detail::constLike<Self>(p->impl)) : nullptr;
+        }
+
         Node(Node const&) = delete;
         constexpr Node(Node&& other)
             : interfaces(other.interfaces)
@@ -465,7 +473,7 @@ struct Virtual<Interfaces...>::Node<Context>::AsInterface : Node
     template<class Self>
     ARC_INLINE constexpr decltype(auto) impl(this Self& self, auto&&... args)
     {
-        return std::forward_like<Self&>(*get<Interface*>(self.interfaces)).impl(ARC_FWD(args)...);
+        return detail::constLike<Self>(*get<Interface*>(self.interfaces)).impl(ARC_FWD(args)...);
     }
 };
 

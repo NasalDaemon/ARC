@@ -1,36 +1,41 @@
-# ARC: The New Standard for C++ Architecture
+# ARC: Architecture Realised through Code
 
-**ARC** is the C++23 framework that turns architectural intent into enforceable reality—giving modern projects everything they need: uncompromising runtime speed, explicit and maintainable architecture, lightning-fast modular builds, and seamless scalability from modular monolith to microservices. This is a standalone library which may be imported either as a C++20 module or a header-only library.
-
-## Why ARC?
-
-- **Architecture as First-Class Code:** Define your system as composable nodes with explicit dependencies and interfaces. Your boundaries are type-safe and compiler-enforced—not documentation that drifts out of sync.
-- **True Zero Overhead:** Zero overhead at graph construction, trait resolution, and method invocation. There are no vtables, heap allocations, runtime lookups, or hidden layers; only direct, inlined calls as if hand-written. [Here](benchmarks/compilation/99) is a 99-node graph collapsed into a single line of assembly.
-- **Blazing Build Speed:** Each node can compile independently (even when building with C++ modules), so you never pay for modularity with slow builds.
-- **Testability by Default:** Swap in mocks or stubs anywhere, with full compile-time safety and zero runtime cost.
-- **Group Access Policy Control:** Enforce strict segregation between nodes at compile time. Ideal for safety-critical standards where architectural boundaries must be guaranteed with zero runtime overhead.
-- **Protocol Contracts:** Attach a protocol state machine to any trait to enforce legal state transitions and invariants at every call site—catching violations at the boundary, not as silent downstream corruption. Elided entirely in release builds by default.
-- **Thread Safety by Design:** Thread affinity of nodes can be enforced at compile time, eliminating entire classes of concurrency bugs before they start.
-- **Hybrid Static & Dynamic Dispatch:** Use static wiring everywhere for maximum performance; selectively enable runtime polymorphism only where you need it—effortlessly.
-- **Monolith & Microservice, Unified:** Enjoy the modularity of microservices within an entirely in-process application, and transition to distributed microservices and back without changing your architectural graph.
-
-## What Makes ARC Unique?
-
-- **Explicit Structure:** Build your application from cohesive nodes that implement well-defined traits (interfaces) and declare their dependencies explicitly. ARC wires everything together at compile time into an efficient, type-safe graph.
-- **No More Trade-Offs:** Traditional approaches force you to choose between performance, modularity, testability, or maintainability. ARC delivers all, without compromise.
-- **No Hidden Complexity:** No global state, no accidental coupling, no architectural lock-in. Refactoring and onboarding become straightforward—even in large, multi-team codebases.
-- **Deployment Agnostic:** Effortlessly migrate between monolith and microservices as your needs evolve, making it perfect for both greenfield and long-lived projects.
-- **Modern C++, Productively:** ARC erases the architectural and productivity gap that often pushes teams toward other languages for new projects. Now, you can have modern practices, clean architecture, and C++ performance in one package.
+**ARC** is a C++23 framework that makes architectural intent enforceable: explicit structure, zero-overhead dispatch, independently compiled modules, and a path from modular monolith to microservices. It is a standalone library, importable as a C++20 module or header-only.
 
 ## How It Works
 
 ARC structures applications using three core concepts:
 
-1. **Traits** - Interfaces that define contracts between nodes (e.g., `Greeter`, `Responder`)
-2. **Nodes** - Self-contained units that implement traits and declare which traits they depend on
+1. **Traits** - Interfaces that define contracts between components (e.g., `Greeter`, `Responder`)
+2. **Nodes** - Self-contained components that implement traits and declare which traits they depend on
 3. **Clusters** - Compositions that wire nodes together, satisfying all dependencies at compile time
 
 The result is a **Graph**: a single, efficient object containing all your nodes with their dependencies resolved. The compiler can inline across node boundaries, giving you modularity without overhead.
+
+These three concepts are enough for a complete app. In keeping with the C++ ethos of "don't pay for what you don't use," all other ARC features (policies, protocols, domains, threading, runtime polymorphism) are orthogonal and stay out of your code until you use them.
+
+## Spec-Driven Development, baked in
+
+The intent of an ARC codebase lives in its clusters, traits and behavioural tests, which makes the node implementations reproducible. Delete every node implementation, but keep those three, and the implementations can be rewritten until it compiles against the contracts and passes the tests. This isn't hypothetical: it was done with the [calculator example](examples/calculator).
+
+This inverts the usual pattern of decay. Normally the architecture erodes: hidden coupling accumulates, the design drifts from what was intended, and the implementations ossify. In ARC the architecture is kept honest by the compiler, so it endures, while a node's functional implementation is replaceable. What lasts is the small and information-dense spec: the traits, the wiring and the tests.
+
+The same trait boundaries that makes an ordinary node's body reproducible also guards the few that aren't. Where a node holds *non-functional* value (latency, allocation, memory layout), its traits seal it [inside that node](docs/node-structure.md). Its value stays concentrated and protected instead of smeared across the codebase where it would either rot or get in the way.
+
+## Why ARC?
+
+- **Architecture as First-Class Code:** Define your system as composable nodes with explicit dependencies and interfaces. Your boundaries are type-safe and compiler-enforced—not documentation that drifts out of sync.
+- **Zero overhead:** No cost at graph construction, trait resolution, or method invocation. [Here](benchmarks/compilation/99) is a 99-node graph collapsed into a single line of assembly.
+- **No legibility tax:** Static-dispatch in C++ normally means templates and CRTP, which go viral and drag implementations into headers. Not with ARC: calls are direct and inlined (no vtables, heap allocations, or lookups), while remaining clear and concise without noisy template incantations.
+- **Fast, parallelised builds:** Each node can compile independently (even when building with C++ modules), so you never pay for modularity with slow builds.
+- **Testing is the cheap path:** A mock is just another node, so substitution is compile-time-safe and zero-cost in production. Wide coverage becomes the path of least resistance instead of a discipline you must enforce.
+- **Group Access Policy Control:** Enforce strict segregation between nodes at compile time. Suited to safety-critical standards where architectural boundaries must be guaranteed with zero runtime overhead.
+- **Protocol Contracts:** Attach a protocol state machine to any trait to enforce legal state transitions and invariants at every call site—catching violations at the boundary, not as silent downstream corruption. Elided entirely in release builds by default.
+- **Thread Safety by Design:** Thread affinity of nodes can be enforced at compile time, eliminating entire classes of concurrency bugs before they start.
+- **Hybrid Static & Dynamic Dispatch:** Use static wiring by default; selectively enable runtime polymorphism only where you need it.
+- **Monolith & Microservice, Unified:** Enjoy the modularity of microservices within an entirely in-process application, and transition to distributed microservices and back without changing your architectural graph.
+- **No Hidden Complexity:** No global state, no accidental coupling, no architectural lock-in. Refactoring and onboarding become straightforward—even in large, multi-team codebases.
+- **Modern C++, Productively:** ARC narrows the architecture and productivity gap that pushes teams toward other languages for new projects, combining modern practices and clean architecture with C++ performance.
 
 ## Compiler Support
 - [x] Clang 20+ CMake/Bazel

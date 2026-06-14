@@ -5,6 +5,7 @@
 
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
+#include "detail/cast.hpp"
 
 #if !ARC_IMPORT_STD
 #include <memory>
@@ -21,7 +22,7 @@ struct Alias final
     static_assert(sizeof...(Key) == 0);
 
     using Impl = T;
-    using Interface = T;
+    using Interface = std::remove_const_t<T>;
     using Node = detail::NodeOf<T>;
 
     ARC_INLINE explicit constexpr Alias(Impl& impl, Key...) : impl(std::addressof(impl)) {}
@@ -39,7 +40,7 @@ template<class T, class Key, class... Keys>
 struct Alias<T, Key, Keys...> final
 {
     using Impl = T;
-    using Interface = Alias;
+    using Interface = detail::ConstLike<T, Alias>;
     using Traits = Impl::Traits;
     using Node = detail::NodeOf<T>;
 
@@ -51,8 +52,8 @@ struct Alias<T, Key, Keys...> final
     ARC_INLINE constexpr auto* operator->(this auto&& self) { return std::addressof(self); }
     ARC_INLINE constexpr auto& getImpl(this auto&& self) { return self.alias.getImpl(); }
 
-    ARC_INLINE constexpr auto impl(this auto&& self, auto&&... args)
-        -> decltype(self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...))
+    ARC_INLINE constexpr decltype(auto) impl(this auto&& self, auto&&... args)
+        requires requires { self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...); }
     {
         return self.alias->implWithKey(self.key, self.keys, ARC_FWD(args)...);
     }

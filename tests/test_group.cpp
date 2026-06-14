@@ -44,6 +44,7 @@ cluster Inner [Root]
     nodeHighMidLow = Root::Default : InGroup<policy::Class::High, policy::Class::Mid, policy::Class::Low>
     nodeOtherA = Root::Default : InGroup<policy::Other::A>
 
+    // Only time that sink can have multiple nodes is with ~/@notrait
     [~] nodeHigh, nodeMid, nodeLow, node, nodeHighLow, nodeMidLow, nodeHighMidLow, nodeOtherA
 }
 

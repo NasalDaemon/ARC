@@ -134,9 +134,17 @@ def _collect_module_info(deps):
     return all_modules, all_hdrs, all_includes, all_defines
 
 def _collect_cc_info(deps):
-    """Collect headers and includes from CcInfo deps."""
-    all_hdrs    = []
-    all_includes = []
+    """Collect headers and includes from CcInfo deps, keeping the include kind.
+
+    system_includes and quote_includes are returned separately so the caller can
+    emit them as -isystem / -iquote: a dep that marks its headers system (e.g. a
+    third-party lib via the `includes` attr) must reach the compiler as -isystem
+    so its GNU/C99-extension declarations don't trip -Werror -Wpedantic. Folding
+    them into -I would strip that intent."""
+    all_hdrs        = []
+    all_includes    = []
+    system_includes = []
+    quote_includes  = []
     for dep in deps:
         if CcInfo in dep:
             ctx = dep[CcInfo].compilation_context
@@ -145,12 +153,12 @@ def _collect_cc_info(deps):
                 if inc not in all_includes:
                     all_includes.append(inc)
             for inc in ctx.system_includes.to_list():
-                if inc not in all_includes:
-                    all_includes.append(inc)
+                if inc not in system_includes:
+                    system_includes.append(inc)
             for inc in ctx.quote_includes.to_list():
-                if inc not in all_includes:
-                    all_includes.append(inc)
-    return all_hdrs, all_includes
+                if inc not in quote_includes:
+                    quote_includes.append(inc)
+    return all_hdrs, all_includes, system_includes, quote_includes
 
 # ---------------------------------------------------------------------------
 # Static archive helper
@@ -398,28 +406,43 @@ def _cpp_module_impl(ctx):
     expanded_copts = [ctx.expand_make_variables("copts", opt, {}) for opt in ctx.attr.copts]
 
     mod_modules, mod_hdrs, mod_includes, mod_defines = _collect_module_info(ctx.attr.module_deps)
-    cc_hdrs, cc_includes = _collect_cc_info(ctx.attr.deps)
-    impl_hdrs, impl_includes = _collect_cc_info(ctx.attr.implementation_deps)
+    cc_hdrs, cc_includes, cc_sys, cc_quote = _collect_cc_info(ctx.attr.deps)
+    impl_hdrs, impl_includes, impl_sys, impl_quote = _collect_cc_info(ctx.attr.implementation_deps)
 
-    # Compile-time view: deps + implementation_deps headers/includes.
+    # Compile-time view. ARC's own module include dirs and the target's declared
+    # `includes` stay -I (we own that code and want our warnings). Every include
+    # dir reaching us from a CcInfo dep is third-party, so it goes through
+    # -isystem: headers are still found, but their GNU/C99-extension declarations
+    # don't trip our -Werror -Wpedantic. (Bazel files a dep's `includes` attr into
+    # compilation_context.includes, not system_includes, unless the
+    # external_include_paths feature is on — which is incompatible with this
+    # rule's hand-built command line — so we do the classification here.)
     compile_includes = mod_includes + ctx.attr.includes
-    for inc in cc_includes:
-        if inc not in compile_includes:
-            compile_includes.append(inc)
-    for inc in impl_includes:
-        if inc not in compile_includes:
-            compile_includes.append(inc)
+
+    compile_system_includes = []
+    for inc in cc_includes + cc_sys + impl_includes + impl_sys:
+        if inc not in compile_system_includes and inc not in compile_includes:
+            compile_system_includes.append(inc)
+    compile_quote_includes = []
+    for inc in cc_quote + impl_quote:
+        if inc not in compile_quote_includes:
+            compile_quote_includes.append(inc)
+
     all_defines  = mod_defines + ctx.attr.defines
     compile_hdrs = mod_hdrs + cc_hdrs + impl_hdrs
 
     # Propagated view: only deps headers/includes (implementation_deps are compile-only).
     export_includes = mod_includes + ctx.attr.includes
-    for inc in cc_includes:
+    for inc in cc_includes + cc_sys + cc_quote:
         if inc not in export_includes:
             export_includes.append(inc)
     export_hdrs = mod_hdrs + cc_hdrs
 
     include_flags = ["-I" + inc for inc in compile_includes]
+    for inc in compile_system_includes:
+        include_flags += ["-isystem", inc]
+    for inc in compile_quote_includes:
+        include_flags += ["-iquote", inc]
     define_flags  = ["-D" + d   for d   in all_defines]
 
     # Propagate transitive link CcInfos from module_deps.

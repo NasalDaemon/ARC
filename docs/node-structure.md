@@ -191,6 +191,28 @@ The `Node::Uses<...>::Impl<...>` chain performs several tasks:
 
 Note that `Uses` and `Impl` can be used independently or chained in any order. For a node that only implements traits but has no dependencies, you can use `arc::NodeImpl<Trait1, Trait2>`. For a node that only has dependencies, use `arc::NodeUses<Dep1, Dep2>`.
 
+### Defining trait methods: plain name vs. tag form
+
+With the fluent `Impl<...>` base, define each trait method by its **plain name**. The mapping forwards `self.method(...)` to `self.impl(trait::T::method{}, ...)`, so no tag is needed:
+
+```cpp
+struct Greeter : arc::Node::Impl<trait::Greet>::Uses<trait::Clock>
+{
+    // 'greet' is the trait method; defined directly by name
+    void greet(this auto& self, std::string_view name)
+    {
+        std::println("Hi {}, it's {}", name, self.getClock().now());
+    }
+};
+```
+
+The **tag form**, `impl(this auto& self, trait::Greet::greet, ...)` as in the `PiCache` example above, is the manual path. Prefer plain names; use the tag form only when:
+- you aren't using the fluent `Impl<...>` mapping (e.g. a raw `arc::Node` with a hand-written `Traits` list);
+- two implemented traits share a method name and you need to disambiguate;
+- the implementation is detached from the node body.
+
+`this auto& self` is orthogonal to this choice: it is needed only when a *contextless* node reaches a dependency. Context-injected nodes (`template<class Context> struct Node`) reach dependencies directly.
+
 ## Listing implemented traits
 
 All nodes must define a nested `Traits` type, which provides the mapping of each trait to its methods and types in the node. This is usually handled automatically by the `Impl<...>` base class, but can be specified manually.

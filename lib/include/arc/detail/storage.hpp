@@ -40,6 +40,34 @@ private:
     [[no_unique_address]] T t ARC_INDETERMINATE;
 };
 
-}
+template<class T>
+struct StorageBuffer
+{
+    constexpr StorageBuffer(std::size_t capacity)
+        : data(capacity ? new Storage<T>[capacity] : nullptr)
+    {}
+
+    StorageBuffer() = default;
+
+    constexpr T* storageAt(std::size_t index) noexcept { return static_cast<T*>(data.get()) + index; }
+    constexpr const T* storageAt(std::size_t index) const noexcept { return static_cast<const T*>(data.get()) + index; }
+    constexpr T* valueAt(std::size_t index) noexcept { return std::launder(storageAt(index)); }
+    constexpr const T* valueAt(std::size_t index) const noexcept { return std::launder(storageAt(index)); }
+
+    void reset() noexcept { data.reset(); }
+
+private:
+    struct Deleter
+    {
+        constexpr void operator()(void* p) const noexcept
+        {
+            delete[] static_cast<Storage<T>*>(p);
+        }
+    };
+
+    std::unique_ptr<void, Deleter> data;
+};
+
+} // namespace arc::detail
 
 #endif // INCLUDE_ARC_DETAIL_STORAGE_HPP

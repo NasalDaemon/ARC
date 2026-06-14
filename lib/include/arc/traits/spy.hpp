@@ -66,6 +66,23 @@ struct Spy : detail::SpyBase
     static Spy expects();
 } inline constexpr spy{};
 
+} // namespace arc::inline trait
+
+namespace arc {
+
+namespace detail {
+    template<class T>
+    inline constexpr bool isSpyTrait = false;
+    template<class T>
+    inline constexpr bool isSpyTrait<SpyOnly<T>> = true;
+    template<>
+    inline constexpr bool isSpyTrait<Spy> = true;
 }
+
+ARC_MODULE_EXPORT
+template<class T>
+concept IsSpyTrait = detail::isSpyTrait<T>;
+
+} // namespace arc
 
 #endif // INCLUDE_ARC_TRAITS_SPY_HPP

@@ -1,10 +1,15 @@
-{%- macro trait_resolver(name) -%}
-    {# Ensure to change any clashing getX names to get_X #}
-    {%- if name in ("Node", "Global", "State", "Peers", "ElementHandle", "ElementId") -%}
-    ARC_TRAIT_RESOLVER(get_{{name}}, {{ name }})
-    {%- else -%}
-    ARC_TRAIT_RESOLVER({{ name }})
-    {%- endif -%}
+{% macro trait_resolver(name, global) %}
+{# Ensure to change any clashing getX names to get_X #}
+{% if name in ("Node", "Global", "State", "Peers", "ElementHandle", "ElementId") %}
+ARC_TRAIT_RESOLVER(get_{{name}}, {{ "::arc::Global<" + name + ">" if global else name }})
+{% elif global %}
+ARC_TRAIT_RESOLVER(get{{ name }}, ::arc::Global<{{ name }}>)
+{% else %}
+ARC_TRAIT_RESOLVER({{ name }})
+{% endif %}
+{% if global %}
+ARC_TRAIT_RESOLVER(getGlobal{{ name }}, ::arc::Global<{{ name }}>)
+{% endif %}
 {%- endmacro -%}
 
 {%- macro trait_converter(name) -%}
@@ -48,6 +53,26 @@ template<
     {%- for prefix, name in templates -%}
     {{ comma() }}{{ name }}{{ prefix.pack }}
     {%- endfor -%}
+{%- endmacro -%}
+
+{%- macro method_template_params(trait, method) -%}
+template<class Self
+    {%- if trait.types_name -%}
+    , class {{ trait.types_name }} = std::remove_cvref_t<Self>::Types
+    {%- endif -%}
+    {%- if trait.root_name -%}
+    , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<std::remove_cvref_t<Self>>>
+    {%- endif -%}
+    {%- if trait.info_name -%}
+    , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<std::remove_cvref_t<Self>>>
+    {%- endif -%}
+    {%- if trait.impl_named -%}
+    , class {{ trait.impl_name }} = ::arc::ContextToNode<::arc::ContextOf<std::remove_cvref_t<Self>>>
+    {%- endif -%}
+    {%- for prefix, name in method.templates -%}
+    , {{ prefix }}{{ prefix.pack }} {{ name }}
+    {%- endfor -%}
+>
 {%- endmacro -%}
 
 {% for namespace in repr.namespaces if namespace.traits %}
@@ -182,8 +207,9 @@ struct {{ trait.name }} : ::arc::Trait
 
             {% if trait.variant_invariants %}
             template<class Assert, class Self, class ProtoView>
-            static constexpr void checkInvariants(Assert& _arc_assert_, Self const& self, ProtoView const& proto, StateTransitionLog const& log)
+            static constexpr void checkInvariants(Assert& _arc_assert_, Self const& self, ProtoView const& proto, [[maybe_unused]] StateTransitionLog const& log)
             {
+                ARC_IF_GCC(::arc::ignoreArgs(log));
                 {% set src_groups = trait.variant_invariants | groupby('source_group') %}
                 {% for group_name, group_invs in src_groups %}
                 {% set src = group_invs[0].source_group_ref %}
@@ -288,20 +314,20 @@ struct {{ trait.name }} : ::arc::Trait
             struct ProtoOnly : ::arc::NoConstraints
             {
                 using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, 0>;
-                static constexpr auto preProto(auto& _arc_assert_, auto _arc_self_, auto const&...) -> ProtoSnap
+                static constexpr auto preProto(auto& _arc_assert_, auto self, auto const&...) -> ProtoSnap
                 {
                     static_assert(_arc_assert_.enabled);
                     ProtoSnap snap{};
-                    ARC_This_Trait::Meta::Protocol::Meta::RecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), snap.log);
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, snap.log);
+                    ARC_This_Trait::Meta::Protocol::Meta::RecordingView proto(self.asTrait(::arc::protocol<ARC_This_Trait>()), snap.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, self, proto, snap.log);
                     return snap;
                 }
-                static constexpr void postProto(auto& _arc_assert_, auto _arc_self_, auto const&, auto& _arc_snap_)
+                static constexpr void postProto(auto& _arc_assert_, auto self, auto const&, auto& _arc_snap_)
                 {
                     static_assert(_arc_assert_.enabled);
-                    ARC_This_Trait::Meta::Protocol::Meta::PostRecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, _arc_self_, _arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, _arc_snap_.log);
+                    ARC_This_Trait::Meta::Protocol::Meta::PostRecordingView proto(self.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, self, self.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, self, proto, _arc_snap_.log);
                 }
             };
             {% endif %}
@@ -322,7 +348,7 @@ struct {{ trait.name }} : ::arc::Trait
                 template<class... Args>
                 using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, {{ method.proto_if_exprs | length }}, Args...>;
                 {% endif %}
-                static constexpr auto preProto(auto& _arc_assert_, auto _arc_self_
+                static constexpr auto preProto(auto& _arc_assert_, auto self
                     {%- for type, name in method.params -%}
                     , [[maybe_unused]] auto const& {{ name }}{{ type.pack }}
                     {%- endfor -%}
@@ -338,12 +364,12 @@ struct {{ trait.name }} : ::arc::Trait
                     ));
                     ::arc::StateTransitionLog<ARC_This_Trait> log{};
                     {% if trait.has_protocol %}
-                    ARC_This_Trait::Meta::Protocol::Meta::RecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), log);
+                    ARC_This_Trait::Meta::Protocol::Meta::RecordingView proto(self.asTrait(::arc::protocol<ARC_This_Trait>()), log);
                     {% else %}
-                    ARC_This_Trait::Meta::RecordingView proto(_arc_self_, log);
+                    ARC_This_Trait::Meta::RecordingView proto(self, log);
                     {% endif %}
                     {% for pos, expr in method.proto_pre_exprs %}
-                    _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
+                    _arc_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
                     {% endfor %}
                     {% for pos, name, cond, then in method.proto_if_exprs %}
                     bool if_{{ loop.index0 }} = static_cast<bool>({{ cond }});
@@ -351,14 +377,14 @@ struct {{ trait.name }} : ::arc::Trait
                     {% for call in method.proto_snap_calls(False) %}
                     (void)({{ call }});
                     {% endfor %}
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, self, proto, log);
                     return {std::make_tuple({%- for type, name in method.params -%}{{ name }}{{ type.pack }}{{ ", " if not loop.last else "" }}{%- endfor -%}), {
                         {%- for pos, name, cond, then in method.proto_if_exprs -%}
                         if_{{ loop.index0 }},
                         {%- endfor -%}
                         }, std::move(log)};
                 }
-                static constexpr void postProto(auto& _arc_assert_, auto _arc_self_, [[maybe_unused]] auto const& _arc_post_return_contract_value_, auto& _arc_snap_)
+                static constexpr void postProto(auto& _arc_assert_, auto self, [[maybe_unused]] auto const& _arc_post_return_contract_value_, auto& _arc_snap_)
                 {
                     ARC_IF_GCC(::arc::ignoreArgs(_arc_post_return_contract_value_));
                     static_assert(_arc_assert_.enabled);
@@ -366,17 +392,17 @@ struct {{ trait.name }} : ::arc::Trait
                     [[maybe_unused]] auto const& [{% for type, name in method.params %}{{ name }}{{ type.pack }}{{ ", " if not loop.last else "" }}{% endfor %}] = (_arc_snap_.args);
                     {% endif %}
                     {% if trait.has_protocol %}
-                    [[maybe_unused]] ARC_This_Trait::Meta::Protocol::Meta::PostRecordingView proto(_arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    [[maybe_unused]] ARC_This_Trait::Meta::Protocol::Meta::PostRecordingView proto(self.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
                     {% else %}
-                    [[maybe_unused]] ARC_This_Trait::Meta::PostRecordingView proto(_arc_self_, _arc_snap_.log);
+                    [[maybe_unused]] ARC_This_Trait::Meta::PostRecordingView proto(self, _arc_snap_.log);
                     {% endif %}
                     {% if method.implies %}
                     {% if method.implies.kind == 'iff' %}
-                    _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}",
+                    _arc_assert_(self, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}",
                         _arc_post_return_contract_value_ == static_cast<bool>({{ method.implies.expr }})
                     ));
                     {% else %}
-                    _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}",
+                    _arc_assert_(self, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}",
                         !_arc_post_return_contract_value_ || static_cast<bool>({{ method.implies.expr }})
                     ));
                     {% endif %}
@@ -386,7 +412,7 @@ struct {{ trait.name }} : ::arc::Trait
                         {% if name != "_" %}
                         [[maybe_unused]] auto const& {{ name }} = _arc_post_return_contract_value_;
                         {% endif %}
-                        _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
+                        _arc_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
                     }
                     {% endfor %}
                     {% for pos, name, cond, then in method.proto_if_exprs %}
@@ -394,15 +420,15 @@ struct {{ trait.name }} : ::arc::Trait
                         {% if name != "_" %}
                         [[maybe_unused]] auto const& {{ name }} = _arc_post_return_contract_value_;
                         {% endif %}
-                        _arc_assert_(_arc_self_, ARC_ASSERT_ARGS("{{ pos }}", !_arc_snap_.ifs[{{ loop.index0 }}] || ({{ then }})));
+                        _arc_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", !_arc_snap_.ifs[{{ loop.index0 }}] || ({{ then }})));
                     }
                     {% endfor %}
                     {% if trait.has_protocol %}
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, _arc_self_, _arc_self_.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, self, self.asTrait(::arc::protocol<ARC_This_Trait>()), _arc_snap_.log);
                     {% else %}
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, _arc_self_, _arc_self_, _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkTransitions(_arc_assert_, self, self, _arc_snap_.log);
                     {% endif %}
-                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, _arc_self_, proto, _arc_snap_.log);
+                    ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, self, proto, _arc_snap_.log);
                 }
                 {% endif %}
                 {% if method.pre_exprs %}
@@ -451,23 +477,7 @@ struct {{ trait.name }} : ::arc::Trait
         struct Signatures
         {
             {% for method in trait.methods %}
-            template<class Self
-                {%- if trait.types_name -%}
-                , class {{ trait.types_name }} = std::remove_cvref_t<Self>::Types
-                {%- endif -%}
-                {%- if trait.root_name -%}
-                , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<std::remove_cvref_t<Self>>>
-                {%- endif -%}
-                {%- if trait.info_name -%}
-                , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<std::remove_cvref_t<Self>>>
-                {%- endif -%}
-                {%- if trait.impl_named -%}
-                , class {{ trait.impl_name }} = ::arc::ContextToNode<::arc::ContextOf<std::remove_cvref_t<Self>>>
-                {%- endif -%}
-                {%- for prefix, name in method.templates -%}
-                , {{ prefix }}{{ prefix.pack }} {{ name }}
-                {%- endfor -%}
-            >
+            {{ method_template_params(trait, method) }}
             static auto {{ method.name }}(Self{{ " const&" if method.is_const else "&" }}
                 {%- for type, name in method.params -%}
                 , {{ type }}{{ type.pack }} {{ name }}
@@ -497,7 +507,31 @@ struct {{ trait.name }} : ::arc::Trait
             struct {{ trait.name }} : ::arc::MethodsBase
             {
                 {% for method_name in trait.method_names %}
+                {% if trait.all_normal(method_name) %}
                 ARC_SIGNATURE_METHOD({{ method_name }})
+                {% else %}
+                ARC_AS_FUNCTOR_METHOD({{ method_name }})
+                {% for method in trait.methods if method.name == method_name %}
+                {{ method_template_params(trait, method) }}
+                ARC_INLINE constexpr decltype(auto) {{ method.name }}(this Self{{ " const&" if method.is_const else "&" }} self
+                    {%- for type, name in method.params -%}
+                    , {{ type }}{{ type.pack }} {{ name }}
+                    {%- endfor -%}
+                )
+                    requires ::arc::CanInvokeMethod<Self, ARC_This_Trait::{{ method_name }}
+                        {%- for type, name in method.params -%}
+                        , decltype({{ name }}){{ type.pack }}
+                        {%- endfor -%}
+                    >
+                {
+                    ARC_SIGNATURE_METHOD_BODY({{ method_name }}
+                        {%- for type, name in method.params -%}
+                        , ARC_FWD({{ name }}){{ type.pack }}
+                        {%- endfor -%}
+                    )
+                }
+                {% endfor %}
+                {% endif %}
                 {% endfor %}
             };
         };
@@ -559,7 +593,7 @@ struct {{ trait.name }} : ::arc::Trait
         };
         // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
         // Effective only when using arc::NodeImpl<{{ trait.name }}> or arc::Node::Uses<...>::Impl<{{ trait.name }}>
-        struct Impl : Methods
+        struct Impl : protected Methods
         {
             struct {{ trait.name }} : MethodTags
             {
@@ -706,13 +740,13 @@ struct {{ trait.name }} : ::arc::Trait
         // Effective only when using arc::NodeUses<...> or arc::Node::Uses<...>::Impl<...>
         struct Resolver
         {
-            {{ trait_resolver(trait.name) }}
+            {{ trait_resolver(trait.name, false) | trim() }}
         };
         // Provides `node.getGlobalSomeTrait()` --> `node.getGlobal(trait::someTrait)`
         // Effective only when using arc::NodeUses<...> or arc::Node::Uses<...>::Impl<...>
         struct GlobalResolver
         {
-            ARC_GLOBAL_TRAIT_RESOLVER({{ trait.name }})
+            {{ trait_resolver(trait.name, true) | indent(12) | trim() }}
         };
         // Provides `node.asSomeTrait()` --> `node.asTrait(trait::someTrait)`
         // Effective only when using arc::NodeImpl<...> or arc::Node::Uses<...>::Impl<...>
@@ -801,11 +835,11 @@ struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
         };
         struct Resolver
         {
-            {{ trait_resolver(alias[0]) }}
+            {{ trait_resolver(alias[0], false) | trim() }}
         };
         struct GlobalResolver
         {
-            ARC_GLOBAL_TRAIT_RESOLVER({{ alias[0] }})
+            {{ trait_resolver(alias[0], true) | indent(12) | trim() }}
         };
         struct Converter
         {
@@ -834,11 +868,11 @@ struct {{ alias[0] }} : ::arc::JoinedTrait<{{ alias[1:] | join(", ") }}>
         };
         struct Resolver : JoinedTrait::Meta::Resolver
         {
-            {{ trait_resolver(alias[0]) }}
+            {{ trait_resolver(alias[0], false) | trim() }}
         };
         struct GlobalResolver : JoinedTrait::Meta::GlobalResolver
         {
-            ARC_GLOBAL_TRAIT_RESOLVER({{ alias[0] }})
+            {{ trait_resolver(alias[0], true) | indent(12) | trim() }}
         };
         struct Converter : JoinedTrait::Meta::Converter
         {

@@ -24,6 +24,23 @@
 
 namespace arc {
 
+// Construction parameters. All fields have sensible defaults so callers can
+// brace-init with named arguments: `arc::TracerSpy{{.minDepth = 1}}`.
+ARC_MODULE_EXPORT
+struct TracerSpyParams
+{
+    // Skip recording events at depth < minDepth. Stats still accumulate.
+    // Useful to suppress noisy top-level test scaffolding.
+    std::size_t minDepth = 0;
+    // Skip recording events at depth >= maxDepth. Stats still accumulate.
+    std::size_t maxDepth = 64;
+    // Ring buffer capacity for the event log; oldest entries evict on overflow.
+    std::size_t maxEvents = 32 * 1024;
+    // When false, event log is paused at construction. Stats still accumulate.
+    // Toggle via `startRecording()` / `stopRecording()`.
+    bool recording = false;
+};
+
 // TracerSpy — global spy node that records every intercepted trait call
 // losslessly into an in-memory event log. Output formatting (JSONL or
 // human-readable) is chosen at write time, not at construction. Designed
@@ -38,6 +55,7 @@ ARC_MODULE_EXPORT
 struct TracerSpy : arc::Node
 {
     using Traits = arc::Traits<arc::trait::Spy>;
+    using Params = TracerSpyParams;
 
     enum class Format { Jsonl, Human };
 
@@ -73,29 +91,7 @@ struct TracerSpy : arc::Node
         std::chrono::nanoseconds maxTime{};
     };
 
-    static constexpr std::size_t defaultMinDepth = 0;
-    static constexpr std::size_t defaultMaxDepth = 64;
-    static constexpr std::size_t defaultMaxEvents = 32 * 1024;
-    static constexpr bool        defaultRecording = true;
-
-    // Construction parameters. All fields have sensible defaults so callers can
-    // brace-init with named arguments: `arc::TracerSpy{{.minDepth = 1}}`.
-    struct Params
-    {
-        // Skip recording events at depth < minDepth. Stats still accumulate.
-        // Useful to suppress noisy top-level test scaffolding.
-        std::size_t minDepth = defaultMinDepth;
-        // Skip recording events at depth >= maxDepth. Stats still accumulate.
-        std::size_t maxDepth = defaultMaxDepth;
-        // Ring buffer capacity for the event log; oldest entries evict on overflow.
-        std::size_t maxEvents = defaultMaxEvents;
-        // When false, event log is paused at construction. Stats still accumulate.
-        // Toggle via `startRecording()` / `stopRecording()`.
-        bool recording = defaultRecording;
-    };
-
-    TracerSpy() = default;
-    explicit TracerSpy(Params p)
+    explicit TracerSpy(Params p = {})
         : minDepthLog(p.minDepth)
         , maxDepthLog(p.maxDepth)
         , recording(p.recording)
@@ -230,14 +226,14 @@ struct TracerSpy : arc::Node
     void writeSummary(std::ostream& os, Format fmt) const;
 
 private:
-    std::size_t minDepthLog = defaultMinDepth;
-    std::size_t maxDepthLog = defaultMaxDepth;
-    bool recording = defaultRecording;
+    std::size_t minDepthLog{};
+    std::size_t maxDepthLog{};
+    bool recording{};
 
     // Bounded ring buffer: oldest events are evicted when capacity is reached.
     // Per-method `Stats` are independent and accumulate across evictions, so the
     // summary remains accurate even when the trace itself has been truncated.
-    mutable arc::CircularBuffer<Event> events{defaultMaxEvents};
+    mutable arc::CircularBuffer<Event> events;
     mutable std::map<std::string_view, Stats> perMethod;
     mutable std::size_t nextCallId = 0;
     mutable std::size_t maxDepthSeen = 0;

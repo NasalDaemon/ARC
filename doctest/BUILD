@@ -5,7 +5,7 @@ cc_library(
     name = "doctest",
     hdrs = ["include/arc/doctest.h"],
     srcs = ["test_main.cpp"],
-    strip_include_prefix = "include",
+    includes = ["include"],
     deps = ["@doctest//doctest:doctest"],
     defines = ["DOCTEST_CONFIG_SUPER_FAST_ASSERTS=1"],
     visibility = ["//visibility:public"],

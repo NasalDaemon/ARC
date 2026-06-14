@@ -61,10 +61,10 @@ struct AutoCompleteTraitView final : Trait::Meta::Methods
     constexpr AutoCompleteTraitNodeView operator->() const { return {}; }
 };
 
-template<IsTrait Trait, class ImplAlias>
+template<IsTrait Trait, class ImplAlias, class Types>
 struct TraitNodeView final
 {
-    constexpr explicit TraitNodeView(Trait, ImplAlias alias) : alias(alias) {}
+    constexpr explicit TraitNodeView(Trait, ImplAlias alias, std::type_identity<Types>) : alias(alias) {}
 
     ARC_INLINE constexpr auto* operator->(this auto&& self) { return std::addressof(self); }
 
@@ -89,6 +89,12 @@ struct TraitNodeView final
         return alias->getElementHandle();
     }
 
+    ARC_INLINE constexpr auto asProtocol(this auto&& self)
+        requires HasProtocol<Trait>
+    {
+        return TraitView(arc::Protocol<Trait>{}, self.alias, std::type_identity<Types>{});
+    }
+
 private:
     ImplAlias alias;
 };
@@ -102,7 +108,8 @@ struct TraitView final : Trait::Meta::Methods
         : alias(alias)
     {
         static_assert(not IsTrait<TraitView>);
-        ARC_ASSERT_IMPLEMENTS(typename ImplAlias::Interface, Types, Trait);
+        if constexpr (not std::is_const_v<typename ImplAlias::Interface>)
+            ARC_ASSERT_IMPLEMENTS(typename ImplAlias::Interface, Types, Trait);
         if constexpr (not std::is_const_v<typename ImplAlias::Impl>)
             ARC_ASSERT_IMPLEMENTS(TraitView, Types, Trait);
     }
@@ -149,8 +156,8 @@ struct TraitView final : Trait::Meta::Methods
     requires CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
     ARC_INLINE constexpr decltype(auto) impl(this Self&& self, Method method, Args&&... args)
     {
-        return detail::invokeMethodWithGlobal<ContextOf<Node>>(
-            detail::getGlobal<ContextOf<Node>, Trait>(self.alias.getImpl()),
+        return detail::invokeMethodWithSpy<ContextOf<Node>>(
+            detail::getSpy<ContextOf<Node>, Trait>(self.alias.getImpl()),
             self,
             self.alias.get(),
             method,
@@ -165,7 +172,7 @@ struct TraitView final : Trait::Meta::Methods
 
     ARC_INLINE auto operator->(this auto&& self)
     {
-        return TraitNodeView(Trait{}, self.alias);
+        return TraitNodeView(Trait{}, self.alias, std::type_identity<Types_>{});
     }
 
 private:
@@ -176,8 +183,8 @@ private:
 
         ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
         {
-            return detail::invokeMethodWithGlobal<ContextOf<Node>>(
-                detail::getGlobal<ContextOf<Node>, Trait>(self.alias.getImpl()),
+            return detail::invokeMethodWithSpy<ContextOf<Node>>(
+                detail::getSpy<ContextOf<Node>, Trait>(self.alias.getImpl()),
                 TraitView({}, self.alias, {}),
                 self.alias.get(),
                 Method{},

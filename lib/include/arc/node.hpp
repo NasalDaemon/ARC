@@ -42,7 +42,7 @@ struct Node
     template<class Source, class Self, class Types, class... Keys>
     using FinaliseTypes = Types;
 
-    // Also exposed in TraitNodeView
+    // Exposed in TraitNodeView
     template<class Self, std::invocable<Self&> Visitor>
     ARC_INLINE constexpr decltype(auto) visit(this Self& self, Visitor&& visitor)
     {
@@ -142,9 +142,33 @@ struct Node
         return ContextOf<Self>::template exchangeImpl<T>(self, ARC_FWD(args)...);
     }
 
-    // arc::Peer will override these
-    static void getElementId() = delete;
-    static void getElementHandle() = delete;
+    // Exposed in TraitNodeView
+    template<class Self>
+    requires IsElementContext<ContextOf<Self>>
+    constexpr auto const& getElementId(this Self const& self)
+    {
+        using ThisNode = UnderlyingNode<Self>;
+        auto& node = detail::upCast<ThisNode>(self);
+        using ElementContext = ContextOf<Self>::Info::ElementContext;
+        auto& element = ContextOf<Self>{}.template getParentNode<ElementContext>(node);
+        auto memPtr = ElementContext{}.template getParentMemPtr<ElementContext>();
+        return memPtr.getClassFromMember(element).id;
+    }
+
+    // Exposed in TraitNodeView
+    template<class Self>
+    requires IsElementContext<ContextOf<Self>>
+    constexpr auto getElementHandle(this Self const& self)
+    {
+        using ThisNode = UnderlyingNode<Self>;
+        auto& node = detail::upCast<ThisNode>(self);
+        using ElementContext = ContextOf<Self>::Info::ElementContext;
+        auto& element = ContextOf<Self>{}.template getParentNode<ElementContext>(node);
+        auto memPtr = ElementContext{}.template getParentMemPtr<ElementContext>();
+        return memPtr.getClassFromMember(element).getElementHandle();
+    }
+
+    // arc::PeerNode will override this
     static void getPeers() = delete;
 };
 

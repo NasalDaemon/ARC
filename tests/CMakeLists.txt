@@ -14,6 +14,7 @@ add_executable(arc_tests_module
     test_embedded_modules.cpp
     test_global.cpp
     test_group.cpp
+    test_invoke_method.cpp
     test_joined_trait.cpp
     test_node_count.cpp
     test_null_trait.cpp
@@ -88,6 +89,7 @@ target_generate_arc_modules(arc_tests_module
         test_embedded_modules.cpp
         test_global.cpp
         test_group.cpp
+        test_invoke_method.cpp
         test_joined_trait.cpp
         test_node_count.cpp
         test_null_trait.cpp

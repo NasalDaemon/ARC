@@ -330,7 +330,7 @@ class Node:
 
     def add_connection(self, pos, traitblock_id: Optional[int], fanout_id: Optional[int], is_override: bool, to_node: 'Node', trait: str, *, to_trait: str | None = None):
         assert self.cluster == to_node.cluster
-        if to_node == self:
+        if to_node == self and fanout_id is None:
             raise SyntaxError(f"{pos} cannot connect '{self.name}' to itself")
         if self.is_global:
             raise SyntaxError(f"{pos} cannot connect from @global to any other node")
@@ -962,6 +962,7 @@ class Method:
         self.params: list[tuple[CppType, str]] = []
         self.is_const: bool = False
         self.optional: bool = False
+        self.normal: bool = False
         self.pre_exprs: list[tuple[str, str]] = []
         self.post_exprs: list[tuple[str, str, str]] = []
         self.default_impl: str | None = None
@@ -1026,8 +1027,13 @@ class Method:
             elif c.data == imported('cpp_type'):
                 self.return_type = CppType.from_tree(c)
             elif c.data == imported('method_name'):
-                self.optional = c.children[0].type == imported('OPTIONAL_METHOD')
-                self.name = c.children[-1].value
+                for child in c.children:
+                    if child.type == imported('OPTIONAL_METHOD'):
+                        self.optional = True
+                    elif child.type == imported('NORMAL_METHOD'):
+                        self.normal = True
+                    else:
+                        self.name = child.value
                 if self.name in self.__reserved_names__:
                     raise SyntaxError(f"{get_pos(c)} '{self.name}' cannot be the name of a method, it is reserved for arc::TraitView")
             elif c.data == imported('cpp_func_params'):
@@ -1101,6 +1107,9 @@ class Trait:
     @property
     def has_protocol(self) -> bool:
         return not self.is_protocol and self.protocol_name is not None
+
+    def all_normal(self, method_name: str) -> bool:
+        return not any(method.normal and method.name == method_name for method in self.methods)
 
     def walk(self, children):
         for c in children:

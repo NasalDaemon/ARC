@@ -169,7 +169,8 @@ COMMAND_HANDLER::cmdExists(std::span<std::string_view> args) -> Result
 
 COMMAND_HANDLER::cmdHelp() -> Result
 {
-    std::string output;
+    Result result;
+    std::string& output = *result;
     output += "Available commands:\n";
     output += "  ls [path]              - List directory contents\n";
     output += "  cat <path>             - Display file contents\n";
@@ -191,7 +192,7 @@ COMMAND_HANDLER::cmdHelp() -> Result
     output += "Navigation:\n";
     output += "  ↑/↓ arrows             - Navigate command history\n";
     output += "  ←/→ arrows             - Move cursor left/right\n";
-    return output;
+    return result;
 }
 
 COMMAND_HANDLER::buildTree(std::string_view path, std::string_view prefix) -> std::string

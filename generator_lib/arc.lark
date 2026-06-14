@@ -173,10 +173,11 @@ FULL_BRACKET_ATOM: /[^()\[\]{}<>`]+/ | /`[^`]*`/
 
 !full_templ_args: "<" full_bracket_content ">"
 
-method_name: [OPTIONAL_METHOD] NAME
+method_name: (OPTIONAL_METHOD | NORMAL_METHOD)* NAME
 method_qualifier: "const"
 
 OPTIONAL_METHOD: "?"
+NORMAL_METHOD: "!"
 
 template_params: "template" "<" template_param ("," template_param)* ">"
 

@@ -83,7 +83,6 @@ struct Root
 
 TEST_CASE("arc::Global")
 {
-
     arc::GraphWithGlobal<cluster::MainCluster, cluster::GlobalCluster, Root> graph{
         .main{
             .node{},
@@ -93,6 +92,8 @@ TEST_CASE("arc::Global")
     CHECK(graph.global.logger->count == 0);
     graph->node.getGlobal(trait::log).log("Hello, Global!");
     CHECK(graph.global.logger->count == 1);
+    graph.asTrait(trait::log).log("Hello again, Global!");
+    CHECK(graph.global.logger->count == 2);
 }
 
 TEST_CASE("arc::Global hosted locally")
