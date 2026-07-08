@@ -362,8 +362,8 @@ cluster MyCluster
     // Equivalent to: arc::OnThread<node::Node2, 0>
 
     // Multiple wrappers chain left to right
-    collected = node::Node3 : arc::AnyThread : arc::Collection<int>
-    // Equivalent to: arc::Collection<arc::AnyThread<node::Node3>, int>
+    collected = node::Node3 : arc::AnyThread : arc::StaticMap<int>
+    // Equivalent to: arc::StaticMap<arc::AnyThread<node::Node3>, int>
 }
 ```
 

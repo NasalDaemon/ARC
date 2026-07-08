@@ -28,8 +28,9 @@ namespace detail {
     auto dependencySatisfied() -> void;
 
     template<class Node, IsGlobalTrait Requirement, bool Transitive>
-    requires ContextHasGlobalTrait<ContextOf<Node>, Requirement>
-        and (not Transitive or detail::ResolveTraitFromNode<Node, Requirement>::template HasTrait<>)
+    // If Node is within global context, we cannot check if the global node/cluster has the required trait
+    requires (IsGlobalContext<ContextOf<Node>> or ContextHasGlobalTrait<ContextOf<Node>, Requirement>)
+         and (not Transitive or detail::ResolveTraitFromNode<Node, Requirement>::template HasTrait<>)
     auto dependencySatisfied() -> void;
 
     // When dependency is a pointer, it is optional and not to be enforced

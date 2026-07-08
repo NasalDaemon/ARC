@@ -46,7 +46,7 @@ cluster Inner [R = Root]
 
 cluster CollectionCluster [R = Root]
 {
-    collection = cluster::Inner : arc::OnDynThread : arc::Collection<int>
+    collection = cluster::Inner : arc::OnDynThread : arc::StaticMap<int>
     outer = R::Outer : arc::OnDynThread
 
     [trait::Inner <-> trait::Outer]

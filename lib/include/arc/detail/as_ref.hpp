@@ -15,11 +15,9 @@
 namespace arc {
 
 ARC_MODULE_EXPORT
-struct Node;
-ARC_MODULE_EXPORT
 struct Cluster;
 ARC_MODULE_EXPORT
-template<IsNodeHandle NodeHandle, class ID, bool Dynamic = false>
+template<IsNodeHandle NodeHandle, class ID, class Policy>
 struct Collection;
 
 namespace detail {
@@ -32,7 +30,7 @@ namespace detail {
         friend struct arc::Node;
         friend struct arc::Cluster;
         friend struct arc::detail::ContextBase;
-        template<IsNodeHandle NodeHandle, class ID, bool Dynamic>
+        template<IsNodeHandle NodeHandle, class ID, class Policy>
         friend struct arc::Collection;
         template<IsInterface... Interfaces>
         friend struct arc::Virtual;

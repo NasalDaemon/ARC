@@ -177,7 +177,7 @@ cluster MyCluster [C = Context, R = Root]
 ```
 
 ### Templated node definitions
-There are many higher-order nodes provided by ARC that are templated on other nodes, such as `arc::InGroup`, `arc::OnThread`, and `arc::Collection`. The DSL provides a convenient syntax for using these without needing to write out the full template syntax. The general form is `nodeName = UnderlyingNode : Wrapper1<Args> : Wrapper2<Args> ...` where each wrapper is a higher-order node taking an underlying node as its first template argument. This allows you to quickly and easily read the node definitions from left to right, starting with the underlying node and then seeing how it is wrapped by various higher-order nodes. For example:
+There are many higher-order nodes provided by ARC that are templated on other nodes, such as `arc::InGroup`, `arc::OnThread`, and `arc::StaticMap`. The DSL provides a convenient syntax for using these without needing to write out the full template syntax. The general form is `nodeName = UnderlyingNode : Wrapper1<Args> : Wrapper2<Args> ...` where each wrapper is a higher-order node taking an underlying node as its first template argument. This allows you to quickly and easily read the node definitions from left to right, starting with the underlying node and then seeing how it is wrapped by various higher-order nodes. For example:
 ```arc
 cluster MyCluster
 {
@@ -187,9 +187,9 @@ cluster MyCluster
     onThread0 = Node2 : arc::OnThread<0>
     // Equivalent to:
     // onThread0 = arc::OnThread<Node2, 0>
-    onAnyThread = Node3 : arc::OnAnyThread : arc::Collection<int>
+    onAnyThread = Node3 : arc::OnAnyThread : arc::StaticMap<int>
     // Equivalent to:
-    // onAnyThread = arc::Collection<arc::OnAnyThread<Node3>, int>
+    // onAnyThread = arc::StaticMap<arc::OnAnyThread<Node3>, int>
 }
 ```
 

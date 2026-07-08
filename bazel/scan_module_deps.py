@@ -379,10 +379,14 @@ def main(argv):
                 if is_interface or is_partition:
                     if is_ixx_arc:
                         file_type = "ixx_arc"
-                    elif is_ixx:
-                        file_type = "ixx"
-                    else:
+                    elif is_arc_embed:
                         file_type = "cpp_embed"
+                    else:
+                        # .ixx, or a plain .cpp/.cc that is itself a module
+                        # interface unit (e.g. a third-party module shipped as
+                        # .cpp): both map to the _ixx_ provider-target name, the
+                        # same convention arc_module uses for `mods`.
+                        file_type = "ixx"
                     module_sources[key] = module_name
                     if (is_interface or is_partition) and module_name not in module_provider_targets:
                         target = _target_for_module(

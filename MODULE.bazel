@@ -17,8 +17,8 @@ use_repo(pip, "arc_gen_deps")
 # Scans .ixx / .ixx.arc / .cpp sources at workspace-init time and writes
 # @arc_module_deps//:module_deps.bzl with MODULE_DIRECT_DEPS / FILE_DIRECT_DEPS.
 # cpp_module.bzl loads this to pass only the necessary PCMs to each action.
-arc_module_scan = use_repo_rule("//bazel:module_scan.bzl", "arc_module_scan")
-arc_module_scan(name = "arc_module_deps")
+arc_module_scan_ext = use_extension("//bazel:module_scan.bzl", "arc_module_scan_ext")
+use_repo(arc_module_scan_ext, "arc_module_deps")
 
 arc_std_paths = use_repo_rule("//bazel:std_paths.bzl", "arc_std_paths")
 arc_std_paths(name = "arc_std_paths")

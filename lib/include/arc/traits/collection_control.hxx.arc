@@ -22,15 +22,19 @@ trait CollectionControl [Types]
 
     // f: (ID, StrongHandle, TraitView) -> void
     forEach(auto&& f) -> void // + const
+    // f: (ID, StrongHandle, TraitView) -> void
+    findIf(auto&& f) -> Types::StrongHandle // + const
 }
 
 trait DynamicCollectionControlExt [Types]
 {
     type ID
+    type InsertId
     type WeakHandle
     type StrongHandle
 
-    tryInsert(Types::ID const& id, auto&&... args) -> std::pair<typename Types::StrongHandle, bool>
+    // Index collections take arc::autoId here (InsertId), map collections take an ID.
+    tryInsert(Types::InsertId const& id, auto&&... args) -> std::pair<typename Types::StrongHandle, bool>
 
     remove(Types::ID const& id) -> bool
     remove(Types::StrongHandle const& handle) -> bool

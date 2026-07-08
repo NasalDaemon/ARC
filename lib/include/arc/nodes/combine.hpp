@@ -54,6 +54,7 @@ struct Combine
         }
 
         template<IsTrait Trait>
+        requires (... || ContextHasTrait<typename detail::CombinePart<Cluster, Nodes>::Context, Trait>)
         static auto resolveLink(Trait, LinkPriorityMax)
             -> ResolvedLink<
                 detail::SelectIf<

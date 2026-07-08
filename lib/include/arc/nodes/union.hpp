@@ -265,6 +265,18 @@ struct Union
             return self.template getIf<indexOf<Option>()>();
         }
 
+        constexpr Node(Node const& other)
+            : index(other.index)
+        {
+            other.withNode([&]<class T>(T& node) -> void { new (bytes) T(node); });
+        }
+
+        constexpr Node(Node&& other)
+            : index(other.index)
+        {
+            other.withNode([&]<class T>(T& node) -> void { new (bytes) T(std::move(node)); });
+        }
+
         constexpr ~Node()
         {
             destroy();

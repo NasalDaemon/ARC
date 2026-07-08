@@ -471,13 +471,24 @@ def _cpp_module_impl(ctx):
     # Resolve (file, module_name, direct_deps) for every mod.
     mod_specs = []
     for ixx in ctx.files.mods:
+        # module_names keys may be either the full short_path or the path
+        # relative to the file's own repo. The latter is what's stable for
+        # external/generated units the scanner never walks: their short_path
+        # carries a "../<canonical-repo>/" prefix (e.g. the random
+        # "+http_archive+..." name) that a BUILD author can't sanely write.
         module_name = ctx.attr.module_names.get(ixx.short_path)
+        if module_name == None and ixx.short_path.startswith("../"):
+            # Strip "../<repo>/" to get the repo-relative path.
+            parts = ixx.short_path.split("/", 2)
+            if len(parts) == 3:
+                module_name = ctx.attr.module_names.get(parts[2])
         if module_name == None:
             module_name = MODULE_SOURCES.get(ixx.short_path)
         if module_name == None:
             fail("cpp_module: cannot find module name for '{}'. ".format(ixx.short_path) +
                  "Ensure the file is scanned and bazel clean --expunge has been run, " +
-                 "or pass module_names = {{'{}': '<name>'}} for generated sources.".format(ixx.short_path))
+                 "or pass module_names = {{'<repo-relative-path>': '<name>'}} " +
+                 "for generated/external sources.")
 
         direct_deps_list = ctx.attr.known_direct_deps_map.get(module_name)
         if direct_deps_list == None:
@@ -589,10 +600,12 @@ def _cpp_module_impl(ctx):
 cpp_module = rule(
     implementation = _cpp_module_impl,
     attrs = {
-        "mods":                  attr.label_list(allow_files = [".ixx", ".cppm"]),
+        "mods":                  attr.label_list(allow_files = [".ixx", ".cppm", ".cpp"]),
         "srcs":                  attr.label_list(allow_files = [".cpp", ".cc"]),
         # Per-file MODULE_SOURCES overrides for generated .ixx outputs whose
         # short_path is not in the scanner map. Key: file short_path.
+        # Per-file module-name overrides. Keys may be the file's short_path or,
+        # for external/generated units, its repo-relative path.
         "module_names":          attr.string_dict(),
         "module_deps":           attr.label_list(providers = [CppModuleInfo]),
         "deps":                  attr.label_list(providers = [CcInfo]),

@@ -16,10 +16,6 @@ concept ContextHasGlobal = IsContext<Context> and requires {
     typename Context::Info::GlobalNode;
 };
 
-ARC_MODULE_EXPORT
-template<class Context, class GlobalTrait>
-concept ContextHasGlobalTrait = ContextHasGlobal<Context> and IsGlobalTrait<GlobalTrait> and HasTrait<typename Context::Info::GlobalNode, typename GlobalTrait::Trait>;
-
 namespace detail {
     struct GlobalContextTag{};
 }
@@ -27,6 +23,10 @@ namespace detail {
 ARC_MODULE_EXPORT
 template<class Context>
 concept IsGlobalContext = IsContext<Context> and requires { Context::Info::isGlobalContext(detail::GlobalContextTag{}); };
+
+ARC_MODULE_EXPORT
+template<class Context, class GlobalTrait>
+concept ContextHasGlobalTrait = ContextHasGlobal<Context> and IsGlobalTrait<GlobalTrait> and HasTrait<typename Context::Info::GlobalNode, typename GlobalTrait::Trait>;
 
 ARC_MODULE_EXPORT
 template<class Context>
@@ -53,7 +53,7 @@ namespace detail {
     template<ContextHasGlobal Context>
     struct GlobalNodePtr<Context>
     {
-        using Node = ContextToNode<Decompress<Context>>;
+        using Node = ContextToNode<Context>;
         using GlobalNode = Context::Info::GlobalNode;
         constexpr GlobalNodePtr(Node* node)
         {

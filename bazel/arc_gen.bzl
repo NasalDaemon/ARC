@@ -71,7 +71,9 @@ def arc_module(
     provided_modules = {}  # module names provided by this target (skip self-deps)
 
     def _lookup_module_name(src, kind):
-        key = pkg + "/" + src
+        # pkg is "" for a repo-root BUILD (common for external repos); avoid the
+        # leading double slash that would break the suffix fallback below.
+        key = src if pkg == "" else pkg + "/" + src
         module_name = MODULE_SOURCES.get(key)
         if module_name == None:
             # When this macro runs from an external repo's BUILD file (e.g. @arc//tests

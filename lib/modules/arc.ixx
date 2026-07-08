@@ -65,6 +65,14 @@ export namespace arc {
     using arc::IsDomain;
     using arc::IsRootDomain;
     using arc::DomainParams;
+    // nodes/collection_storage.hpp
+    using arc::IsCollectionStorage;
+    using arc::IsDynamicCollectionStorage;
+    using arc::AutoId;
+    using arc::autoId;
+    using arc::VectorStorage;
+    using arc::IndexStorage;
+    using arc::CollectionPolicy;
     // nodes/collection.hpp
     namespace key {
         using key::Element;
@@ -74,12 +82,15 @@ export namespace arc {
         using key::collection;
     }
     using arc::Collection;
-    using arc::DynamicCollection;
-    using arc::StaticCollection;
+    using arc::DynamicMap;
+    using arc::StaticMap;
+    using arc::DynamicIndex;
+    using arc::StaticIndex;
     namespace node {
-        using node::Collection;
-        using node::DynamicCollection;
-        using node::StaticCollection;
+        using node::DynamicMap;
+        using node::StaticMap;
+        using node::DynamicIndex;
+        using node::StaticIndex;
     }
     // traits/collection_control.hxx
     inline namespace trait {

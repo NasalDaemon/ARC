@@ -43,6 +43,7 @@ cluster InnerCluster [R = Root]
 cluster GlobalCluster [R = Root]
 {
     logger = R::Logger
+    globalNode = R::Node
 
     [trait::Log]
     @parent --> logger
@@ -60,7 +61,7 @@ struct Root
     struct Node : arc::Node
     {
         using Traits = arc::NoTraits;
-        using Depends = arc::Depends<trait::Log, arc::Global<trait::Log>>;
+        using Depends = arc::Depends<arc::Global<trait::Log>>;
 
         int hello() { return value; }
 
@@ -89,11 +90,14 @@ TEST_CASE("arc::Global")
             .cluster{},
         }
     };
+
     CHECK(graph.global.logger->count == 0);
     graph->node.getGlobal(trait::log).log("Hello, Global!");
     CHECK(graph.global.logger->count == 1);
     graph.asTrait(trait::log).log("Hello again, Global!");
     CHECK(graph.global.logger->count == 2);
+    graph.global.globalNode.getGlobal(trait::log).log("Hello, Global!");
+    CHECK(graph.global.logger->count == 3);
 }
 
 TEST_CASE("arc::Global hosted locally")

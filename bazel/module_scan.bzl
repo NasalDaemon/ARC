@@ -46,6 +46,20 @@ def _arc_module_scan_impl(rctx):
             "@arc",
         ))
 
+    # Extra external repos opted in by a consumer (via the module extension).
+    # Each marker is any file at the repo root; its parent dir is the repo root
+    # and its basename is the canonical repo name, which both the short_path
+    # prefix ("../<canonical>/") and File.short_path agree on. rctx.path also
+    # forces the repo to be fetched and watched before the scan walks it.
+    for marker, label_prefix in zip(
+            rctx.attr.external_markers, rctx.attr.external_label_prefixes):
+        repo_root = rctx.path(marker).dirname
+        roots.append((
+            str(repo_root),
+            "../" + repo_root.basename + "/",
+            label_prefix,
+        ))
+
     # Watch only files that actually affect module deps:
     #   .ixx / .ixx.arc — module interface units and ARC DSL sources
     #   arc-embed .cpp  — .cpp files containing arc-begin/arc-end blocks
@@ -79,5 +93,46 @@ def _arc_module_scan_impl(rctx):
 arc_module_scan = repository_rule(
     implementation = _arc_module_scan_impl,
     local = True,
+    attrs = {
+        # Parallel lists: marker file at each opted-in external repo's root, and
+        # the Bazel label prefix (e.g. "@unordered_dense") for provider targets
+        # emitted for modules found there.
+        "external_markers": attr.label_list(allow_files = True),
+        "external_label_prefixes": attr.string_list(),
+    },
     doc = "Scans C++20 module source files and produces a module dependency map.",
+)
+
+# Module extension so consumers can opt external repos into the scan (so their
+# C++20 modules land in MODULE_SOURCES / MODULE_PROVIDER_TARGETS like in-tree
+# units, no per-file module_names needed). Both ARC and the root module use the
+# same extension instance; tags from every module are aggregated here.
+def _arc_module_scan_ext_impl(module_ctx):
+    markers = []
+    prefixes = []
+    for mod in module_ctx.modules:
+        for ext in mod.tags.external:
+            markers.append(ext.marker)
+            prefixes.append(ext.label_prefix)
+    arc_module_scan(
+        name = "arc_module_deps",
+        external_markers = markers,
+        external_label_prefixes = prefixes,
+    )
+
+_external_tag = tag_class(attrs = {
+    "marker": attr.label(
+        mandatory = True,
+        doc = "Any file at the external repo's root (e.g. @repo//:LICENSE).",
+    ),
+    "label_prefix": attr.string(
+        mandatory = True,
+        doc = "Label prefix for provider targets, e.g. \"@unordered_dense\".",
+    ),
+})
+
+arc_module_scan_ext = module_extension(
+    implementation = _arc_module_scan_ext_impl,
+    tag_classes = {"external": _external_tag},
+    doc = "Opt external repos into the ARC module scan and create @arc_module_deps.",
 )

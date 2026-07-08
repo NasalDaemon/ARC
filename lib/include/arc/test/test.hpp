@@ -106,9 +106,6 @@ namespace detail {
             struct Mocks;
             using AssertHandler = decltype(getRootAssertHandler<typename Context::Root>());
 
-            template<class Trait>
-            static ResolvedLink<Node, Trait> resolveLink(Trait, arc::LinkPriorityMin);
-
             struct Node : arc::Context<Impl, NodeT>
             {
                 ARC_LINK_TO_GLOBAL()
@@ -156,6 +153,13 @@ namespace detail {
                     static constexpr AssertHandler ContractAssert{};
                 };
             };
+
+            template<class Trait>
+            requires ContextHasTrait<Node, Trait>
+            static ResolvedLink<Node, Trait> resolveLink(Trait, arc::LinkPriorityMax);
+            template<class Trait>
+            requires ContextHasTrait<Mocks, Trait>
+            static ResolvedLink<Mocks, Trait> resolveLink(Trait, arc::LinkPriorityMin);
 
             ARC_NODE(Node, node)
             ARC_NODE(Mocks, mocks)

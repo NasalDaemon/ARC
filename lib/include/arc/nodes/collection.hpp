@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_NODES_COLLECTION_HPP
 
 #include "arc/nodes/adapt.hpp"
+#include "arc/nodes/collection_storage.hpp"
 #include "arc/detail/as_ref.hpp"
 #include "arc/detail/cast.hpp"
 
@@ -23,14 +24,11 @@
 #include "arc/traits.hpp"
 
 #if !ARC_IMPORT_STD
-#include <algorithm>
-#include <iterator>
 #include <memory>
 #include <ranges>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-#include <vector>
 #endif
 
 namespace arc {
@@ -41,68 +39,6 @@ namespace detail {
     {
         constexpr std::true_type operator()(auto&&...) const { return {}; }
     };
-
-    template<class Node>
-    struct StaticHandle
-    {
-        StaticHandle() = delete;
-        auto operator<=>(StaticHandle const&) const = default;
-    private:
-        friend Node;
-        constexpr explicit StaticHandle(std::size_t index) : index(index) {}
-        std::size_t index;
-    };
-
-    template<class Node, class Element>
-    struct DynamicHandle;
-
-    template<class Node, class Element>
-    struct WeakDynamicHandle
-    {
-        WeakDynamicHandle() = default;
-
-        auto lock() const noexcept { return DynamicHandle<Node, Element>(ptr); }
-        auto operator<=>(WeakDynamicHandle const&) const = default;
-        void reset() noexcept { ptr.reset(); }
-
-    private:
-        friend Node;
-        friend struct DynamicHandle<Node, Element>;
-        constexpr explicit WeakDynamicHandle(std::weak_ptr<Element> element) : ptr(element.lock()) {}
-        std::weak_ptr<Element> ptr{};
-    };
-
-    template<class Node, class Element>
-    struct DynamicHandle
-    {
-        DynamicHandle() = default;
-
-        auto operator<=>(DynamicHandle const&) const = default;
-        constexpr operator bool() const noexcept { return static_cast<bool>(ptr); }
-        constexpr bool empty() const noexcept { return !ptr; }
-
-        constexpr auto toWeak() const noexcept { return WeakDynamicHandle<Node, Element>(ptr); }
-        constexpr operator WeakDynamicHandle<Node, Element>() const noexcept { return toWeak(); }
-        void reset() noexcept { ptr.reset(); }
-
-    private:
-        friend Node;
-        friend struct WeakDynamicHandle<Node, Element>;
-        constexpr explicit DynamicHandle(std::shared_ptr<Element> element) : ptr(std::move(element)) {}
-        constexpr explicit DynamicHandle(std::weak_ptr<Element> element) : ptr(element.lock()) {}
-        std::shared_ptr<Element> ptr{};
-    };
-
-    template<class Node, class Element, bool IsDynamic>
-    auto getWeakNodeHandle() -> WeakDynamicHandle<Node, Element>;
-    template<class Node, class Element, bool IsDynamic>
-    requires (not IsDynamic)
-    auto getWeakNodeHandle() -> StaticHandle<Node>;
-    template<class Node, class Element, bool IsDynamic>
-    auto getStrongNodeHandle() -> DynamicHandle<Node, Element>;
-    template<class Node, class Element, bool IsDynamic>
-    requires (not IsDynamic)
-    auto getStrongNodeHandle() -> StaticHandle<Node>;
 
 } // namespace detail
 
@@ -152,19 +88,15 @@ namespace key {
 
 } // namespace key
 
+// Collection of identically-typed nodes; Policy selects element lifetime and storage
+// layout (see arc::CollectionPolicy). Prefer the Dynamic/Static[Map|Index] aliases below.
 ARC_MODULE_EXPORT
-template<IsNodeHandle NodeHandle, class ID>
-using DynamicCollection = Collection<NodeHandle, ID, true>;
-
-ARC_MODULE_EXPORT
-template<IsNodeHandle NodeHandle, class ID>
-using StaticCollection = Collection<NodeHandle, ID, false>;
-
-ARC_MODULE_EXPORT
-template<IsNodeHandle NodeHandle, class ID_, bool Dynamic/* = false*/>
+template<IsNodeHandle NodeHandle, class ID_, class Policy>
 struct Collection
 {
     using ID = ID_;
+
+    static constexpr bool Dynamic = Policy::dynamic;
 
     template<class Context>
     class Node : public arc::Node
@@ -172,14 +104,24 @@ struct Collection
         struct Element;
         struct ElementContext;
 
-        using WeakHandle = decltype(detail::getWeakNodeHandle<Node, Element, Dynamic>());
-        using StrongHandle = decltype(detail::getStrongNodeHandle<Node, Element, Dynamic>());
+        // Memory layout and element/id lookup are delegated to the storage policy,
+        // so the most optimal layout can be selected per collection.
+        using Storage = Policy::template Storage<Element, ID_>;
+
+        // Either ID, or a placeholder (e.g. arc::AutoId) when the storage assigns ids itself
+        using InsertId = Storage::InsertId;
+
+        using WeakHandle = Storage::WeakHandle;
+        using StrongHandle = Storage::StrongHandle;
 
         struct ControlTypes
         {
             using WeakHandle = Node::WeakHandle;
             using StrongHandle = Node::StrongHandle;
             using ID = ID_;
+            // Insertion id: the caller-chosen ID for map storages, or arc::AutoId
+            // for index storages that assign the id themselves.
+            using InsertId = Node::InsertId;
         };
 
         using ElementNode = detail::ToNodeState<typename ToNodeWrapper<NodeHandle>::template Node<detail::CompressContext<ElementContext>>>;
@@ -206,37 +148,29 @@ struct Collection
                 using Environment = Caller::Environment::template RemoveDynamic<>;
                 using NodeState = TransferEnv<Environment, arc::ContextToNodeState<detail::Decompress<ContextOf<Caller>>>>;
                 static_assert(std::is_same_v<CallerNode, TargetNode>);
-                return std::as_const(collection->elements)
+                return collection->elementsView()
+                    | std::views::transform([](auto const& item) { return std::to_address(item); })
                     | std::views::filter(
-                        [=, this](auto const& el) -> bool
+                        [=, this](auto const* el) -> bool
                         {
-                            if (&el == this)
+                            if (el == this)
                                 return false;
-                            auto const peer = elToNodeMemPtr.getMemberFromClass(el).asTrait(trait::peer);
+                            auto const peer = elToNodeMemPtr.getMemberFromClass(*el).asTrait(arc::trait::peer);
                             if (not peer.isPeerId(id))
                                 return false;
                             auto const& instance = detail::downCast<NodeState>(detail::upCast<CallerNode>(elToNodeMemPtr.getMemberFromClass(*this)));
                             return peer.isPeerInstance(instance);
                         })
                     | std::views::transform(
-                        [=](auto const& el) -> NodeState const&
+                        [=](auto const* el) -> NodeState const&
                         {
-                            return detail::downCast<NodeState>(detail::upCast<CallerNode>(elToNodeMemPtr.getMemberFromClass(el)));
+                            return detail::downCast<NodeState>(detail::upCast<CallerNode>(elToNodeMemPtr.getMemberFromClass(*el)));
                         });
             }
 
             constexpr StrongHandle getElementHandle() const
             {
-                if constexpr (Dynamic)
-                {
-                    // const_cast is safe since handle is opaque and ControlView::fromHandle enforces const correctness at point of use
-                    return StrongHandle(const_cast<Element*>(this)->shared_from_this());
-                }
-                else
-                {
-                    auto const index = this - std::to_address(collection->elements.begin());
-                    return StrongHandle(index);
-                }
+                return collection->store.handleFor(this);
             }
         };
 
@@ -307,51 +241,38 @@ struct Collection
         requires HasTrait<ElementNode, Trait>
         using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, detail::ResolveTypesOfNode<ElementNode, Trait>>;
 
-        using Item = std::conditional_t<Dynamic, std::shared_ptr<Element>, Element>;
-        std::vector<Item> elements;
-        std::vector<ID> ids;
-
     protected:
-        // Adding elements to this collection must be managed, so this is protected
-        constexpr std::pair<Element*, bool> addImpl(bool unique, ID const& id, auto&&... args)
-        {
-            // Nodes must not be invalidated by insertions, so the vector must not be resized.
-            if constexpr (not Dynamic)
-                if (elements.capacity() == elements.size())
-                    throw std::length_error("Collection capacity exceeded");
-            if (auto item = getItemById(id))
-            {
-                if (unique)
-                    throw std::invalid_argument("ID already exists in collection");
-                else
-                    return {&*item, false};
-            }
-            ids.push_back(id);
-            if constexpr (Dynamic)
-                return {elements.emplace_back(std::make_shared<Element>(id, this, ARC_FWD(args)...)).get(), true};
-            else
-                return {std::addressof(elements.emplace_back(id, this, ARC_FWD(args)...)), true};
-        }
+        Storage store;
 
-        [[nodiscard]] constexpr auto getItemById(this auto& self, ID const& id)
+        // Adding elements to this collection must be managed, so this is protected
+        constexpr std::pair<Element*, bool> addImpl(bool unique, InsertId const& id, auto&&... args)
         {
-            auto const it = std::find(self.ids.begin(), self.ids.end(), id);
+            // Checked here rather than at class scope, as Element must be complete
             if constexpr (Dynamic)
-                return it != self.ids.end()
-                    ? self.elements[std::distance(self.ids.begin(), it)]
-                    : nullptr;
+                static_assert(IsDynamicCollectionStorage<Storage, Element, ID>);
             else
-                return it != self.ids.end()
-                    ? std::addressof(self.elements[std::distance(self.ids.begin(), it)])
-                    : nullptr;
+                static_assert(IsCollectionStorage<Storage, Element, ID>);
+
+            // Nodes must not be invalidated by insertions, so the store must not relocate elements.
+            store.ensureSpareCapacity();
+            // Storage-assigned ids cannot collide, so only caller-chosen ids are checked for duplicates
+            if constexpr (std::is_same_v<InsertId, ID>)
+            {
+                if (auto* element = store.findById(id))
+                {
+                    if (unique)
+                        throw std::invalid_argument("ID already exists in collection");
+                    else
+                        return {element, false};
+                }
+            }
+            Element* element = store.emplace(id, this, ARC_FWD(args)...);
+            return {element, element != nullptr};
         }
 
         [[nodiscard]] constexpr decltype(auto) elementsView(this auto& self)
         {
-            if constexpr (Dynamic)
-                return self.elements | std::views::transform([](auto const& el) -> Element& { return *el; });
-            else
-                return self.elements;
+            return self.store.view();
         }
 
         template<class Trait>
@@ -362,35 +283,38 @@ struct Collection
         template<class Types>
         static auto finaliseTypes(key::Collection const&, auto const&...) -> ControlTypes;
 
+    private:
+        constexpr void rebindElements()
+        {
+            for (auto element : elementsView())
+            {
+                element->collection = this;
+                element->globalNode.set(this);
+            }
+        }
+
     public:
         constexpr explicit Node(std::size_t capacity, auto adder)
         {
-            elements.reserve(capacity);
-            ids.reserve(capacity);
-            adder([this](ID const& id, auto&&... args) { this->addImpl(true, id, ARC_FWD(args)...); });
+            store.reserve(capacity);
+            adder([this](InsertId const& id, auto&&... args)
+            {
+                if (this->addImpl(true, id, ARC_FWD(args)...).first == nullptr) [[unlikely]]
+                    throw std::length_error("Collection storage failed to insert element");
+            });
         }
 
         Node() requires Dynamic = default;
 
         constexpr Node(Node const& other)
-            : elements(other.elements)
-            , ids(other.ids)
+            : store(other.store)
         {
-            for (auto& element : elementsView())
-            {
-                element.collection = this;
-                element.globalNode.set(this);
-            }
+            rebindElements();
         }
         constexpr Node(Node&& other)
-            : elements(std::move(other.elements))
-            , ids(std::move(other.ids))
+            : store(std::move(other.store))
         {
-            for (auto& element : elementsView())
-            {
-                element.collection = this;
-                element.globalNode.set(this);
-            }
+            rebindElements();
         }
 
         using Traits = arc::TraitsTemplate<TraitsTemplate>;
@@ -400,87 +324,80 @@ struct Collection
 
         constexpr void visit(this auto& self, auto&& visitor)
         {
-            for (auto& el : self.elementsView())
-                el.node.visit(visitor);
+            for (auto el : self.elementsView())
+                el->node.visit(visitor);
         }
 
         [[nodiscard]] constexpr bool contains(ID const& id) const
         {
-            return std::ranges::contains(ids, id);
+            return store.contains(id);
         }
 
         [[nodiscard]] constexpr auto* getId(this auto& self, ID const& id)
         {
-            auto item = self.getItemById(id);
+            auto* item = self.store.findById(id);
             return item ? std::addressof(item->node) : nullptr;
         }
 
         // Throws if ID does not exist in collection
         [[nodiscard]] constexpr auto& atId(this auto& self, ID const& id)
         {
-            auto item = self.getItemById(id);
+            auto* item = self.store.findById(id);
             if (item == nullptr) [[unlikely]]
                 throw std::out_of_range("Element with given ID does not exist in collection");
             return item->node;
         }
 
-        constexpr ElementNode& insert(ID const& id, auto&&... args) requires Dynamic
+        template<class Self>
+        [[nodiscard]] constexpr auto& atHandle(this Self& self, StrongHandle const& handle)
         {
-            return addImpl(true, id, ARC_FWD(args)...).first->node;
+            return detail::constLike<Self>(self.store.elementOf(handle)->node);
         }
 
-        constexpr std::pair<ElementNode&, bool> tryInsert(ID const& id, auto&&... args) requires Dynamic
+        [[nodiscard]] constexpr ElementNode* insert(InsertId const& id, auto&&... args) requires Dynamic
+        {
+            Element* el = addImpl(true, id, ARC_FWD(args)...).first;
+            return el ? std::addressof(el->node) : nullptr;
+        }
+
+        [[nodiscard]] constexpr std::pair<ElementNode*, bool> tryInsert(InsertId const& id, auto&&... args) requires Dynamic
         {
             auto [element, inserted] = addImpl(false, id, ARC_FWD(args)...);
-            return {element->node, inserted};
+            return {element ? std::addressof(element->node) : nullptr, inserted};
         }
 
         template<class Self, std::invocable<ID, StrongHandle, detail::ConstLike<Self, ElementNode>&> F>
         constexpr void forEach(this Self& self, F&& func)
         {
-            for (auto& el : self.elementsView())
-                func(el.id, el.getElementHandle(), el.node);
+            for (auto el : self.elementsView())
+                func(el->id, el->getElementHandle(), el->node);
         }
 
-        template<class Self, std::predicate<ID, StrongHandle, detail::ConstLike<Self, ElementNode>&> F>
+        template<class Self, std::predicate<ID, StrongHandle, ElementNode const&> F>
         constexpr void removeIf(this Self& self, F&& func) requires Dynamic
         {
-            auto itEl = self.elements.begin();
-            auto itId = self.ids.begin();
-            for (; itEl != self.elements.end();)
-            {
-                if (func((*itEl)->id, (*itEl)->getElementHandle(), (*itEl)->node))
+            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+
+            self.store.eraseIf(
+                [&](Element const& el)
                 {
-                    itEl = self.elements.erase(itEl);
-                    itId = self.ids.erase(itId);
-                }
-                else
-                {
-                    ++itEl;
-                    ++itId;
-                }
-            }
+                    return func(el.id, el.getElementHandle(), el.node);
+                });
         }
 
         constexpr bool remove(ID const& id) requires Dynamic
         {
-            static_assert(not ContextHasGlobalTrait<Context, trait::Scheduler>, "Not supported yet");
+            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
 
-            auto const it = std::find(ids.begin(), ids.end(), id);
-            if (it == ids.end())
-                return false;
-            auto const index = std::distance(ids.begin(), it);
-            ids.erase(it);
-            elements.erase(elements.begin() + index);
-            return true;
+            return store.erase(id);
         }
     };
 };
 
-template<IsNodeHandle NodeHandle, class ID, bool Dynamic>
+template<IsNodeHandle NodeHandle, class ID, class Policy>
 template<class Context>
 template<class Trait>
-struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::AsTrait : Node
+struct Collection<NodeHandle, ID, Policy>::Node<Context>::AsTrait : Node
 {
     template<class Self>
     constexpr auto finalise(this Self& self, auto& source, key::Element<ID> const& key, auto const&... keys)
@@ -495,18 +412,9 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::AsTrait : Node
     template<class Self>
     constexpr auto finalise(this Self& self, auto& source, key::Element<StrongHandle> const& key, auto const&... keys)
     {
-        if constexpr (Dynamic)
-        {
-            auto& element = key.id.ptr->node;
-            auto target = element.asTrait(detail::AsRef{}, Trait{});
-            return target.ptr->finalise(source, keys...);
-        }
-        else
-        {
-            auto& element = self.elements[key.id.index].node;
-            auto target = element.asTrait(detail::AsRef{}, Trait{});
-            return target.ptr->finalise(source, keys...);
-        }
+        auto& element = self.store.elementOf(key.id)->node;
+        auto target = element.asTrait(detail::AsRef{}, Trait{});
+        return target.ptr->finalise(source, keys...);
     }
 
     template<class Self>
@@ -542,11 +450,11 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::AsTrait : Node
         std::apply(
             [&](auto const&... ks)
             {
-                for (auto& el : self.elementsView())
+                for (auto el : self.elementsView())
                 {
-                    if (key.pred(std::as_const(el.id)))
+                    if (key.pred(std::as_const(el->id)))
                     {
-                        auto target = el.node.asTrait(detail::AsRef{}, Trait{});
+                        auto target = el->node.asTrait(detail::AsRef{}, Trait{});
                         target.ptr->finalise(self, ks...)->impl(args...);
                     }
                 }
@@ -555,22 +463,22 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::AsTrait : Node
     }
 };
 
-template<IsNodeHandle NodeHandle, class ID, bool Dynamic>
+template<IsNodeHandle NodeHandle, class ID, class Policy>
 template<class Context>
 template<class Trait>
-struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::ControlView : Node, trait::DynamicCollectionControl::Meta::Impl
+struct Collection<NodeHandle, ID, Policy>::Node<Context>::ControlView : Node, arc::trait::DynamicCollectionControl::Meta::Impl
 {
     constexpr WeakHandle getWeakHandle(ID const& id) const
     {
-        return WeakHandle(this->getItemById(id));
+        return this->store.weakHandleFor(id);
     }
     constexpr StrongHandle getStrongHandle(ID const& id) const
     {
-        return StrongHandle(this->getItemById(id));
+        return this->store.strongHandleFor(id);
     }
     static constexpr ID getId(StrongHandle const& handle)
     {
-        return handle.ptr->id;
+        return Storage::idOf(handle);
     }
 
     template<class Self>
@@ -579,9 +487,9 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::ControlView : Node, t
         return withEnv<typename Self::Environment>(self.atId(id)).asTrait(Trait{});
     }
     template<class Self>
-    constexpr auto fromHandle(this Self&, StrongHandle const& handle)
+    constexpr auto fromHandle(this Self& self, StrongHandle const& handle)
     {
-        return withEnv<typename Self::Environment>(detail::constLike<Self>(handle.ptr->node)).asTrait(Trait{});
+        return withEnv<typename Self::Environment>(self.atHandle(handle)).asTrait(Trait{});
     }
 
     constexpr bool contains(ID const& id) const
@@ -590,14 +498,14 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::ControlView : Node, t
     }
     constexpr bool contains(StrongHandle const& handle) const
     {
-        return handle and Node::contains(handle.ptr->id);
+        return this->store.contains(handle);
     }
 
-    constexpr std::pair<StrongHandle, bool> tryInsert(ID const& id, auto&&... args)
+    [[nodiscard]] constexpr std::pair<StrongHandle, bool> tryInsert(InsertId const& id, auto&&... args)
     {
         static_assert(Dynamic, "tryInsert is only available for dynamic collections");
         auto [element, inserted] = addImpl(false, id, ARC_FWD(args)...);
-        return {StrongHandle(element->shared_from_this()), inserted};
+        return {this->store.handleFor(element), inserted};
     }
 
     constexpr bool remove(ID const& id)
@@ -608,14 +516,27 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::ControlView : Node, t
     constexpr bool remove(StrongHandle const& handle)
     {
         static_assert(Dynamic, "remove is only available for dynamic collections");
-        return handle.ptr and Node::remove(handle.ptr->id);
+        return handle and Node::remove(Storage::idOf(handle));
     }
 
     template<class Self>
     constexpr void forEach(this Self& self, auto&& func)
     {
-        for (auto& el : self.elements)
+        for (auto el : self.elementsView())
             func(el->id, el->getElementHandle(), withEnv<typename Self::Environment>(el->node).asTrait(Trait{}));
+    }
+    template<class Self>
+    constexpr StrongHandle findIf(this Self& self, auto&& func)
+    {
+        for (auto el : self.elementsView())
+        {
+            auto handle = el->getElementHandle();
+            if (func(el->id, handle, withEnv<typename Self::Environment>(el->node).asTrait(Trait{})))
+            {
+                return std::move(handle);
+            }
+        }
+        return {};
     }
     template<class Self>
     constexpr void removeIf(this Self& self, auto&& func)
@@ -629,13 +550,33 @@ struct Collection<NodeHandle, ID, Dynamic>::Node<Context>::ControlView : Node, t
     }
 };
 
+// Collection of nodes keyed by caller-chosen ids
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, class ID>
+using DynamicMap = Collection<NodeHandle, ID, DynamicMapPolicy>;
+
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, class ID>
+using StaticMap = Collection<NodeHandle, ID, StaticMapPolicy>;
+
+// Collection of nodes keyed by storage-assigned indices; insertion takes arc::autoId
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, class ID = std::size_t>
+using DynamicIndex = Collection<NodeHandle, ID, DynamicIndexPolicy>;
+
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, class ID = std::size_t>
+using StaticIndex = Collection<NodeHandle, ID, StaticIndexPolicy>;
+
 namespace node {
     ARC_MODULE_EXPORT
-    using arc::Collection;
+    using arc::DynamicMap;
     ARC_MODULE_EXPORT
-    using arc::DynamicCollection;
+    using arc::StaticMap;
     ARC_MODULE_EXPORT
-    using arc::StaticCollection;
+    using arc::DynamicIndex;
+    ARC_MODULE_EXPORT
+    using arc::StaticIndex;
 }
 
 } // namespace arc
