@@ -177,13 +177,14 @@ struct Collection
         struct ElementContext : Context
         {
             template<IsTrait Trait>
-            requires detail::HasLink<Context, Trait>
+            requires detail::LocallyResolvable<Context, Trait>
             static constexpr auto getNode(auto& node, Trait)
             {
                 return Context{}.getNode(getCollection(node), detail::ResolveLinkTrait<Context, Trait>{});
             }
 
             template<IsGlobalTrait GlobalTrait>
+            requires ContextHasGlobal<Context>
             static constexpr auto getNode(auto& node, GlobalTrait)
             {
                 detail::assertContextHasGlobalTrait<ElementContext, GlobalTrait>();
@@ -356,13 +357,21 @@ struct Collection
 
         [[nodiscard]] constexpr ElementNode* insert(InsertId const& id, auto&&... args) requires Dynamic
         {
+            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+
             Element* el = addImpl(true, id, ARC_FWD(args)...).first;
+            if (el)
+                el->node.visit(detail::OnGraphConstructedVisitor{});
             return el ? std::addressof(el->node) : nullptr;
         }
 
         [[nodiscard]] constexpr std::pair<ElementNode*, bool> tryInsert(InsertId const& id, auto&&... args) requires Dynamic
         {
+            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+
             auto [element, inserted] = addImpl(false, id, ARC_FWD(args)...);
+            if (element && inserted)
+                element->node.visit(detail::OnGraphConstructedVisitor{});
             return {element ? std::addressof(element->node) : nullptr, inserted};
         }
 
@@ -516,7 +525,7 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::ControlView : Node, ar
     constexpr bool remove(StrongHandle const& handle)
     {
         static_assert(Dynamic, "remove is only available for dynamic collections");
-        return handle and Node::remove(Storage::idOf(handle));
+        return this->store.contains(handle) and Node::remove(Storage::idOf(handle));
     }
 
     template<class Self>

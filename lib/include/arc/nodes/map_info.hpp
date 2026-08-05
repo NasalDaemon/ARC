@@ -28,7 +28,7 @@ namespace detail {
     struct MappedContext : Context
     {
         template<class Trait>
-        requires detail::HasLink<Context, Trait> or IsGlobalTrait<Trait>
+        requires detail::HasLocalLink<Context, Trait> or IsGlobalTrait<Trait>
         constexpr auto getNode(this Context context, auto& node, Trait trait)
         {
             return context.getNode(node, trait);

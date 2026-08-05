@@ -587,7 +587,7 @@ struct AuthServiceTestDouble : arc::test::TestOnlyNode
     // only those methods which are invoked from the node being tested
     my::Task<bool> impl(this auto& self, trait::AuthService::logIn, std::string_view user, std::string_view pass)
     {
-        if (userPass[user] == pass)
+        if (userPasses[user] == pass)
         {
             // Each generated token has unique id
             Token token{.id = self.tokenId++, .expiry = self.time + 2, .time = &self.time};

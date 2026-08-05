@@ -25,7 +25,7 @@ struct Narrow
             static constexpr std::size_t Depth = Context::Depth;
 
             template<class T>
-            requires detail::HasLink<Context, T>
+            requires detail::HasLocalLink<Context, T>
             static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<Context, T>;
         };
         ARC_NODE(Inner, node);

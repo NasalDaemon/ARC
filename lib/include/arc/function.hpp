@@ -52,6 +52,7 @@ concept StatelessInvocable = IsStateless<F> and std::invocable<F, Args...>;
 // Takes a function signature as a template parameter, e.g. `Function<void(int)>`
 // Stores a single pointer: `sizeof(Function<void(int)>) == sizeof(void*)`
 // Default policy is a move-only object with only a mutable call
+// No allocation when storing a stateless callable object (e.g. a lambda with no captures)
 ARC_MODULE_EXPORT
 template<IsFunctionSignature F, FunctionPolicy = FunctionPolicy{.copyable=false, .mutableCall=true, .constCall=false}>
 struct Function;
@@ -77,7 +78,7 @@ struct Function<R(Args...), Policy_>
 
     template<std::invocable<Args...> F>
     requires (not std::same_as<std::remove_cvref_t<F>, Function>)
-    constexpr Function(F&& f) : callable{new Callable<std::remove_cvref_t<F>>(ARC_FWD(f))}
+    constexpr Function(F&& f) : callable{makeCallable<std::remove_cvref_t<F>>(ARC_FWD(f))}
     {}
 
     constexpr R operator()(auto&&... args) requires (Policy.mutableCall)
@@ -97,9 +98,9 @@ struct Function<R(Args...), Policy_>
 private:
     struct CallableBase
     {
+        using Destroy = void(*)(CallableBase*);
         using MutableFunction = R(*)(CallableBase*, Args...);
         using ImmutableFunction = R(*)(CallableBase const*, Args...);
-        using Destroy = void(*)(CallableBase*);
         using Copy = CallableBase*(*)(CallableBase const*);
 
         Destroy destroy;
@@ -118,7 +119,13 @@ private:
     struct Callable : CallableBase
     {
         constexpr explicit Callable(auto&& f)
-            : CallableBase{.destroy{[](CallableBase* base) -> void { delete static_cast<Callable*>(base); }}}
+            : CallableBase{
+                .destroy{
+                    [](CallableBase* base) -> void {
+                        if constexpr (not std::is_empty_v<F>)
+                            delete static_cast<Callable*>(base);
+                    }
+                }}
             , f(ARC_FWD(f))
         {
             if constexpr (Policy.mutableCall)
@@ -148,7 +155,11 @@ private:
                 this->copy =
                     [](CallableBase const* base) -> CallableBase*
                     {
-                        return new Callable(*static_cast<Callable const*>(base));
+                        if constexpr (std::is_empty_v<F>)
+                            // empty callable is statically stored with no state, so we can just return the same pointer
+                            return const_cast<CallableBase*>(base);
+                        else
+                            return new Callable(static_cast<Callable const*>(base)->f);
                     };
             }
         }
@@ -161,6 +172,19 @@ private:
         constexpr void operator()(CallableBase* p) const { p->destroy(p); }
     };
     std::unique_ptr<CallableBase, Deleter> callable;
+
+    template<class F>
+    requires std::is_empty_v<F>
+    static constexpr Callable<F> emptyCallable{F{}};
+
+    template<class F>
+    CallableBase* makeCallable(auto&& f)
+    {
+        if constexpr (std::is_empty_v<F>)
+            return emptyCallable<F>.copy(std::addressof(emptyCallable<F>));
+        else
+            return new Callable<F>(ARC_FWD(f));
+    }
 };
 
 } // namespace arc

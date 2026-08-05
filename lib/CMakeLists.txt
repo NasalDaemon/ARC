@@ -1,4 +1,15 @@
 add_library(arc_lib INTERFACE)
+
+add_library(arc_compiler_flags INTERFACE)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(arc_compiler_flags INTERFACE "-Werror" "-Wall" "-Wextra" "-Wpedantic" "-ferror-limit=1")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(arc_compiler_flags INTERFACE
+        "-Werror" "-Wall" "-Wextra" "-Wpedantic"
+        "-fdiagnostics-all-candidates" "-fconcepts-diagnostics-depth=5"
+    )
+endif()
+
 # arc_lib_compiled adds non-template definitions for arc::headers consumers only;
 # arc::module consumers link arc_lib (INTERFACE) and get the module partition instead.
 add_library(arc_lib_compiled)
@@ -11,6 +22,7 @@ target_compile_features(arc_lib INTERFACE cxx_std_23)
 target_compile_features(arc_module_lib PUBLIC cxx_std_23)
 
 target_include_directories(arc_lib INTERFACE include macros/include)
+target_link_libraries(arc_lib INTERFACE arc_compiler_flags)
 
 target_link_libraries(arc_lib_compiled PUBLIC arc_lib)
 target_include_directories(arc_lib_compiled PRIVATE src/include)
@@ -18,6 +30,7 @@ target_sources(arc_lib_compiled PRIVATE src/tracer_spy.cpp)
 
 # Do not expose the underlying arc header library from the module lib (apart from macros)
 target_link_libraries(arc_module_lib PRIVATE arc_lib)
+target_link_libraries(arc_module_lib PUBLIC arc_compiler_flags)
 target_include_directories(arc_module_lib PUBLIC  macros/include)
 target_include_directories(arc_module_lib PRIVATE src/include)
 

@@ -56,7 +56,7 @@ struct Adapt
             static constexpr std::size_t Depth = Context::Depth;
 
             template<class Trait>
-            requires detail::HasLink<Context, Trait>
+            requires detail::HasLocalLink<Context, Trait>
             static ResolvedLink<Context, Trait> resolveLink(Trait, LinkPriorityMin);
         };
 

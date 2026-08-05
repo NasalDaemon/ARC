@@ -17,6 +17,7 @@
 #include "arc/group.hpp"
 #include "arc/key.hpp"
 #include "arc/link.hpp"
+#include "arc/resolve.hpp"
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
@@ -40,6 +41,7 @@ namespace detail {
         }
 
         template<IsContext Self, IsGlobalTrait GlobalTrait>
+        requires ContextHasGlobal<Self>
         ARC_INLINE constexpr auto getNode(this Self self, auto& node, GlobalTrait)
         {
             detail::assertContextHasGlobalTrait<Self, GlobalTrait>();
@@ -48,7 +50,7 @@ namespace detail {
 
         // Get sibling node
         template<IsContext Self_, IsTrait Trait>
-        requires detail::HasLink<Self_, Trait>
+        requires detail::LocallyResolvable<Self_, Trait>
         ARC_INLINE constexpr auto getNode(this Self_, auto& node, Trait)
         {
             using Self = detail::Decompress<Self_>;

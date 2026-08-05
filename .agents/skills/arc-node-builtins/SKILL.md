@@ -58,7 +58,7 @@ ARC provides higher-order node wrappers for use in cluster definitions. See `/ar
 | `arc::InGroup<Node, Group...>` | `secret = node::Secret : arc::InGroup<policy::Level::HIGH>` | Assigns node to policy group(s) for compile-time access control. |
 | `arc::Narrow<Node, Trait...>` | `restricted = arc::Narrow<node::Full, trait::Public>` | Exposes only a subset of a node's traits, hiding the rest. |
 | `arc::Combine<Node1, Node2, ...>` | `bundle = arc::Combine<node::A, node::B>` | Groups multiple nodes into one, exposing all their traits. Access components via `get<NodeType>()`. |
-| `arc::Lazy<Node>` | `expensive = arc::Lazy<node::Heavy>` | Defers construction until first access. Thread-safe one-time init. |
+| `arc::Lazy<Node>` | `expensive = arc::Lazy<node::Heavy>` | Defers construction until first access. One-time init. |
 
 ## Interfaces for Virtual Nodes
 
@@ -283,7 +283,7 @@ Zero overhead when no spy is present. Use for testing, profiling, audit logging,
 Turnkey global spy for integration tests — the easy path before writing a custom `arc::trait::Spy`.
 
 ```cpp
-arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{ .global{}, .main{ /* ... */ } };
+arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{ .global{{.recording = true}}, .main{ /* ... */ } };
 
 graph->api.asTrait(trait::request).handle("GET", "/items/42");
 

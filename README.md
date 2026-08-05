@@ -56,7 +56,7 @@ FetchContent_MakeAvailable(arc) # makes available arc::headers and arc::module
 ### Modules
 You can link the modularized library (so you can `import arc;`), with
 ```CMake
-target_link_library(your_modules_lib PUBLIC arc::module)
+target_link_libraries(your_modules_lib PUBLIC arc::module)
 ```
 To generate module files from the ARC DSL (aka arc), use `target_generate_arc_modules`.
 ```CMake
@@ -102,7 +102,7 @@ target_generate_arc_src(your_modules_lib
 ### Headers
 You can link the header library (so you can `#include <arc/arc.hpp>`), with
 ```CMake
-target_link_library(your_headers_lib PUBLIC arc::headers)
+target_link_libraries(your_headers_lib PUBLIC arc::headers)
 ```
 To generate header files from the ARC DSL (aka arc), use `target_generate_arc_headers`.
 ```CMake

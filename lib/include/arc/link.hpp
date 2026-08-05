@@ -50,25 +50,34 @@ struct LinkExact : LinkPriorityMax
 namespace detail {
 
     template<class T, class Trait>
-    concept HasGlobalLink = IsGlobalTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { T::resolveLink(trait, linkExact) } -> IsResolvedLink; };
+    concept HasExplicitLink = IsTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { T::resolveLink(trait, linkExact) } -> IsResolvedLink; };
 
     template<class T, class Trait>
-    concept HasLink = IsNonGlobalTrait<Trait> and requires (Trait trait, LinkExact<Trait> linkExact) { { T::resolveLink(trait, linkExact) } -> IsResolvedLink; };
+    concept HasImplicitLink = IsGlobalTrait<Trait> and requires { T::resolveLinkGlobal(); };
 
     template<class T, class Trait>
-    requires HasLink<T, Trait>
+    concept HasLink = HasExplicitLink<T, Trait> or HasImplicitLink<T, Trait>;
+
+    template<class T, class Trait>
+    concept HasGlobalLink = HasLink<T, Trait> and IsGlobalTrait<Trait>;
+
+    template<class T, class Trait>
+    concept HasLocalLink = HasLink<T, Trait> and IsNonGlobalTrait<Trait>;
+
+    template<class T, class Trait>
+    requires HasExplicitLink<T, Trait>
     using ResolveLink = decltype(T::resolveLink(std::declval<Trait>(), std::declval<LinkExact<Trait>>()));
 
     template<class T, class Trait>
-    requires HasLink<T, Trait>
+    requires HasExplicitLink<T, Trait>
     using ResolveLinkContext = ResolveLink<T, Trait>::Context;
 
     template<class T, class Trait>
-    requires HasLink<T, Trait>
+    requires HasExplicitLink<T, Trait>
     using ResolveLinkTrait = ResolveLink<T, Trait>::Trait;
 
     template<class T, class Trait>
-    concept LinksToParent = HasLink<T, Trait> and std::is_same_v<typename T::ParentContext, ResolveLinkContext<T, Trait>>;
+    concept LinksToParent = HasLocalLink<T, Trait> and std::same_as<typename T::ParentContext, ResolveLinkContext<T, Trait>>;
 
 } // detail
 

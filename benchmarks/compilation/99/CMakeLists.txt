@@ -4,6 +4,10 @@ target_generate_arc_modules(arc_bench_compile99)
 
 if(ARC_BUILD_TESTS)
     add_test(arc_bench_compile99_test arc_bench_compile99)
+    # With 99 separate module TUs, LTO (ARC_BUILD_LTO) is required for the collapse
+    if(ARC_BUILD_LTO)
+        add_collapsed_asm_test(arc_bench_compile99)
+    endif()
 endif()
 
 if(ARC_BUILD_LTO)

@@ -1,6 +1,8 @@
 #ifndef INCLUDE_ARC_CLUSTER_HPP
 #define INCLUDE_ARC_CLUSTER_HPP
 
+#include "arc/cluster_fwd.hpp"
+
 #include "arc/detail/as_ref.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/depends.hpp"
@@ -12,35 +14,10 @@
 #include "arc/trait_view.hpp"
 
 #if !ARC_IMPORT_STD
-#include <compare>
-#include <concepts>
 #include <type_traits>
 #endif
 
 namespace arc {
-
-namespace detail {
-    struct OnGraphConstructedVisitor
-    {
-        constexpr void operator()(IsNode auto& node) const
-        {
-            if constexpr (requires { node.onGraphConstructed(); })
-                node.onGraphConstructed();
-        }
-    };
-    template<IsTrait Trait, class Visitor>
-    struct TraitVisitor
-    {
-        template<IsNode Node>
-        constexpr void operator()(Node& node) const
-        {
-            if constexpr (HasTrait<Node, Trait>)
-                node.asTrait(Trait{})->visit(visitor);
-        }
-
-        Visitor const& visitor;
-    };
-}
 
 ARC_MODULE_EXPORT
 struct Cluster
@@ -94,7 +71,7 @@ struct Cluster
     }
 
     template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
-    requires detail::HasLink<Self, Trait>
+    requires detail::HasLocalLink<Self, Trait>
     ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto asTrait(this Self& self, Trait trait = {}, Key key = {}, auto const&... keys)
     {
         auto target = self.asTrait(detail::AsRef{}, trait);
@@ -102,7 +79,7 @@ struct Cluster
     }
 
     template<class Self, IsTrait Trait>
-    requires detail::HasLink<Self, Trait>
+    requires detail::HasLocalLink<Self, Trait>
     ARC_INLINE constexpr auto asTrait(this Self& cluster, detail::AsRef asRef, Trait)
     {
         Self::template ensureDepth<ContextParameterOf<Self>>();
@@ -113,7 +90,7 @@ struct Cluster
     }
 
     template<IsTrait Trait, class Self>
-    constexpr auto hasTrait(this Self const&, Trait = {}) -> std::bool_constant<detail::HasLink<Self, Trait>>
+    constexpr auto hasTrait(this Self const&, Trait = {}) -> std::bool_constant<detail::HasLocalLink<Self, Trait>>
     {
         return {};
     }
@@ -123,23 +100,7 @@ struct Cluster
 };
 
 ARC_MODULE_EXPORT
-template<class T>
-concept IsCluster = std::derived_from<T, Cluster>;
-
-ARC_MODULE_EXPORT
-template<class T>
-concept IsRootCluster = IsCluster<T> and IsRootContext<ContextParameterOf<T>>;
-
-ARC_MODULE_EXPORT
-struct DomainParams
-{
-    std::size_t MaxDepth = 3;
-
-    auto operator<=>(DomainParams const&) const = default;
-};
-
-ARC_MODULE_EXPORT
-template<DomainParams Params = {}>
+template<DomainParams Params/* = {}*/>
 struct Domain : Cluster
 {
     template<class Context>
@@ -148,24 +109,6 @@ struct Domain : Cluster
         static_assert(Context::Depth <= Params.MaxDepth);
     }
 };
-
-namespace detail {
-    template<class T>
-    inline constexpr bool isDomain = false;
-    template<DomainParams Params>
-    constexpr bool isDomain<Domain<Params>> = true;
-
-    template<class T>
-    concept IsDomain = isDomain<std::remove_cvref_t<T>>;
-}
-
-ARC_MODULE_EXPORT
-template<class T>
-concept IsDomain = IsCluster<T> and detail::IsDomain<T>;
-
-ARC_MODULE_EXPORT
-template<class T>
-concept IsRootDomain = IsDomain<T> and IsRootCluster<T>;
 
 } // namespace arc
 

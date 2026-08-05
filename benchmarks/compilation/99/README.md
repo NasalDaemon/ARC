@@ -38,3 +38,13 @@ int main()
     return 0;
 }
 ```
+
+## Automated Check
+
+This property is enforced by the ctest test `arc_bench_compile99_collapsed_asm`
+(and `arc_bench_compile99_collapsed_asm` for the single-TU variant in
+[99_seq](../99_seq)), added only when `ARC_BUILD_LTO` is enabled. The tests run
+`objdump` over `main` and fail if any call or external tail-call survives the
+optimiser, or if `main` exceeds a few instructions. They are added in Release
+configurations only (multi-config generators skip other configurations at test
+time via [check_collapsed_main.cmake](../check_collapsed_main.cmake)).

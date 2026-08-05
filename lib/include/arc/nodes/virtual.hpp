@@ -151,7 +151,7 @@ struct Virtual
             }
 
             template<class N, IsTrait Trait>
-            requires detail::HasLink<Context, Trait>
+            requires detail::LocallyResolvable<Context, Trait>
             constexpr auto getNode(this Context virtualContext, N& impl, Trait trait)
             {
                 Node* virtualHost = Impl<ImplNode>::getVirtualHost(std::addressof(impl));
@@ -159,6 +159,7 @@ struct Virtual
             }
 
             template<IsGlobalTrait GlobalTrait>
+            requires ContextHasGlobal<Context>
             static constexpr auto getNode(auto& node, GlobalTrait)
             {
                 detail::assertContextHasGlobalTrait<Context, GlobalTrait>();

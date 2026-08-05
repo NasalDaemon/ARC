@@ -24,13 +24,13 @@ ARC_INLINE constexpr std::conditional_t<Const, T const, T>& asConst(T& value)
 }
 
 template<class Other, class T>
-ARC_INLINE constexpr std::conditional_t<std::is_const_v<Other>, T const, T>& constLike(T& value)
+using ConstLike = std::conditional_t<std::is_const_v<Other>, T const, T>;
+
+template<class Other, class T>
+ARC_INLINE constexpr ConstLike<Other, T>& constLike(T& value)
 {
     return value;
 }
-
-template<class T, class U>
-using ConstLike = std::conditional_t<std::is_const_v<T>, U const, U>;
 
 template<class Derived, class Base>
 ARC_INLINE constexpr Derived& downCast(Base& base)

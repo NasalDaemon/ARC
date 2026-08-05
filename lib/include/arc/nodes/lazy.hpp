@@ -2,6 +2,8 @@
 
 #include "arc/detail/cast.hpp"
 #include "arc/detail/compress.hpp"
+#include "arc/detail/storage.hpp"
+#include "arc/cluster_fwd.hpp"
 #include "arc/function.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
@@ -10,8 +12,8 @@
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
+#include <memory>
 #include <utility>
-#include <variant>
 #endif
 
 namespace arc {
@@ -27,28 +29,26 @@ struct Lazy
         ARC_COLD
         void initialise() const
         {
-            auto* init = std::get_if<Initialiser>(&state);
-            [[assume(init != nullptr)]];
-            auto initKeepAlive = std::move(*init);
-            initKeepAlive(this);
+            initialiser(this);
+            initialiser.reset(); // only reset if initialiser did not throw
+            state.value()->visit(detail::OnGraphConstructedVisitor{});
         }
 
         struct InnerContext : Context
         {
             template<IsTrait Trait>
-            requires detail::HasLink<Context, Trait> or IsGlobalTrait<Trait>
+            requires detail::HasLocalLink<Context, Trait> or IsGlobalTrait<Trait>
             static constexpr auto getNode(auto& state, Trait trait)
             {
-                // Assumption that variant-to-element offset=0 is tested in test_lazy.cpp
-                auto const nodePtr = std::bit_cast<Node NodeState::*>(-ARC_MEM_PTR(Node, state).toOffset());
-                return Context{}.getNode(detail::downCast<NodeState>(state).*nodePtr, trait);
+                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<NodeState Node::*>(&Node::state));
+                return Context{}.getNode(nodePtr.getClassFromMember(state), trait);
             }
         };
 
-        using NodeState = ToNodeWrapper<Underlying>::template Node<detail::CompressContext<InnerContext>>;
         using Initialiser = Function<void(Node const*), FunctionPolicy{.copyable=true, .mutableCall=true, .constCall=false}>;
-        using Variant = std::variant<NodeState, Initialiser>;
-        Variant mutable state;
+        using NodeState = ToNodeWrapper<Underlying>::template Node<detail::CompressContext<InnerContext>>;
+        Initialiser mutable initialiser;
+        detail::Storage<NodeState> mutable state; // alive when initialiser is falsey
 
         template<class Trait>
         requires HasTrait<NodeState, Trait>
@@ -62,23 +62,45 @@ struct Lazy
             return self.getState().impl(ARC_FWD(args)...);
         }
 
+        ARC_INLINE constexpr bool hasState() const { return not initialiser; }
+
         template<class Self>
-        constexpr auto& getState(this Self& self)
+        constexpr detail::ConstLike<Self, NodeState>& getState(this Self& self)
         {
-            if (not std::holds_alternative<NodeState>(self.state)) [[unlikely]]
+            if (not self.hasState()) [[unlikely]]
                 self.initialise();
-            auto* node = std::get_if<NodeState>(&self.state);
-            [[assume(node != nullptr)]];
-            return std::forward_like<Self&>(*node);
+            return *self.state.value();
         }
 
         constexpr explicit Node(auto&&... args)
-            : state(Initialiser(
+            : initialiser(
                 [...args = ARC_FWD(args)](Node const* self) mutable -> void
                 {
-                    self->state.template emplace<NodeState>(std::move(args)...);
-                }))
+                    std::construct_at(self->state.storage(), std::move(args)...);
+                })
         {}
+
+        constexpr Node(Node const& other)
+            : initialiser(other.initialiser)
+        {
+            if (hasState())
+                std::construct_at(state.storage(), *other.state.value());
+        }
+
+        constexpr Node(Node&& other)
+            : initialiser(std::move(other.initialiser))
+        {
+            if (hasState())
+                std::construct_at(state.storage(), std::move(*other.state.value()));
+            else // ensure that moved-from uninitialised Lazy nodes are left in a state that will throw if they are used
+                other.initialiser = [](Node const*) -> void { throw std::runtime_error("arc::node::Lazy node moved from before initialisation"); };
+        }
+
+        constexpr ~Node()
+        {
+            if (hasState())
+                std::destroy_at(state.value());
+        }
     };
 };
 

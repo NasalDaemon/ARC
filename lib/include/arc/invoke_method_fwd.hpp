@@ -2,7 +2,9 @@
 #define INCLUDE_ARC_INVOKE_METHOD_FWD_HPP
 
 #include "arc/detail/cast.hpp"
+#include "arc/cluster_fwd.hpp"
 #include "arc/macros.hpp"
+#include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"
 #include "arc/trait_view_fwd.hpp"
 #include "arc/test/mock_fwd.hpp"
@@ -115,11 +117,15 @@ struct NormalInvoker
 };
 
 namespace detail {
+    // TODO: Decide how to restrict returning TraitView by default. We return a TraitView in getNode(trait, key::collection).fromHandle(handle)
+    template<class T>
+    concept MethodReturnable = not (std::is_base_of_v<Node, std::remove_cvref_t<T>> or std::is_base_of_v<Cluster, std::remove_cvref_t<T>>);
 
     struct InvokeMethodBase
     {
         template<class Self, IsTraitView TraitView>
-        ARC_INLINE constexpr decltype(auto) invoke(this Self const& self, TraitView traitView, auto method, auto&&... args)
+        ARC_INLINE constexpr auto invoke(this Self const& self, TraitView traitView, auto method, auto&&... args)
+            -> MethodReturnable decltype(auto)
         {
             using Context = ContextOf<typename TraitView::Node>;
             if constexpr (Context::Info::ContractAssert.enabled)

@@ -36,7 +36,7 @@ struct TracerSpyParams
     std::size_t maxDepth = 64;
     // Ring buffer capacity for the event log; oldest entries evict on overflow.
     std::size_t maxEvents = 32 * 1024;
-    // When false, event log is paused at construction. Stats still accumulate.
+    // When false, event log is paused at construction.
     // Toggle via `startRecording()` / `stopRecording()`.
     bool recording = false;
 };
@@ -179,17 +179,13 @@ struct TracerSpy : arc::Node
             if constexpr (std::is_void_v<R>)
             {
                 impl_fn(std::forward<Args>(args)...);
-                auto const dt = std::chrono::steady_clock::now() - t0;
-                stat.total += dt;
-                if (dt > stat.maxTime) stat.maxTime = dt;
+                auto dt = recordElapsed(stat, t0);
                 if (recordThis) recordExit(id, d, name, nodeName, dt, "void", {}, false);
             }
             else
             {
                 decltype(auto) r = impl_fn(std::forward<Args>(args)...);
-                auto const dt = std::chrono::steady_clock::now() - t0;
-                stat.total += dt;
-                if (dt > stat.maxTime) stat.maxTime = dt;
+                auto dt = recordElapsed(stat, t0);
                 if (recordThis)
                 {
                     std::string_view const retType = arc::typeName<std::remove_cvref_t<R>>;
@@ -204,17 +200,15 @@ struct TracerSpy : arc::Node
         }
         catch (std::exception const& e)
         {
-            auto const dt = std::chrono::steady_clock::now() - t0;
+            auto dt = recordElapsed(stat, t0);
             ++stat.exceptions;
-            stat.total += dt;
             if (recordThis) recordThrow(id, d, name, nodeName, dt, e.what());
             throw;
         }
         catch (...)
         {
-            auto const dt = std::chrono::steady_clock::now() - t0;
+            auto dt = recordElapsed(stat, t0);
             ++stat.exceptions;
-            stat.total += dt;
             if (recordThis) recordThrow(id, d, name, nodeName, dt, "<unknown>");
             throw;
         }
@@ -240,6 +234,13 @@ private:
 
     static std::vector<std::size_t>& parentStack();
 
+    std::chrono::nanoseconds recordElapsed(Stats& stat, std::chrono::steady_clock::time_point t0) const noexcept
+    {
+        auto const dt = std::chrono::steady_clock::now() - t0;
+        stat.total += dt;
+        if (dt > stat.maxTime) stat.maxTime = dt;
+        return dt;
+    }
     void recordExit(std::size_t id, std::size_t d, std::string_view name, std::string_view nodeName,
                     std::chrono::nanoseconds dt,
                     std::string_view retType, std::string retValue, bool hasValue) const;
@@ -251,32 +252,38 @@ private:
     void writeEventHuman(std::ostream& os, Event const& e) const;
 
     template<class T>
-    static std::string formatValue(T const& v)
+    static std::string formatValue(T const& v) noexcept
     {
-        using Raw = std::remove_cvref_t<T>;
-        if constexpr (std::is_same_v<Raw, std::nullptr_t>)
+        try
         {
-            return "nullptr";
-        }
-        else if constexpr (std::is_pointer_v<Raw>)
-        {
-            if (!v) return "nullptr";
-            auto const addr = std::format("0x{:x}", std::bit_cast<std::uintptr_t>(v));
-            using Pointee = std::remove_cv_t<std::remove_pointer_t<Raw>>;
-            if constexpr (!std::is_void_v<Pointee>
-                       && !std::is_function_v<Pointee>
-                       && std::formattable<Pointee, char>)
-                return std::format("{} -> {}", addr, *v);
+            using Raw = std::remove_cvref_t<T>;
+            if constexpr (std::is_same_v<Raw, std::nullptr_t>)
+            {
+                return "nullptr";
+            }
+            else if constexpr (std::is_pointer_v<Raw>)
+            {
+                if (!v) return "nullptr";
+                using Pointee = std::remove_cv_t<std::remove_pointer_t<Raw>>;
+                if constexpr (!std::is_void_v<Pointee>
+                           && !std::is_function_v<Pointee>
+                           && std::formattable<Pointee, char>)
+                    return std::format("0x{:x} -> {}", std::bit_cast<std::uintptr_t>(v), *v);
+                else
+                    return std::format("0x{:x}", std::bit_cast<std::uintptr_t>(v));
+            }
+            else if constexpr (std::formattable<Raw, char>)
+            {
+                return std::format("{}", v);
+            }
             else
-                return addr;
+            {
+                return {};
+            }
         }
-        else if constexpr (std::formattable<Raw, char>)
+        catch (...)
         {
-            return std::format("{}", v);
-        }
-        else
-        {
-            return {};
+            return "<?>";
         }
     }
 

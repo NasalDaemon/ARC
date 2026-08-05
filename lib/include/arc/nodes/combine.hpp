@@ -27,7 +27,7 @@ namespace detail {
             using ParentContext = ContextParameterOf<CombineNode>;
 
             template<class T>
-            requires detail::HasLink<ParentContext, T>
+            requires detail::HasLocalLink<ParentContext, T>
             static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<ParentContext, T>;
         };
 

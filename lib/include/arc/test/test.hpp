@@ -115,7 +115,11 @@ namespace detail {
                 // Resolve to parent by default
                 template<class Trait>
                 requires arc::detail::HasLink<Context, Trait>
-                static ResolvedLink<Context, Trait> resolveLink(Trait, arc::LinkPriorityMax);
+                static ResolvedLink<Context, Trait> resolveLink(Trait, arc::LinkExact<Trait>);
+
+                // Otherwise resolve global to mocks
+                template<class Trait>
+                static ResolvedLink<Mocks, Trait> resolveLink(arc::Global<Trait>, arc::LinkPriorityMax);
 
                 // Otherwise resolve to mocks
                 template<class Trait>
@@ -135,6 +139,10 @@ namespace detail {
 
                 static constexpr std::size_t Depth = Context::Depth;
 
+                // Allow explicitly resolving the node being tested
+                template<class Trait>
+                static ResolvedLink<Node, Trait> resolveLink(Local<Trait>, arc::LinkExact<Local<Trait>>);
+
                 // Resolve to parent by default
                 template<class Trait>
                 requires arc::detail::HasLink<Context, Trait>
@@ -143,10 +151,6 @@ namespace detail {
                 // Otherwise resolve to node being tested
                 template<class Trait>
                 static ResolvedLink<Node, Trait> resolveLink(Trait, arc::LinkPriorityMin);
-
-                // Allow explicitly resolving the node being tested
-                template<class Trait>
-                static ResolvedLink<Node, Trait> resolveLink(Local<Trait>, arc::LinkExact<Local<Trait>>);
 
                 struct Info : Context::Info
                 {

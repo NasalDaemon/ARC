@@ -8,8 +8,6 @@
 #include "arc/detail/type_at.hpp"
 #include "arc/detail/with_index.hpp"
 
-#include "arc/alias.hpp"
-#include "arc/cluster.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/defer.hpp"
 #include "arc/ensure.hpp"
@@ -17,7 +15,6 @@
 #include "arc/finalise.hpp"
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
-#include "arc/key.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/node.hpp"
@@ -106,7 +103,7 @@ struct Union
             }
 
             template<class Option, IsTrait Trait>
-            requires detail::HasLink<Context, Trait> or detail::IsGlobalTrait<Trait>
+            requires detail::HasLocalLink<Context, Trait> or detail::IsGlobalTrait<Trait>
             static constexpr auto getNode(Option& option, Trait trait)
             {
                 auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::bytes));
@@ -195,9 +192,8 @@ struct Union
         template<std::size_t I>
         requires (I < sizeof...(Options))
         explicit(false) constexpr Node(std::in_place_index_t<I>, auto&&... args)
-            : index(I)
         {
-            new (bytes) NodeAt<I>(ARC_FWD(args)...);
+            constructImpl<I>(ARC_FWD(args)...);
         }
 
         template<std::size_t I>
@@ -209,19 +205,14 @@ struct Union
                 if (not getGlobal(trait::scheduler).inExclusiveMode())
                     throw std::runtime_error("arc::Union::emplace can only be called when the scheduler is in exclusive mode");
             }
-            destroy();
-            index = I;
-            NodeAt<I>& next = *new (bytes) NodeAt<I>(ARC_FWD(args)...);
-            next.visit(detail::OnGraphConstructedVisitor{});
-            return next;
+            return emplaceImpl<I>(ARC_FWD(args)...);
         }
 
         template<class Option>
         requires (... || std::same_as<Option, Options>)
         explicit(false) constexpr Node(std::in_place_type_t<Option>, auto&&... args)
-            : index(indexOf<Option>())
         {
-            new (bytes) ToNode<Option>(ARC_FWD(args)...);
+            constructImpl<indexOf<Option>()>(ARC_FWD(args)...);
         }
 
         template<class Option>
@@ -233,11 +224,7 @@ struct Union
                 if (not getGlobal(trait::scheduler).inExclusiveMode())
                     throw std::runtime_error("arc::Union::emplace can only be called when the scheduler is in exclusive mode");
             }
-            destroy();
-            index = indexOf<Option>();
-            ToNode<Option>& next = *new (bytes) ToNode<Option>{ARC_FWD(args)...};
-            next.visit(detail::OnGraphConstructedVisitor{});
-            return next;
+            return emplaceImpl<indexOf<Option>()>(ARC_FWD(args)...);
         }
 
         template<class Visitor>
@@ -266,16 +253,24 @@ struct Union
         }
 
         constexpr Node(Node const& other)
-            : index(other.index)
         {
-            other.withNode([&]<class T>(T& node) -> void { new (bytes) T(node); });
+            if (other.hasState())
+                withIndex(other.index, [&](auto i) -> void
+                {
+                    constructImpl<i>(*other.template get<i>());
+                });
         }
 
         constexpr Node(Node&& other)
-            : index(other.index)
         {
-            other.withNode([&]<class T>(T& node) -> void { new (bytes) T(std::move(node)); });
+            if (other.hasState())
+                withIndex(other.index, [&](auto i) -> void
+                {
+                    constructImpl<i>(std::move(*other.template get<i>()));
+                });
         }
+
+        ARC_INLINE constexpr bool hasState() const { return index < sizeof...(Options); }
 
         constexpr ~Node()
         {
@@ -283,6 +278,23 @@ struct Union
         }
 
     private:
+        template<std::size_t I>
+        ARC_INLINE constexpr NodeAt<I>& constructImpl(auto&&... args) noexcept
+        {
+            NodeAt<I>* next = new (bytes) NodeAt<I>(ARC_FWD(args)...);
+            index = I;
+            return *next;
+        }
+
+        template<std::size_t I>
+        ARC_INLINE constexpr NodeAt<I>& emplaceImpl(auto&&... args) noexcept
+        {
+            destroy();
+            NodeAt<I>& next = constructImpl<I>(ARC_FWD(args)...);
+            next.visit(detail::OnGraphConstructedVisitor{});
+            return next;
+        }
+
         template<std::size_t Index>
         ARC_INLINE constexpr auto* get() &
         {
@@ -306,9 +318,13 @@ struct Union
                 });
         }
 
-        constexpr void destroy()
+        constexpr void destroy() noexcept
         {
-            withNode([]<class T>(T& node) -> void { node.~T(); });
+            if (hasState())
+            {
+                withNode([]<class T>(T& node) -> void { node.~T(); });
+                index = sizeof...(Options);
+            }
         }
 
         template<class Option>
@@ -320,7 +336,7 @@ struct Union
         static constexpr std::size_t Align = std::max({alignof(ToNode<Options>)...});
         static constexpr std::size_t Size = std::max({sizeof(ToNode<Options>)...});
 
-        std::size_t index;
+        std::size_t index = sizeof...(Options); // If index == sizeof...(Options), then the union is uninitialised
         alignas(Align) std::byte bytes[Size] ARC_INDETERMINATE;
     };
 };

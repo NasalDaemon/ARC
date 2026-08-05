@@ -4,7 +4,7 @@
 
 ## Why TracerSpy
 
-- **Lossless capture.** Every call, argument value (when formattable), return value, return type, timing, and exception is recorded as a structured `Event`. Output format is chosen at render time, never at construction.
+- **Exhaustive capture.** Every call, argument value (when formattable), return value, return type, timing, and exception is recorded as a structured `Event`. Output format is chosen at render time, never at construction.
 - **Reconstructable tree.** Each event carries a stable `id`, `parent` id, `depth`, and the intercepted `node` handle. Render output is order-preserving, but downstream tools can rebuild the call tree and ground each event back to its cluster node without parsing indentation.
 - **Two formats, one source.** Render the same recording as machine-friendly JSONL or human-readable indented text. No need to re-run the test.
 - **Per-method summary.** A summary block (`evt: "summary"`) gives call counts, total + max time, and exception counts, enabling fast run-to-run regression comparison.
@@ -18,7 +18,7 @@
 #include <iostream>
 
 arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{
-    .global{},      // default-constructed; sink and format chosen at write time
+    .global{{.recording = true}},      // default-constructed; sink and format chosen at write time
     .main{ /* ... */ }
 };
 
@@ -104,7 +104,7 @@ struct TracerSpy : Node
         std::size_t minDepth = 0;                 // Skip events at depth < minDepth (stats still accumulate).
         std::size_t maxDepth = 64;                // Skip events at depth >= maxDepth (stats still accumulate).
         std::size_t maxEvents = defaultMaxEvents; // Ring buffer capacity; oldest evict on overflow.
-        bool        recording = true;             // Construct paused; toggle via start/stopRecording().
+        bool        recording = false;             // Construct paused; toggle via start/stopRecording().
     };
 
     TracerSpy();
@@ -150,7 +150,7 @@ struct TracerSpy : Node
 ```cpp
 SCENARIO(R"(/users/me responds correctly)")
 {
-    arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{ .global{}, .main{} };
+    arc::GraphWithGlobal<cluster::App, arc::TracerSpy> graph{ .global{{.recording = true}}, .main{} };
 
     graph->api.asTrait(trait::request).handle("GET", "/users/me");
 

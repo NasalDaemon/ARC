@@ -8,6 +8,7 @@
 #include "arc/macros.hpp"
 #include "arc/resolve.hpp"
 #include "arc/trait.hpp"
+#include "arc/test_context.hpp"
 
 #if !ARC_IMPORT_STD
 #include <type_traits>
@@ -23,13 +24,13 @@ namespace detail {
     using DependsTrait = std::remove_pointer_t<Item>;
 
     template<class Node, class Requirement, bool Transitive>
-    requires HasLink<ContextOf<Node>, Requirement>
+    requires HasLocalLink<ContextOf<Node>, Requirement>
         and (not Transitive or detail::ResolveTraitFromNode<Node, Requirement>::template HasTrait<>)
     auto dependencySatisfied() -> void;
 
     template<class Node, IsGlobalTrait Requirement, bool Transitive>
     // If Node is within global context, we cannot check if the global node/cluster has the required trait
-    requires (IsGlobalContext<ContextOf<Node>> or ContextHasGlobalTrait<ContextOf<Node>, Requirement>)
+    requires (IsGlobalContext<ContextOf<Node>> or ContextHasGlobalTrait<ContextOf<Node>, Requirement> or (test::IsTestContext<ContextOf<Node>> and HasExplicitLink<ContextOf<Node>, Requirement>))
          and (not Transitive or detail::ResolveTraitFromNode<Node, Requirement>::template HasTrait<>)
     auto dependencySatisfied() -> void;
 

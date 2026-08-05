@@ -309,11 +309,13 @@ public:
     // Element is constructed as Element(id, args...)
     constexpr Element* emplace(ID const& id, auto&&... args)
     {
-        ids.push_back(id);
+        Element* result = nullptr;
         if constexpr (Dynamic)
-            return this->items.emplace_back(std::make_shared<Element>(id, ARC_FWD(args)...)).get();
+            result = this->items.emplace_back(std::make_shared<Element>(id, ARC_FWD(args)...)).get();
         else
-            return std::addressof(this->items.emplace_back(id, ARC_FWD(args)...));
+            result = std::addressof(this->items.emplace_back(id, ARC_FWD(args)...));
+        ids.push_back(id);
+        return result;
     }
 
     constexpr bool erase(ID const& id)
@@ -425,9 +427,9 @@ public:
             if (not freeIds.empty())
             {
                 auto const id = freeIds.back();
-                freeIds.pop_back();
                 auto& slot = this->items[id];
                 slot = std::make_shared<Element>(id, ARC_FWD(args)...);
+                freeIds.pop_back();
                 return slot.get();
             }
         }

@@ -149,6 +149,11 @@ ${NODE_INSTANTIATIONS}
             set(SRC_NAME "unity/src")
         else()
             list(JOIN NODE_DOT_PATHS "_" SRC_NAME)
+            # A node path may be an arbitrary expression (e.g. a collection
+            # lookup: "a.b.getState().atId(0).c"). Characters that are shell or
+            # path metacharacters cannot survive into a filename -- ninja emits
+            # its compile commands unquoted -- so fold them into underscores.
+            string(REGEX REPLACE "[()<>\"'&|;:*?$ ]" "_" SRC_NAME "${SRC_NAME}")
         endif()
         string(SHA1 SRC_ID "${arg_GRAPH_TYPE}")
         string(SUBSTRING ${SRC_ID} 0 7 SRC_ID)

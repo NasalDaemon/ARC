@@ -295,6 +295,7 @@ export namespace arc {
         using detail::NodeOf;
     }
     using arc::IsNode;
+    using arc::IsNodeBase;
     using arc::IsNodeWrapper;
     using arc::WrapNode;
     using arc::IsWrappedImpl;

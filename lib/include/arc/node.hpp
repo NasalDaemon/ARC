@@ -71,7 +71,7 @@ struct Node
         }
         else
         {
-            static_assert(detail::HasLink<Context, Trait>, "Node missing link to a dependency");
+            static_assert(detail::HasLocalLink<Context, Trait>, "Node missing link to a dependency");
         }
         auto target = Context{}.getNode(node, trait);
         return makeTraitView(self, target, trait, key, keys...);

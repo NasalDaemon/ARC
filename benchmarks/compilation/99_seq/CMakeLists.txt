@@ -4,6 +4,8 @@ target_generate_arc_modules(arc_bench_compile99_seq)
 
 if(ARC_BUILD_TESTS)
     add_test(arc_bench_compile99_seq_test arc_bench_compile99_seq)
+    # Single translation unit: the graph collapses without LTO
+    add_collapsed_asm_test(arc_bench_compile99_seq)
 endif()
 
 if(ARC_BUILD_LTO)
