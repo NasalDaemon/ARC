@@ -19,7 +19,7 @@ Uses [doctest](https://github.com/doctest/doctest) with BDD macros: `SCENARIO`, 
 4. Use `GIVEN` for setup, `WHEN` for actions, and `THEN` for assertions.
     - Avoid mixing setup and assertions in the same block to maintain clarity.
     - Use `R"(Text)"` raw string literals in test descriptions instead of escaping for legibility.
-5. Use `AND_WHEN`/`AND_THEN` only when nested inside `WHEN`/`THEN` blocks.
+5. Use `AND_WHEN`/`AND_THEN` only when nested inside respective `WHEN`/`THEN` blocks.
     - Sibling `AND_WHEN`/`AND_THEN` blocks are mutually independent, running in parallel.
     - Nested `AND_WHEN`/`AND_THEN` blocks are sequential steps that depend on the parent block.
 
@@ -58,6 +58,11 @@ SCENARIO(R"(MyNode does something "useful")")
                 THEN(R"(another expected outcome holds)")
                 {
                     CHECK(node.otherThing() == other);
+
+                    AND_THEN(R"(a nested assertion)")
+                    {
+                        CHECK(node.nestedThing() == 42);
+                    }
                 }
             }
         }

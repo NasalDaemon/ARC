@@ -30,6 +30,25 @@ concept EnvironmentPart = requires
     requires IsStateless<T>;
 };
 
+// Used to preserve source information in multi-step resolution,
+// e.g. `source.getX(key::collection).fromHandle(handle)`
+ARC_MODULE_EXPORT
+struct SourceNodeEnvironment
+{
+    struct Tag{};
+
+    template<class Source>
+    struct WithSourceNode
+    {
+        using Tag = SourceNodeEnvironment::Tag;
+        static WithSourceNode resolveEnvironment(Tag);
+
+        static constexpr bool isDynamic() { return false; }
+
+        using SourceNode = Source;
+    };
+};
+
 namespace detail {
     template<class Env, class... Es>
     struct InsertMissing;

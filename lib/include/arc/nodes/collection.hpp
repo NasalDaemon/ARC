@@ -426,13 +426,12 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::AsTrait : Node
         return target.ptr->finalise(source, keys...);
     }
 
-    template<class Self>
-    constexpr auto finalise(this Self& self, auto& source, key::Collection const&, auto const&... keys)
+    template<class Self, class Source>
+    constexpr auto finalise(this Self& self, Source& source, key::Collection const&, auto const&... keys)
     {
-        static_assert(Dynamic, "Control view is only available for dynamic collections");
         auto& controlView = detail::downCast<ControlView<Trait>>(detail::upCast<Node>(self));
-        // Don't consume the key, as we need to consume it for each element
-        return controlView.finalise(source, keys...);
+        auto& controlViewEnv = mergeEnvParts<SourceNodeEnvironment::WithSourceNode<Source>>(controlView);
+        return controlViewEnv.finalise(source, keys...);
     }
 
     template<class T>

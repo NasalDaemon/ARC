@@ -4,16 +4,10 @@
 #include "arc/detail/concepts.hpp"
 #include "arc/detail/compress.hpp"
 
-#include "arc/context_fwd.hpp"
 #include "arc/empty_types.hpp"
-#include "arc/global_trait.hpp"
-#include "arc/link.hpp"
+#include "arc/trait.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
-
-#if !ARC_IMPORT_STD
-#include <type_traits>
-#endif
 
 namespace arc {
 
@@ -27,11 +21,9 @@ namespace detail {
     template<class Context, IsInfoMapper InfoMapper>
     struct MappedContext : Context
     {
-        template<class Trait>
-        requires detail::HasLocalLink<Context, Trait> or IsGlobalTrait<Trait>
-        constexpr auto getNode(this Context context, auto& node, Trait trait)
+        friend consteval auto getNodePointer(AdlTag<MappedContext>)
         {
-            return context.getNode(node, trait);
+            return getNodePointer(AdlTag<Context>{});
         }
 
         using Info = InfoMapper::template MapInfo<detail::CompressContext<Context>>;

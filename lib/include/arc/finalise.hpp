@@ -54,6 +54,14 @@ namespace detail {
             return std::as_const(target);
     }
 
+    template<class Source, class Target>
+    requires Source::Environment::template HasTag<SourceNodeEnvironment::Tag>
+    ARC_INLINE constexpr auto& permittedView(Target& target)
+    {
+        using SourceNode = Source::Environment::template Get<SourceNodeEnvironment::Tag>::SourceNode;
+        return permittedView<SourceNode>(target);
+    }
+
 } // namespace detail
 
 ARC_MODULE_EXPORT

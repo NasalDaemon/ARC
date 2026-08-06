@@ -32,27 +32,27 @@ struct Cluster
     }
 
     template<class Self>
-    requires IsRootContext<ContextParameterOf<Self>>
+    requires IsRootContext<ContextOf<Self>>
     ARC_INLINE void onConstructed(this Self& self)
     {
         self.visit(detail::OnGraphConstructedVisitor{});
     }
 
     template<class Self, IsTrait Trait, class Visitor>
-    requires IsRootContext<ContextParameterOf<Self>>
+    requires IsRootContext<ContextOf<Self>>
     ARC_INLINE void visitTrait(this Self& self, Trait, Visitor&& visitor)
     {
         self.visit(detail::TraitVisitor<Trait, std::remove_cvref_t<Visitor>>{visitor});
     }
 
-    template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
+    template<IsTrait Trait, class Self, class Key = ContextOf<Self>::Info::DefaultKey>
     ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto getNode(this Self& cluster, Trait trait = {}, Key key = {}, auto const&... keys)
     {
         auto target = cluster.getNode(detail::AsRef{}, trait);
         return makeTraitView(cluster, target, trait, key, keys...);
     }
 
-    template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
+    template<IsTrait Trait, class Self, class Key = ContextOf<Self>::Info::DefaultKey>
     ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto getGlobal(this Self& cluster, Trait trait = {}, Key key = {}, auto const&... keys)
     {
         return cluster.getNode(arc::global(trait), key, keys...);
@@ -70,7 +70,7 @@ struct Cluster
         return {};
     }
 
-    template<IsTrait Trait, class Self, class Key = ContextParameterOf<Self>::Info::DefaultKey>
+    template<IsTrait Trait, class Self, class Key = ContextOf<Self>::Info::DefaultKey>
     requires detail::HasLocalLink<Self, Trait>
     ARC_INLINE constexpr IsTraitViewOf<Trait, Key> auto asTrait(this Self& self, Trait trait = {}, Key key = {}, auto const&... keys)
     {
@@ -82,7 +82,7 @@ struct Cluster
     requires detail::HasLocalLink<Self, Trait>
     ARC_INLINE constexpr auto asTrait(this Self& cluster, detail::AsRef asRef, Trait)
     {
-        Self::template ensureDepth<ContextParameterOf<Self>>();
+        Self::template ensureDepth<ContextOf<Self>>();
         using Target = detail::ResolveLink<Self, Trait>;
         auto memPtr = getNodePointer(AdlTag<typename Target::Context>{});
         auto& node = memPtr.getMemberFromClass(cluster);

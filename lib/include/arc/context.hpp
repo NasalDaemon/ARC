@@ -66,7 +66,9 @@ namespace detail {
             // is, and so checks cannot be elided. There is no legitimate reason for a
             // node to depend on itself; asTrait is available instead. Disallowing
             // depending on oneself allows for the runtime optimisation to exist.
-            static_assert(not std::is_same_v<typename Other::Context, Self>, "Dependency on self not allowed");
+            // Self may be a decorated context (e.g. MappedContext) derived from the
+            // context the link resolves to, so derived_from rather than is_same_v.
+            static_assert(not std::derived_from<Self, typename Other::Context>, "Dependency on self not allowed");
             auto thisMemPtr = getNodePointer(AdlTag<Self>{});
             auto otherMemPtr = getNodePointer(AdlTag<typename Other::Context>{});
             auto& otherNode = otherMemPtr.getMemberFromClass(thisMemPtr.getClassFromMember(node));
