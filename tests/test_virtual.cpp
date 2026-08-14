@@ -131,7 +131,7 @@ struct BreadNode
     template<class Context>
     struct Node : arc::Uses<IBread, trait::Apple, trait::Egg, arc::Global<trait::Global>>
     {
-        // Prove that withFactory works with copy/move elision
+        // Prove that arc::InPlace works with copy/move elision
         Node() = default;
         Node(Node const&) = delete;
         Node(Node&&) = delete;
@@ -205,7 +205,7 @@ TEST_CASE("arc::Virtual")
         .global{ARC_EMPLACE({.i = 9})},
         .main{
             .node{std::in_place_type<AppleEgg>},
-            .mocks{arc::withFactory, []<class C>(C) -> C::type { return std::in_place_type<BreadNode>; }},
+            .mocks{arc::InPlace([]<class C>(C) -> C::type { return std::in_place_type<BreadNode>; })},
         },
     };
     test(virt);

@@ -122,7 +122,7 @@ static_assert(testWithIndex());
 TEST_CASE("arc::Union")
 {
     arc::Graph<Union> cat{.onion{std::in_place_index<0>}};
-    arc::Graph<Union> dog{.onion{arc::withFactory, [](auto c) { return c(std::in_place_type<Dog>); }}};
+    arc::Graph<Union> dog{.onion{arc::InPlace([](auto c) { return c(std::in_place_type<Dog>); })}};
 
     using DogTypes = decltype(dog.onion.asTrait(trait::Name{}))::Types;
     static_assert(DogTypes::TypesCount == 2);

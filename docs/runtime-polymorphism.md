@@ -110,14 +110,15 @@ int main(int argc, char** argv)
     Args args = parseArgs(argc, argv);
 
     arc::Graph<app::cluster::Cluster> graph{
-        .animal{arc::withFactory,
+        .animal = arc::InPlace{
             [&](auto construct) {
                 if (args.animal == ::Animal::Cow)
                     return construct(std::in_place_type<node::Cow>, true);
                 else
                     // Can use index
                     return construct(std::in_place_index<1 /* Sheep */>);
-            }}
+            }
+        }
     };
 
     std::println("Animal says {}", graph.farmer->getNode(trait::animal).speak());
@@ -400,13 +401,14 @@ int main(int argc, char** argv)
     Args args = parseArgs(argc, argv);
 
     arc::Graph<app::cluster::Cluster> graph{
-        .animal{arc::withFactory,
+        .animal = arc::InPlace{
             [&](auto construct) {
                 if (args.animal == Animal::Cow)
                     return construct(std::in_place_type<node::Cow>, true);
                 else
                     return construct(std::in_place_type<node::Sheep>);
-            }}
+            }
+        }
     };
 
     auto animal = graph.farmer.getNode(trait::animal); // equivalent to graph.animal.asTrait(trait::animal)

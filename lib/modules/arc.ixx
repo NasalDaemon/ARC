@@ -172,6 +172,10 @@ export namespace arc {
         using trait::DynamicNode;
         using trait::dynamicNode;
     }
+    // emplace.hpp
+    using arc::Constructor;
+    using arc::Emplace;
+    using arc::InPlace;
     // empty_types.hpp
     using arc::EmptyTypes;
     using arc::IsStateless;
@@ -190,11 +194,6 @@ export namespace arc {
     using arc::mergeEnvParts;
     using arc::withEnv;
     using arc::TransferEnv;
-    // factory.hpp
-    using arc::WithFactory;
-    using arc::withFactory;
-    using arc::Constructor;
-    using arc::Emplace;
     // function.hpp
     using arc::Overload;
     using arc::IsFunctionSignature;

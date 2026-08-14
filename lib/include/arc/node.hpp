@@ -6,9 +6,9 @@
 
 #include "arc/context_fwd.hpp"
 #include "arc/depends.hpp"
+#include "arc/emplace.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/environment.hpp"
-#include "arc/factory.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"

@@ -42,13 +42,14 @@ int main(int argc, char** argv)
     Args args = parseArgs(argc, argv);
 
     arc::Graph<cluster::Farm> graph{
-        .animal{arc::withFactory,
+        .animal = arc::InPlace{
             [&](auto construct) {
                 if (args.animal == ::Animal::Cow)
                     return construct(std::in_place_type<node::Cow>, true);
                 else
                     return construct(std::in_place_type<node::Sheep>);
-            }}
+            }
+        }
     };
 
     graph.farmer->greetAnimal();

@@ -6,9 +6,9 @@
 #include "arc/detail/select.hpp"
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
+#include "arc/emplace.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/ensure.hpp"
-#include "arc/factory.hpp"
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
@@ -310,12 +310,6 @@ struct Virtual
         {
             std::ignore = init<T>(ARC_FWD(args)...);
         }
-
-        template<std::invocable<Constructor<Node>> F>
-        requires std::same_as<Node, std::invoke_result_t<F, Constructor<Node>>>
-        explicit constexpr Node(WithFactory, F factory)
-            : Node(factory(Constructor<Node>()))
-        {}
 
         template<IsNodeHandle T>
         requires (... and std::derived_from<ImplInterface<T>, Interfaces>)

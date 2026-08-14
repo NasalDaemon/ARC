@@ -10,8 +10,8 @@
 
 #include "arc/context_fwd.hpp"
 #include "arc/defer.hpp"
+#include "arc/emplace.hpp"
 #include "arc/ensure.hpp"
-#include "arc/factory.hpp"
 #include "arc/finalise.hpp"
 #include "arc/global_context.hpp"
 #include "arc/global_trait.hpp"
@@ -182,12 +182,6 @@ struct Union
         using TraitsTemplate = arc::ResolvedTrait<AsTrait<Trait>, TypesAtT<0, Trait>>;
 
         using Traits = arc::TraitsTemplate<TraitsTemplate>;
-
-        template<std::invocable<Constructor<Node>> F>
-        requires std::same_as<Node, std::invoke_result_t<F, Constructor<Node>>>
-        explicit constexpr Node(WithFactory, F factory)
-            : Node(factory(Constructor<Node>()))
-        {}
 
         template<std::size_t I>
         requires (I < sizeof...(Options))

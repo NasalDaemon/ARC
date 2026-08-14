@@ -11,9 +11,6 @@
 namespace arc {
 
 ARC_MODULE_EXPORT
-struct WithFactory {} inline constexpr withFactory{};
-
-ARC_MODULE_EXPORT
 template<class Type>
 struct Constructor
 {
@@ -21,7 +18,7 @@ struct Constructor
 
     template<class... Args>
     requires std::constructible_from<Type, Args...>
-    constexpr Type operator()(Args&&... args) const
+    ARC_INLINE constexpr Type operator()(Args&&... args) const
     {
         return Type{ARC_FWD(args)...};
     }
@@ -41,7 +38,7 @@ template<class F>
 struct Emplace
 {
     template<class Type>
-    explicit constexpr operator Type() &&
+    ARC_INLINE explicit constexpr operator Type() &&
     {
         std::same_as<Type> decltype(auto) result = std::move(factory)(Constructor<Type>{});
         return result;
@@ -54,6 +51,25 @@ struct Emplace
 
 template<class F>
 Emplace(F) -> Emplace<F>;
+
+ARC_MODULE_EXPORT
+template<class F>
+struct InPlace
+{
+    template<class Type>
+    ARC_INLINE explicit(false) constexpr operator Type() &&
+    {
+        std::same_as<Type> decltype(auto) result = std::move(factory)(Constructor<Type>{});
+        return result;
+    }
+
+    [[no_unique_address]] F factory;
+    // Ensure that InPlace is never relocated to avoid dangling references
+    [[no_unique_address]] detail::NonRelocatable nonRelocatable{};
+};
+
+template<class F>
+InPlace(F) -> InPlace<F>;
 
 }
 
