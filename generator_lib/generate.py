@@ -419,6 +419,45 @@ class Node:
             self.no_traits = True
 
 
+class ClusterCtor:
+    """A user-declared cluster constructor: `C(int arg) : node1(arg)`
+
+    May instead delegate to another constructor of the same cluster: `C(int arg) : C(arg, 0.0)`
+    """
+
+    def __init__(self, tree: Tree, cluster: "Cluster", nodes: dict[str, "Node"]):
+        self.pos = get_pos(tree)
+        self.name: str = tree.children[0].value
+        if self.name != cluster.name:
+            raise SyntaxError(f"{self.pos} Constructor '{self.name}' does not match {cluster.cluster_class} name '{cluster.name}'")
+
+        self.params: list[tuple[CppType, str]] = []
+        for p in tree.children[1].children:
+            type_ = CppType.from_tree(p.children[0])
+            self.params.append((type_, p.children[1].value))
+
+        self.inits: list[tuple[str, str]] = []  # [(member, initialiser-with-brackets)]
+        self.delegates: bool = False
+        init_trees = tree.children[2:]
+        for init in init_trees:
+            member = init.children[0].value
+            args = "".join(c.value if isinstance(c, Token) else reconstruct(c) for c in init.children[1:])
+            if member not in nodes:
+                if member != cluster.name:
+                    raise SyntaxError(f"{get_pos(init)} Constructor of {cluster.cluster_class} '{cluster.full_name}' "
+                                      f"initialises unknown node '{member}'")
+                if len(init_trees) > 1:
+                    raise SyntaxError(f"{get_pos(init)} Delegating constructor of {cluster.cluster_class} '{cluster.full_name}' "
+                                      f"cannot initialise any nodes alongside the delegation to '{member}'")
+                self.delegates = True
+                member = "Node"  # the generated class name
+            self.inits.append((member, args))
+
+    @property
+    def params_str(self) -> str:
+        return ", ".join(f"[[maybe_unused]] {type_}{type_.pack} {name}" for type_, name in self.params)
+
+
 class Cluster:
     def __init__(self, name: str, namespace: "Namespace"):
         self.name = name
@@ -437,6 +476,7 @@ class Cluster:
         # trait: [(Node, position)] where len(list) > 1 only when trait is NO_TRAIT
         self.sink_traits: dict[str, list[tuple[Node, str]]] = defaultdict(list)
         self.trunk_traits: list[str] = []
+        self.constructors: list[ClusterCtor] = []
 
     @property
     def is_domain(self) -> bool:
@@ -611,6 +651,8 @@ class Cluster:
 
                     is_first = len(nodes) == 2
                     nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first, intermediate_aliases=intermediate_aliases)
+                elif child.data == imported('cluster_ctor'):
+                    self.constructors.append(ClusterCtor(child, self, nodes))
                 elif child.data == imported('connection_block'):
                     traitblock_id += 1
                     for child in child.children:

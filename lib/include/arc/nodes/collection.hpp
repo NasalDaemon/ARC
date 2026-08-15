@@ -382,13 +382,13 @@ struct Collection
                 func(el->id, el->getElementHandle(), el->node);
         }
 
-        template<class Self, std::predicate<ID, StrongHandle, ElementNode const&> F>
+        template<class Self, std::predicate<ID, StrongHandle, detail::ConstLike<Self, ElementNode>&> F>
         constexpr void removeIf(this Self& self, F&& func) requires Dynamic
         {
             static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
 
             self.store.eraseIf(
-                [&](Element const& el)
+                [&](detail::ConstLike<Self, Element>& el)
                 {
                     return func(el.id, el.getElementHandle(), el.node);
                 });

@@ -62,7 +62,7 @@ proto_state_arrow: R_RARROW  -> state_arrow_r
 
 proto_state_set: NAME ("|" NAME)*
 
-cluster_scope:  FQNAME [cluster_annotations] "{" node+ connection_block* "}"
+cluster_scope:  FQNAME [cluster_annotations] "{" node+ cluster_ctor* connection_block* "}"
 policy_scope:   FQNAME                       "{" group_alias* group_connection+ "}"
 trait_scope:    FQNAME [trait_annotations]   "{" trait_body+ "}" -> trait_def
            |    FQNAME "=" trait_alias_rhs ("+" trait_alias_rhs)* -> trait_alias
@@ -187,6 +187,13 @@ template_param: TPARAM_TYPE    NAME -> tparam_type_pack
 TPARAM_TYPE: (TYPENAME | "class") ["..."]
 
 node: NAME "=" node_type (":" node_type_wrapper)*
+
+# Optional custom cluster constructors, declared directly after the node list.
+# Identical to C++ constructor syntax, without a body.
+cluster_ctor: NAME cpp_func_params [":" ctor_init ("," ctor_init)*]
+
+!ctor_init: NAME cpp_func_args
+          | NAME "{" [full_bracket_content] "}"
 
 node_type: [TYPENAME] node_type_wrapper
 node_type_wrapper: NAMESPACE [cpp_templ_args]

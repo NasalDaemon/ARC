@@ -341,7 +341,7 @@ public:
         auto itId = ids.begin();
         for (; itEl != this->items.end();)
         {
-            if (pred(*Base::itemToPtr(std::as_const(*itEl))))
+            if (pred(*Base::itemToPtr(*itEl)))
             {
                 if (auto const backElIt = std::prev(this->items.end()); backElIt != itEl)
                 {
@@ -460,7 +460,7 @@ public:
         // when the id space is exactly full (e.g. 256 slots with a uint8_t ID)
         for (std::size_t id = 0; id < this->items.size(); ++id)
         {
-            if (this->items[id] and pred(std::as_const(*this->items[id])))
+            if (this->items[id] and pred(*Base::itemToPtr(this->items[id])))
             {
                 this->items[id].reset();
                 freeIds.push_back(static_cast<ID>(id));

@@ -983,6 +983,16 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
     {% for node in cluster.nodes %}
     ARC_NODE({{ node.context }}, {{ node.name }}{{ cluster.predicates_str(node) }})
     {% endfor %}
+    {% if cluster.constructors %}
+
+    {% for ctor in cluster.constructors %}
+    constexpr Node({{ ctor.params_str }})
+    {% for member, init in ctor.inits %}
+        {{ ":" if loop.first else "," }} {{ member }}{{ init }}
+    {% endfor %}
+    {}
+    {% endfor %}
+    {% endif %}
 
     constexpr void visit(this auto& self, auto&& visitor)
     {

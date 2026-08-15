@@ -31,6 +31,30 @@ def _graph_type_hash(graph_type):
     return "0" * (7 - len(s)) + s  # zero-pad to 7 digits
 
 
+_IDENT_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+
+def _safe_ident(node_path):
+    """Turn a node path into a valid C++ identifier / Bazel target fragment.
+
+    Node paths carry arbitrary C++ punctuation -- `main.channels->atId(
+    pax::ChannelId{}).dag` -- none of which is legal in a module-partition
+    name or a target name.  Every character outside [A-Za-z0-9_] is mapped
+    to a single `_`, one-for-one (no run collapsing), so the mapping stays
+    injective and two distinct node paths can never sanitise to the same
+    identifier.
+    """
+    out = []
+    for ch in node_path.elems():
+        out.append(ch if ch in _IDENT_CHARS else "_")
+    s = "".join(out)
+
+    # A partition name must not start with a digit.
+    if s and s[0] in "0123456789":
+        s = "_" + s
+    return s
+
+
 def arc_graph(
         name,
         graph_type,
@@ -89,14 +113,20 @@ def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partitio
     common_imports = "\n".join(["import {m};".format(m = m) for m in common_modules])
 
     for node_name, node_module in nodes.items():
-        safe_node = node_module.replace(".", "_").replace(":", "__")
+        # Key names on the NODE PATH, not the module: a graph may hold several
+        # nodes of the same module (e.g. two arc::DynamicMap collections whose
+        # elements are the same cluster type), and keying on the module makes
+        # those collide on both the generated target name and the module
+        # partition name.  Node paths are unique within a graph by construction.
+        safe_node = _safe_ident(node_name)
         child_prefix = name + "__" + safe_node
         out_file = child_prefix + "_arc_inst.ixx"
         src_name = child_prefix + "_gensrc"
 
-        module_name = "{node_module}:{impl_partition}_{hash}".format(
+        module_name = "{node_module}:{impl_partition}_{safe_node}_{hash}".format(
             node_module = node_module,
             impl_partition = impl_partition,
+            safe_node = safe_node,
             hash = hash_str,
         )
 
