@@ -44,9 +44,18 @@ struct Union
     template<class Context>
     class Node : public arc::Node
     {
+        template<class OptionT>
         struct InnerContext : Context
         {
             static InnerContext isUnionContext(detail::IsUnionContextTag);
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wnon-template-friend"
+            #endif
+            friend auto innerNodeHandle(InnerContext*, AdlTag<Union>) -> arc::InnerNodeHandle<Context, OptionT>;
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic pop
+            #endif
 
             template<IsNodeHandle T, class Option>
             static constexpr auto exchangeImpl(Option& option, auto&&... args)
@@ -138,7 +147,7 @@ struct Union
         };
 
         template<class Option>
-        using ToNode = Ensure<detail::ToNodeState<typename ToNodeWrapper<Option>::template Node<detail::CompressContext<InnerContext>>>>;
+        using ToNode = Ensure<detail::ToNodeState<typename ToNodeWrapper<Option>::template Node<detail::CompressContext<InnerContext<Option>>>>>;
 
         template<class Option>
         using OptionNode = detail::SelectIf<

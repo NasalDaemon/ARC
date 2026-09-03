@@ -104,6 +104,27 @@ def _get_compiler_and_toolchain(ctx):
 def _user_cxxopts(ctx):
     return ctx.fragments.cpp.cxxopts
 
+def _toolchain_cxxopts(cc_toolchain, feature_configuration):
+    """The flags a plain cc_library's CppCompile would get from the toolchain.
+
+    The module actions assemble their own command lines rather than going
+    through cc_common.compile, so without this the compilation mode is silently
+    ignored: -c opt compiles at -O0 with asserts live, -c dbg drops -g. Passed
+    first, so --cxxopt and the target's copts still win.
+    """
+    variables = cc_common.create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain          = cc_toolchain,
+    )
+    return cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name           = ACTION_NAMES.cpp_compile,
+        variables             = variables,
+    )
+
+# Exported for std_module.bzl, which hand-assembles its actions too.
+toolchain_cxxopts = _toolchain_cxxopts
+
 # ---------------------------------------------------------------------------
 # Provider collection helpers
 # ---------------------------------------------------------------------------
@@ -140,15 +161,22 @@ def _collect_cc_info(deps):
     emit them as -isystem / -iquote: a dep that marks its headers system (e.g. a
     third-party lib via the `includes` attr) must reach the compiler as -isystem
     so its GNU/C99-extension declarations don't trip -Werror -Wpedantic. Folding
-    them into -I would strip that intent."""
+    them into -I would strip that intent.
+
+    A dep's `defines` come back too: they are part of its compile-time contract
+    (DOCTEST_CONFIG_SUPER_FAST_ASSERTS picks a different assert expansion)."""
     all_hdrs        = []
     all_includes    = []
     system_includes = []
     quote_includes  = []
+    all_defines     = []
     for dep in deps:
         if CcInfo in dep:
             ctx = dep[CcInfo].compilation_context
             all_hdrs.append(ctx.headers)
+            for d in ctx.defines.to_list():
+                if d not in all_defines:
+                    all_defines.append(d)
             for inc in ctx.includes.to_list():
                 if inc not in all_includes:
                     all_includes.append(inc)
@@ -158,7 +186,7 @@ def _collect_cc_info(deps):
             for inc in ctx.quote_includes.to_list():
                 if inc not in quote_includes:
                     quote_includes.append(inc)
-    return all_hdrs, all_includes, system_includes, quote_includes
+    return all_hdrs, all_includes, system_includes, quote_includes, all_defines
 
 # ---------------------------------------------------------------------------
 # Static archive helper
@@ -209,7 +237,7 @@ def _create_static_lib(ctx, cc_toolchain, feature_configuration, objs, lib_name)
 
 def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_name,
                               needed_modules, include_flags, define_flags, all_hdrs,
-                              expanded_copts, safe_name = None):
+                              expanded_copts, toolchain_cxxopts, safe_name = None):
     """Compile a single .ixx module interface file. Returns (pcm, obj)."""
     module_flags, module_pcm_files = _module_flags(needed_modules)
     prefix = ctx.label.name if not safe_name else ctx.label.name + "_" + safe_name
@@ -220,7 +248,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
         mapper, dep_gcms = _gcc_write_mapper(
             ctx, module_name, gcm, needed_modules,
             suffix = "" if not safe_name else "_" + safe_name)
-        user_cxxopts = _user_cxxopts(ctx)
+        user_cxxopts = toolchain_cxxopts + _user_cxxopts(ctx)
         if ctx.attr.leaf:
             ctx.actions.run(
                 inputs = depset(
@@ -273,7 +301,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
             )
         return gcm, obj
     else:
-        user_cxxopts = _user_cxxopts(ctx)
+        user_cxxopts = toolchain_cxxopts + _user_cxxopts(ctx)
         pcm = ctx.actions.declare_file(prefix + ".pcm")
         ctx.actions.run(
             inputs = depset(
@@ -307,7 +335,8 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
         return pcm, obj
 
 def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
-                 include_flags, define_flags, all_hdrs, expanded_copts):
+                 include_flags, define_flags, all_hdrs, expanded_copts,
+                 toolchain_cxxopts):
     """Compile a single .cpp source file against modules. Returns obj."""
     obj = ctx.actions.declare_file(
         src.basename.replace("/", "_") + "." + ctx.label.name + ".o")
@@ -330,7 +359,7 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
                 "-fmodules-ts",
                 "-fmodule-mapper=" + mapper.path,
                 "-c", src.path, "-o", obj.path,
-            ] + _user_cxxopts(ctx) + include_flags + define_flags + expanded_copts,
+            ] + toolchain_cxxopts + _user_cxxopts(ctx) + include_flags + define_flags + expanded_copts,
             mnemonic         = "CppCompileModuleSrc",
             progress_message = "Compiling {} with modules".format(src.short_path),
         )
@@ -343,7 +372,7 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
             ),
             outputs    = [obj],
             executable = compiler,
-            arguments  = _user_cxxopts(ctx) + ["-c",
+            arguments  = toolchain_cxxopts + _user_cxxopts(ctx) + ["-c",
             ] + module_flags + include_flags + define_flags + expanded_copts + [
                 src.path, "-o", obj.path,
             ],
@@ -404,10 +433,12 @@ def _cpp_module_impl(ctx):
 
     # Expand Make variables (e.g. $(BINDIR), $(GENDIR)) in user-supplied copts.
     expanded_copts = [ctx.expand_make_variables("copts", opt, {}) for opt in ctx.attr.copts]
+    toolchain_cxxopts = _toolchain_cxxopts(cc_toolchain, feature_configuration)
 
     mod_modules, mod_hdrs, mod_includes, mod_defines = _collect_module_info(ctx.attr.module_deps)
-    cc_hdrs, cc_includes, cc_sys, cc_quote = _collect_cc_info(ctx.attr.deps)
-    impl_hdrs, impl_includes, impl_sys, impl_quote = _collect_cc_info(ctx.attr.implementation_deps)
+    cc_hdrs, cc_includes, cc_sys, cc_quote, cc_defines = _collect_cc_info(ctx.attr.deps)
+    impl_hdrs, impl_includes, impl_sys, impl_quote, impl_defines = _collect_cc_info(
+        ctx.attr.implementation_deps)
 
     # Compile-time view. ARC's own module include dirs and the target's declared
     # `includes` stay -I (we own that code and want our warnings). Every include
@@ -429,6 +460,9 @@ def _cpp_module_impl(ctx):
             compile_quote_includes.append(inc)
 
     all_defines  = mod_defines + ctx.attr.defines
+    for d in cc_defines + impl_defines:
+        if d not in all_defines:
+            all_defines.append(d)
     compile_hdrs = mod_hdrs + cc_hdrs + impl_hdrs
 
     # Propagated view: only deps headers/includes (implementation_deps are compile-only).
@@ -547,7 +581,7 @@ def _cpp_module_impl(ctx):
         pcm, obj = _compile_module_interface(
             ctx, compiler, cc_toolchain, is_gcc, spec.file, spec.name,
             needed_modules, include_flags, define_flags, all_hdrs,
-            expanded_copts, safe_name = safe_name)
+            expanded_copts, toolchain_cxxopts, safe_name = safe_name)
         all_objs.append(obj)
         entries.append(struct(
             name = spec.name, pcm = pcm, obj = obj, direct_deps = spec.direct_deps))
@@ -559,7 +593,8 @@ def _cpp_module_impl(ctx):
     all_mod_modules = mod_modules + entries
     for src_file in ctx.files.srcs:
         obj = _compile_src(ctx, compiler, cc_toolchain, is_gcc, src_file,
-                           all_mod_modules, include_flags, define_flags, all_hdrs, expanded_copts)
+                           all_mod_modules, include_flags, define_flags, all_hdrs,
+                           expanded_copts, toolchain_cxxopts)
         all_objs.append(obj)
 
     # --- Archive and return ---

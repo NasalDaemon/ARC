@@ -127,6 +127,7 @@ export namespace arc {
     using arc::HasContext;
     using arc::ContextToNode;
     using arc::ContextToNodeState;
+    using arc::InnerNodeHandle;
     using arc::NullContext;
     using arc::RootContext;
     using arc::IsRootContext;

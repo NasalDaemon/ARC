@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ARC_CONTEXT_FWD_HPP
 #define INCLUDE_ARC_CONTEXT_FWD_HPP
 
+#include "arc/detail/compress.hpp"
 #include "arc/detail/concepts.hpp"
 
 #include "arc/empty_types.hpp"
@@ -69,6 +70,23 @@ ARC_MODULE_EXPORT
 template<IsContext Context>
 using ContextToNodeState = detail::ToNodeState<ContextToNode<Context>>;
 
+} // namespace arc
+
+template<arc::IsContext C, arc::IsNodeHandle NH>
+auto innerNodeHandle(C*, arc::AdlTag<NH>) -> NH;
+template<arc::IsContext C>
+requires requires { typename C::NodeHandle; }
+auto innerNodeHandle(C*) -> decltype(innerNodeHandle(static_cast<arc::detail::Decompress<C>*>(nullptr), arc::AdlTag<typename C::NodeHandle>()));
+template<arc::IsContext C>
+auto innerNodeHandle(C*) -> void;
+
+namespace arc {
+
+ARC_MODULE_EXPORT
+template<IsContext C, class... NH>
+requires (sizeof...(NH) < 2)
+using InnerNodeHandle = decltype(innerNodeHandle(static_cast<detail::Decompress<C>*>(nullptr), AdlTag<NH>()...));
+
 ARC_MODULE_EXPORT
 struct NullContext;
 
@@ -89,6 +107,5 @@ template<class Parent, template<class> class NodeTmpl>
 using InlineContext = Context<Parent, InlineNode<NodeTmpl>>;
 
 } // namespace arc
-
 
 #endif // INCLUDE_ARC_CONTEXT_FWD_HPP

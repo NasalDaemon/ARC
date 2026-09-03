@@ -176,6 +176,15 @@ struct Collection
 
         struct ElementContext : Context
         {
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wnon-template-friend"
+            #endif
+            friend auto innerNodeHandle(ElementContext*, AdlTag<Collection>) -> arc::InnerNodeHandle<Context, NodeHandle>;
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic pop
+            #endif
+
             template<IsTrait Trait>
             requires detail::LocallyResolvable<Context, Trait>
             static constexpr auto getNode(auto& node, Trait)

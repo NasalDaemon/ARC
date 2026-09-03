@@ -77,6 +77,7 @@ struct AppleEgg
 
         int seeds() const final
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, AppleEgg>);
             asEgg();
             return seeds_ + getBread().slices();
         }
@@ -140,6 +141,7 @@ struct BreadNode
 
         int impl(trait::Bread::slices) const final
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, BreadNode>);
             static_assert(requires { Bread::slices(); });
             return getEgg().yolks() * slices;
         }
@@ -161,9 +163,11 @@ struct GlobalNode : arc::Node
 {
     using Traits = arc::Traits<trait::Global>;
 
-    int impl(trait::Global::get) const
+    template<class Self>
+    int impl(this Self const& self, trait::Global::get)
     {
-        return i;
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, GlobalNode>);
+        return self.i;
     }
 
     int i = 9;
@@ -248,6 +252,9 @@ TEST_CASE("arc::Virtual: Virtual-only node may be final without traits and simpl
 {
     arc::test::Graph<arc::Virtual<IBread, IEgg>> g{.node{std::in_place_type<VirtualOnly::Leaf>}};
 
+    using VirtualCtx = arc::ContextOf<std::remove_cvref_t<decltype(g.node)>>;
+    static_assert(std::is_same_v<arc::InnerNodeHandle<VirtualCtx>, arc::Virtual<IBread, IEgg>>);
+
     CHECK(g.asTrait(trait::egg).yolks() == 999);
     CHECK(g.asTrait(trait::bread).slices() == 88);
 
@@ -266,6 +273,7 @@ struct StaticBread
 
         int impl(trait::Bread::slices) const
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, StaticBread>);
             return slices + getNode(trait::egg).yolks();
         }
 
@@ -296,6 +304,7 @@ struct BreadFacade
 
         int impl(trait::Bread::slices) const
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, BreadFacade>);
             return test + getNode(trait::bread).slices();
         }
 

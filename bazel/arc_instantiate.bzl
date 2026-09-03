@@ -64,6 +64,7 @@ def arc_graph(
         impl_partition = "impl",
         common_modules = [],
         deps = [],
+        append_to = None,
         **kwargs):
     """Generate and compile ARC instantiation sources.
 
@@ -87,6 +88,12 @@ def arc_graph(
             tpp_file  — include path for the template parameter file
         deps:       CcInfo targets providing headers and include paths
 
+    append_to: optional list from the caller's BUILD file.  The created
+        target's label (":name") is appended to it, so a package can collect
+        graphs as they are declared instead of maintaining a parallel list of
+        names: pass one shared list to every arc_graph and splice it into the
+        deps of whatever consumes them.
+
     **kwargs: Forwarded to the outer target (e.g. tags, testonly, visibility).
     """
     if (graph_module == None) == (graph_header == None):
@@ -96,6 +103,9 @@ def arc_graph(
         _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, common_modules, kwargs)
     else:
         _arc_instantiate_header(name, graph_header, graph_type, nodes, deps, kwargs)
+
+    if append_to != None:
+        append_to.append(":" + name)
 
 
 def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, common_modules, kwargs):

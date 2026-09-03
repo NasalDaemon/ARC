@@ -57,8 +57,10 @@ struct Node1 : arc::Node
         return i;
     }
 
-    void impl(this auto& self, trait::Swap::swap)
+    template<class Self>
+    void impl(this Self& self, trait::Swap::swap)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, Node1>);
         auto defer = self.template exchangeImpl<Node2>();
         CHECK(defer.empty());
     }
@@ -100,6 +102,7 @@ struct Node2 : arc::Node
     template<class Self>
     void impl(this Self& self, arc::trait::DynamicNode::exchangeImpl)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, Node2>);
         CHECK(self.getGlobal(arc::trait::scheduler).inExclusiveMode());
         auto defer = self.template exchangeImpl<Node1>();
         CHECK(not defer.empty());

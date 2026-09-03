@@ -18,10 +18,43 @@ Uses [doctest](https://github.com/doctest/doctest) with BDD macros: `SCENARIO`, 
     - Mocks and test doubles are exempt: they exist to make interactions observable and controllable.
 4. Use `GIVEN` for setup, `WHEN` for actions, and `THEN` for assertions.
     - Avoid mixing setup and assertions in the same block to maintain clarity.
-    - Use `R"(Text)"` raw string literals in test descriptions instead of escaping for legibility.
-5. Use `AND_WHEN`/`AND_THEN` only when nested inside respective `WHEN`/`THEN` blocks.
-    - Sibling `AND_WHEN`/`AND_THEN` blocks are mutually independent, running in parallel.
-    - Nested `AND_WHEN`/`AND_THEN` blocks are sequential steps that depend on the parent block.
+    - Write descriptions as plain `"Text"` string literals. Keep them free of characters that would need escaping — reword rather than escape.
+5. `AND_WHEN`/`AND_THEN` are **only ever nested**, never siblings of the block they continue.
+    - `AND_WHEN` must be nested inside a `WHEN` (or inside another `AND_WHEN`). `AND_THEN` must be nested inside a `THEN` (or inside another `AND_THEN`).
+    - **Never write `AND_WHEN` as a sibling of `WHEN`, or `AND_THEN` as a sibling of `THEN`.** An `AND_*` block means "the parent step has already happened, and now additionally…" — as a sibling it has no parent step to continue, so it says nothing a plain `WHEN`/`THEN` would not.
+    - Independent alternatives are plain sibling `WHEN` (or `THEN`) blocks. Each sibling `WHEN` re-runs the enclosing `GIVEN` from scratch, so they share setup but never share each other's actions.
+    - The choice is therefore mechanical: **continuation → nest an `AND_*`; alternative → add a sibling `WHEN`/`THEN`.**
+    - An `AND_WHEN` sitting beside a `THEN` inside the same `WHEN` is correct and normal — the `THEN` asserts the parent action, the `AND_WHEN` continues from it.
+6. `GIVEN` appears only directly inside a `SCENARIO`, never inside a `WHEN` or `THEN`.
+    - Extra setup needed part-way through a sequence belongs at the top of the `AND_WHEN` that uses it.
+
+```cpp
+// WRONG - AND_WHEN as a sibling of WHEN; GIVEN nested inside a WHEN
+GIVEN("a log")
+{
+    WHEN("entry A is ingested") { THEN("it is admitted") {} }
+    AND_WHEN("entry B is ingested") { THEN("it is admitted") {} }
+    GIVEN("a malformed entry") { THEN("it is rejected") {} }
+}
+
+// RIGHT - independent alternatives are sibling WHENs; a continuation nests
+GIVEN("a log")
+{
+    WHEN("entry A is ingested")
+    {
+        THEN("it is admitted") {}
+
+        AND_WHEN("entry B, which parents A, is ingested")   // continues from A
+        {
+            THEN("both are ordered A then B") {}
+        }
+    }
+    WHEN("a malformed entry is ingested")                    // independent of A
+    {
+        THEN("it is rejected") {}
+    }
+}
+```
 
 ## Unit Test (single node, mocked dependencies)
 
@@ -31,9 +64,9 @@ import app.tests.graphs;
 import app.traits;
 import arc;
 
-SCENARIO(R"(MyNode does something "useful")")
+SCENARIO("MyNode does something useful")
 {
-    GIVEN(R"(a precondition)")
+    GIVEN("a precondition")
     {
         arc::test::Graph<MyNode> graph;
         graph.mocks->define(
@@ -42,24 +75,24 @@ SCENARIO(R"(MyNode does something "useful")")
         );
         auto node = graph.asTrait(trait::myTrait);
 
-        WHEN(R"(an action is performed)")
+        WHEN("an action is performed")
         {
             auto result = node.doSomething();
 
-            THEN(R"(the expected outcome holds)")
+            THEN("the expected outcome holds")
             {
                 CHECK(result == expected);
             }
 
-            AND_WHEN(R"(another action is performed on top)")
+            AND_WHEN("another action is performed on top")
             {
                 auto other = node.doSomethingElse();
 
-                THEN(R"(another expected outcome holds)")
+                THEN("another expected outcome holds")
                 {
                     CHECK(node.otherThing() == other);
 
-                    AND_THEN(R"(a nested assertion)")
+                    AND_THEN("a nested assertion")
                     {
                         CHECK(node.nestedThing() == 42);
                     }
@@ -88,13 +121,13 @@ struct AuthServiceTestDouble : arc::test::TestOnlyNode
     std::map<std::string, std::string> users;
 };
 
-TEST_CASE(R"(With a single test double)")
+TEST_CASE("With a single test double")
 {
     arc::test::Graph<node::Sessions, AuthServiceTestDouble> graph;
     graph.mocks->addUser("alice", "pass123");
     // ...
 }
-TEST_CASE(R"(With multiple test doubles)")
+TEST_CASE("With multiple test doubles")
 {
     arc::test::Graph<node::Sessions, arc::Combine<MockLogger, AuthServiceTestDouble>> graph;
     graph.mocks->addUser("alice", "pass123");
@@ -210,16 +243,16 @@ struct IntegrationTestRoot
     using Logger = test::node::MockLogger;  // Provide real implementations for all Logger methods
 };
 
-SCENARIO(R"(App cluster end-to-end with mock logger)")
+SCENARIO("App cluster end-to-end with mock logger")
 {
     arc::Graph<cluster::App, IntegrationTestRoot> graph;
     auto myTrait = graph.myNode.asTrait(trait::myTrait);
 
-    GIVEN(R"(a fresh cluster)")
+    GIVEN("a fresh cluster")
     {
-        WHEN(R"(an action is performed)")
+        WHEN("an action is performed")
         {
-            THEN(R"(the expected outcome holds)") { /* assertions */ }
+            THEN("the expected outcome holds") { /* assertions */ }
         }
     }
 }
@@ -235,17 +268,17 @@ struct IntegrationSpy : arc::NodeImpl<arc::trait::Spy>
     int callCount = 0;
 };
 
-SCENARIO(R"(App cluster end-to-end with spying)")
+SCENARIO("App cluster end-to-end with spying")
 {
     arc::GraphWithGlobal<cluster::App, IntegrationSpy> graph;
     auto spy = graph.global.asTrait(arc::trait::Spy);
     auto myTrait = graph.main.myNode.asTrait(trait::myTrait);
 
-    GIVEN(R"(a fresh cluster)")
+    GIVEN("a fresh cluster")
     {
-        WHEN(R"(an action is performed)")
+        WHEN("an action is performed")
         {
-            THEN(R"(the expected outcome holds)") { /* assertions */ }
+            THEN("the expected outcome holds") { /* assertions */ }
         }
     }
 }
@@ -287,7 +320,7 @@ arc-end */
 
 namespace app::tests::my_test {
 
-TEST_CASE(R"(first test)") { /* ... */ }
+TEST_CASE("first test") { /* ... */ }
 
 /* arc-begin
 cluster app::tests::my_test::TestCluster2 [Root]
@@ -305,7 +338,7 @@ struct Root
     };
 };
 
-TEST_CASE(R"(second test)")
+TEST_CASE("second test")
 {
     arc::test::Graph<TestCluster2, arc::test::Mock<>, Root> graph;
     // ...

@@ -4,7 +4,7 @@ load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "CC_TOOLCHAIN_ATTRS", "use_cc_toolchain")
-load("//bazel:cpp_module.bzl", "CppModuleInfo")
+load("//bazel:cpp_module.bzl", "CppModuleInfo", "toolchain_cxxopts")
 load("@arc_std_paths//:std_paths.bzl", "CLANG_STD_CPPM", "GCC_STD_CPPM")
 
 
@@ -20,6 +20,21 @@ def _std_module_impl(ctx):
         feature_configuration = feature_configuration,
         action_name = ACTION_NAMES.cpp_compile,
     )
+
+    # Hand-assembled compile actions: without the toolchain's flags std.o would
+    # be the one -O0 object in an otherwise -c opt build.
+    #
+    # _FORTIFY_SOURCE is dropped: it is in the toolchain's -c opt flags, and it
+    # makes glibc redeclare snprintf and friends as fortify overloads with
+    # internal linkage, which libc++'s std.cppm then cannot export ("using
+    # declaration referring to 'snprintf' with internal linkage cannot be
+    # exported"). The -U the toolchain pairs it with is kept, so the std module
+    # is simply built without fortification.
+    tc_cxxopts = [
+        opt
+        for opt in toolchain_cxxopts(cc_toolchain, feature_configuration)
+        if not opt.startswith("-D_FORTIFY_SOURCE")
+    ]
 
     is_gcc = "gcc" in cc_toolchain.compiler and "clang" not in cc_toolchain.compiler
     stdlib_flags = [] if is_gcc else [
@@ -48,7 +63,7 @@ def _std_module_impl(ctx):
                 "-std=c++23", "-fmodules-ts",
                 "-fmodule-mapper=" + mapper_file.path,
                 "-fmodule-only", "-x", "c++", "-c", std_cppm,
-            ],
+            ] + tc_cxxopts + ctx.fragments.cpp.cxxopts,
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file], transitive = [cc_toolchain.all_files]),
             outputs = [gcm],
@@ -61,7 +76,7 @@ def _std_module_impl(ctx):
                 "-std=c++23", "-fmodules-ts",
                 "-fmodule-mapper=" + mapper_file.path,
                 "-x", "c++", "-c", std_cppm, "-o", obj.path,
-            ],
+            ] + tc_cxxopts + ctx.fragments.cpp.cxxopts,
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file, gcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
@@ -79,7 +94,7 @@ def _std_module_impl(ctx):
             executable = compiler,
             arguments = [
                 "-std=c++23",
-            ] + stdlib_flags + [
+            ] + tc_cxxopts + stdlib_flags + [
                 "-x", "c++-module", "--precompile",
                 "-Wno-reserved-module-identifier",
                 "-Wno-deprecated-declarations",
@@ -93,7 +108,7 @@ def _std_module_impl(ctx):
         obj = ctx.actions.declare_file("std.o")
         ctx.actions.run(
             executable = compiler,
-            arguments = ["-std=c++23", "-c", pcm.path, "-o", obj.path],
+            arguments = ["-std=c++23"] + tc_cxxopts + ["-c", pcm.path, "-o", obj.path],
             inputs = depset(direct = [pcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
             mnemonic = "CppCompileStdModuleObj",

@@ -98,6 +98,7 @@ struct ElementNode : arc::PeerNode
     template<class Self>
     int impl(this Self const& self, trait::Element::get)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, ElementNode>);
         int peerCount = 0;
         for (auto& peer : self.getPeers())
         {
@@ -139,6 +140,7 @@ struct OutsideNode
 
         int impl(trait::Outside::get) const
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, OutsideNode>);
             return i;
         }
 
@@ -155,9 +157,11 @@ struct GlobalNode : arc::Node
 {
     using Traits = arc::Traits<trait::Global>;
 
-    int impl(trait::Global::get) const
+    template<class Self>
+    int impl(this Self const& self, trait::Global::get)
     {
-        return i;
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, GlobalNode>);
+        return self.i;
     }
 
     int i;

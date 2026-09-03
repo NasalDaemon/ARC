@@ -4,6 +4,7 @@
 #include "arc/detail/compress.hpp"
 #include "arc/detail/storage.hpp"
 #include "arc/cluster_fwd.hpp"
+#include "arc/context_fwd.hpp"
 #include "arc/function.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
@@ -36,6 +37,15 @@ struct Lazy
 
         struct InnerContext : Context
         {
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wnon-template-friend"
+            #endif
+            friend auto innerNodeHandle(InnerContext*, AdlTag<Lazy>) -> arc::InnerNodeHandle<Context, Underlying>;
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic pop
+            #endif
+
             template<IsTrait Trait>
             requires detail::HasLocalLink<Context, Trait> or IsGlobalTrait<Trait>
             static constexpr auto getNode(auto& state, Trait trait)

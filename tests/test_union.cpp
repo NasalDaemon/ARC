@@ -44,8 +44,10 @@ struct Cat : arc::Node
         struct CatType;
     };
 
-    int impl(this auto& self, trait::Name::get)
+    template<class Self>
+    int impl(this Self& self, trait::Name::get)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, Cat>);
         return self.getNode(trait::Name{}).get() + 99;
     }
 };
@@ -64,6 +66,7 @@ struct Dog
 
         int impl(trait::Name::get) const
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, Dog>);
             return getNode(trait::Name{}).get();
         }
     };
@@ -79,7 +82,11 @@ struct Mouse
             using MouseType = union_::MouseType;
         };
 
-        int impl(trait::Name::get) const { return 42; }
+        int impl(trait::Name::get) const
+        {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, Mouse>);
+            return 42;
+        }
     };
 };
 
@@ -123,6 +130,9 @@ TEST_CASE("arc::Union")
 {
     arc::Graph<Union> cat{.onion{std::in_place_index<0>}};
     arc::Graph<Union> dog{.onion{arc::InPlace([](auto c) { return c(std::in_place_type<Dog>); })}};
+
+    using UnionCtx = arc::ContextOf<std::remove_cvref_t<decltype(cat.onion)>>;
+    static_assert(std::is_same_v<arc::InnerNodeHandle<UnionCtx>, arc::Union<Cat, Dog>>);
 
     using DogTypes = decltype(dog.onion.asTrait(trait::Name{}))::Types;
     static_assert(DogTypes::TypesCount == 2);

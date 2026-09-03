@@ -25,8 +25,10 @@ struct Node : arc::Node
 {
     using Traits = arc::Traits<Trait>;
 
-    int impl(this auto& self, Trait::get)
+    template<class Self>
+    int impl(this Self& self, Trait::get)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, Node>);
         return self.i + int(self.getNode(trait).get());
     }
 
@@ -50,6 +52,9 @@ TEST_CASE("arc::Lazy")
 
     CHECK(g3.node->i == 33);
     CHECK(g3.node.asTrait(trait).get() == 43);
+
+    using LazyCtx = arc::ContextOf<std::remove_cvref_t<decltype(g3.node)>>;
+    static_assert(std::is_same_v<arc::InnerNodeHandle<LazyCtx>, arc::Lazy<Node>>);
 }
 
 } // namespace arc::tests::lazy

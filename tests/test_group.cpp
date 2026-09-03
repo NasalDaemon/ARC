@@ -88,8 +88,16 @@ struct Root
             using Traits = arc::NoTraits;
             int i;
 
-            bool writable() { return true; }
-            bool writable() const { return false; }
+            bool writable()
+            {
+                static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, Default>);
+                return true;
+            }
+            bool writable() const
+            {
+                static_assert(std::is_same_v<arc::InnerNodeHandle<Context>, Default>);
+                return false;
+            }
         };
     };
 

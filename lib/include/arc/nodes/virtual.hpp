@@ -6,6 +6,7 @@
 #include "arc/detail/select.hpp"
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
+#include "arc/context_fwd.hpp"
 #include "arc/emplace.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/ensure.hpp"
@@ -142,6 +143,14 @@ struct Virtual
         struct InnerContext : Context
         {
             static InnerContext isVirtualContext(detail::IsVirtualContextTag);
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wnon-template-friend"
+            #endif
+            friend auto innerNodeHandle(InnerContext*, AdlTag<Virtual>) -> arc::InnerNodeHandle<Context, ImplNode>;
+            #if ARC_COMPILER_GCC
+            #pragma GCC diagnostic pop
+            #endif
 
             template<IsNodeHandle T, class Current>
             requires (not std::is_const_v<Current>)

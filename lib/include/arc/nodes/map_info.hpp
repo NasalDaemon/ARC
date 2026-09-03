@@ -4,6 +4,7 @@
 #include "arc/detail/concepts.hpp"
 #include "arc/detail/compress.hpp"
 
+#include "arc/context_fwd.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/trait.hpp"
 #include "arc/macros.hpp"
@@ -17,10 +18,16 @@ concept IsInfoMapper = requires {
     typename detail::TakesUnaryClassTemplate<T::template MapInfo>;
 } and IsStateless<T>;
 
-namespace detail {
-    template<class Context, IsInfoMapper InfoMapper>
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, IsInfoMapper InfoMapper>
+struct MapInfo
+{
+    template<class Context>
     struct MappedContext : Context
     {
+        template<class NH>
+        friend auto innerNodeHandle(MappedContext*, AdlTag<NH>) -> arc::InnerNodeHandle<Context, NodeHandle>;
+
         friend consteval auto getNodePointer(AdlTag<MappedContext>)
         {
             return getNodePointer(AdlTag<Context>{});
@@ -30,15 +37,10 @@ namespace detail {
 
         static_assert(std::derived_from<Info, typename Context::Info>);
     };
-}
 
-ARC_MODULE_EXPORT
-template<IsNodeHandle NodeHandle, IsInfoMapper InfoMapper>
-struct MapInfo
-{
     template<class Context>
     using Node = ToNodeWrapper<NodeHandle>::template Node<
-        detail::CompressContext<detail::MappedContext<detail::Decompress<Context>, InfoMapper>>>;
+        detail::CompressContext<MappedContext<detail::Decompress<Context>>>>;
 };
 
 namespace node {

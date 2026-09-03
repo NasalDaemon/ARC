@@ -79,8 +79,10 @@ struct InnerNode : arc::PeerNode
         return i;
     }
 
-    int impl(this auto const& self, trait::Inner::getPeer, int index)
+    template<class Self>
+    int impl(this Self const& self, trait::Inner::getPeer, int index)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, InnerNode>);
         for (auto& peer : self.getPeers())
         {
             static_assert(std::is_const_v<std::remove_reference_t<decltype(peer)>>);
@@ -101,8 +103,10 @@ struct InnerNode : arc::PeerNode
 
     struct OuterDetached : arc::DetachedInterface
     {
-        int impl(this auto const& self, trait::Outer::get)
+        template<class Self>
+        int impl(this Self const& self, trait::Outer::get)
         {
+            static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, InnerNode>);
             return self.getNode(trait::outer, future).get().get();
         }
     };
@@ -122,8 +126,10 @@ struct OuterNode : arc::Node
         return i;
     }
 
-    int impl(this auto const& self, trait::Inner::get)
+    template<class Self>
+    int impl(this Self const& self, trait::Inner::get)
     {
+        static_assert(std::is_same_v<arc::InnerNodeHandle<arc::ContextOf<Self>>, OuterNode>);
         return self.getNode(trait::inner, arc::key::Element(0)).get();
     }
 

@@ -40,7 +40,7 @@ import tempfile
 
 _SKIP_DIRS = frozenset({
     "bazel-bin", "bazel-out", "bazel-testlogs", "build", "cmake-build", ".git",
-    ".cache", "__pycache__", "node_modules"
+    ".cache", "__pycache__", "node_modules", ".worktrees", ".bazel",
 })
 
 _WELL_KNOWN_TARGETS = {
