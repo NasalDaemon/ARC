@@ -102,6 +102,16 @@ trait Trait4 [Types, Root]
     requires const_.constMethod(0)
 }
 
+// The [Const] annotation ensures no non-const methods are provided by the trait.
+// Every method must be declared `const` (including template and `...` methods),
+// otherwise the generator fails with an error.
+trait ReadOnly [Const]
+{
+    get(int i) const -> int
+    // Unconstrained variadic `...` methods can also be marked const
+    log(...) const
+}
+
 // Methods may carry an inline default implementation, used when an implementing
 // node does not override the method. Nodes can then opt to implement only a
 // subset of the trait's methods.

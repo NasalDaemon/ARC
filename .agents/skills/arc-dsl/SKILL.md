@@ -55,6 +55,9 @@ trait <Name>
     // Variadic template method (accepts any arguments)
     log(...)
 
+    // Const variadic method
+    log(...) const
+
     // Precondition: validated before call
     divide(int a, int b) -> int
         pre (b != 0)
@@ -83,6 +86,8 @@ trait <Name>
 ```
 
 Non-template, non-defaulted methods are added to the `arc::Implements` concept and enforced at `getNode`/`asTrait` time. Template methods are only checked when actually called.
+
+**`[Const]` annotation** — `trait ReadOnly [Const]` enforces that every method declared in the trait is `const` (including template and `...` methods). The generator rejects any non-const method at generation time.
 
 **Contracts** — use `pre`/`post` selectively where a method has genuinely invalid inputs or meaningful invariants. They also serve as documentation of intent.
 

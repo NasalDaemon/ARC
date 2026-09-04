@@ -999,6 +999,7 @@ class Method:
     def __init__(self, trait: "Trait"):
         self.trait = trait
         self.name: str = "<unknown>"
+        self.pos: str = ""
         self.templates: list[tuple[CppType, str]] = []
         self.return_type: CppType = CppType("decltype(auto)", is_auto=True)
         self.params: list[tuple[CppType, str]] = []
@@ -1076,6 +1077,7 @@ class Method:
                         self.normal = True
                     else:
                         self.name = child.value
+                self.pos = get_pos(c, False)
                 if self.name in self.__reserved_names__:
                     raise SyntaxError(f"{get_pos(c)} '{self.name}' cannot be the name of a method, it is reserved for arc::TraitView")
             elif c.data == imported('cpp_func_params'):
@@ -1140,6 +1142,7 @@ class Trait:
         self.templates: list[tuple[CppType, str]] = []
         self.protocol_name: str | None = None
         self.is_protocol: bool = False
+        self.const_trait: bool = False
         self.state_groups: list[StateGroup] = []
 
     @property
@@ -1168,6 +1171,10 @@ class Trait:
                     elif ann.children[-1].value == "Impl":
                         self.impl_name =  ann.children[0].value
                         self.impl_named = True
+                    elif ann.children[-1].value == "Const":
+                        if len(ann.children) != 1:
+                            raise SyntaxError(f"{get_pos(ann)} The Const annotation does not take an alias name, use [Const]")
+                        self.const_trait = True
                     else:
                         raise SyntaxError(f"{get_pos(ann)} Unknown trait annotation: {ann.children[0].value}")
             elif c.data == imported('trait_body'):
@@ -1192,6 +1199,9 @@ class Trait:
                     method = Method(self)
                     method.name = c.children[0].value
                     method.params.append((CppType("auto&&...", is_auto=True), "args"))
+                    method.pos = get_pos(c, False)
+                    if len(c.children) > 1:
+                        method.is_const = True
                     self.methods.append(method)
                 elif c.data == imported('trait_requires'):
                     if c.children[0].data == imported('trait_requires_block'):
@@ -1204,6 +1214,12 @@ class Trait:
                     self.requires.append(requires)
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown trait entity: {c.data}')
+        if self.const_trait:
+            for method in self.methods:
+                if not method.is_const:
+                    raise SyntaxError(
+                        f"{method.pos} Method '{method.name}' in trait '{self.name}' must be const, "
+                        f"as the trait is annotated [Const]")
         self.methods.sort(key=lambda v: (v.name, v.params))
         self.method_names = sorted(set(method.name for method in self.methods))
         self.has_const_requires = next((method.is_const for method in self.methods if method.is_const and not method.is_template), False)

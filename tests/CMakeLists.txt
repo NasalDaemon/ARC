@@ -10,6 +10,7 @@ add_executable(arc_tests_module
     test_circular_buffer.cpp
     test_collection.cpp
     test_contracts.cpp
+    test_const_trait.cpp
     test_default_impl.cpp
     test_embedded_modules.cpp
     test_global.cpp
@@ -85,6 +86,7 @@ target_generate_arc_modules(arc_tests_module
         test_datastore/test_single_listener.cpp
         test_collection.cpp
         test_contracts.cpp
+        test_const_trait.cpp
         test_default_impl.cpp
         test_embedded_modules.cpp
         test_global.cpp

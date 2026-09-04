@@ -112,6 +112,7 @@ arc_module(
         "test_node_count.cpp",
         "test_virtual.cpp",
         "test_contracts.cpp",
+        "test_const_trait.cpp",
         "test_default_impl.cpp",
         "test_datastore/test_datastore.cpp",
         "test_datastore/test_single_listener.cpp",

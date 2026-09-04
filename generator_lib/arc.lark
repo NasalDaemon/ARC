@@ -108,7 +108,7 @@ trait_annotations: "[" trait_annotation_item ("," trait_annotation_item)* "]"
 ?trait_annotation_item: trait_annotation | trait_protocol_annotation
 trait_annotation: [NAME "="] TRAIT_ANNOTATION_NAME
 trait_protocol_annotation: "Protocol" "=" FQNAME
-TRAIT_ANNOTATION_NAME.1: "Types" | "Root" | "Info" | "Impl"
+TRAIT_ANNOTATION_NAME.1: "Types" | "Root" | "Info" | "Impl" | "Const"
 
 trait_body: trait_type | trait_root | trait_info | trait_requires | trait_method
 
@@ -127,7 +127,7 @@ trait_requires_block: "requires" [cpp_func_params] "{" cpp_requires_statement "}
 !cpp_requires_statement: cpp_expr [SEMICOLON]
                        | "{" cpp_expr "}" ["->" cpp_type] [SEMICOLON]
 
-trait_method: NAME "(...)" -> trait_method_elipsis
+trait_method: NAME "(...)" [method_qualifier] -> trait_method_elipsis
             | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] method_contract* [method_default_impl] -> trait_method_signature
 
 method_default_impl: "{" bracket_content "}"
