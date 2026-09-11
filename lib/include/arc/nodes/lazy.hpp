@@ -41,7 +41,7 @@ struct Lazy
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
             #endif
-            friend auto innerNodeHandle(InnerContext*, AdlTag<Lazy>) -> arc::InnerNodeHandle<Context, Underlying>;
+            friend consteval auto innerNodeHandle(InnerContext*, AdlTag<Lazy>) -> arc::InnerNodeHandle<Context, Underlying> { std::unreachable(); }
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic pop
             #endif

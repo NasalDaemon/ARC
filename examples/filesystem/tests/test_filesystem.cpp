@@ -47,7 +47,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(reading a directory)")
         {
-            storage.put("/dir", Entry::directory());
+            REQUIRE(storage.put("/dir", Entry::directory()));
 
             auto result = fs.read("/dir");
 
@@ -60,7 +60,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(reading an existing file)")
         {
-            storage.put("/file.txt", Entry::file("hello world"));
+            REQUIRE(storage.put("/file.txt", Entry::file("hello world")));
 
             auto result = fs.read("/file.txt");
 
@@ -84,7 +84,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(writing to a path whose parent is not a directory)")
         {
-            storage.put("/file", Entry::file("content"));
+            REQUIRE(storage.put("/file", Entry::file("content")));
 
             auto result = fs.write("/file/nested.txt", "data");
 
@@ -97,7 +97,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(writing to a path that is an existing directory)")
         {
-            storage.put("/dir", Entry::directory());
+            REQUIRE(storage.put("/dir", Entry::directory()));
 
             auto result = fs.write("/dir", "data");
 
@@ -136,7 +136,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(mkdir at a path whose parent is not a directory)")
         {
-            storage.put("/file", Entry::file("content"));
+            REQUIRE(storage.put("/file", Entry::file("content")));
 
             auto result = fs.mkdir("/file/subdir");
 
@@ -149,7 +149,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(mkdir at a path that already exists)")
         {
-            storage.put("/existing", Entry::directory());
+            REQUIRE(storage.put("/existing", Entry::directory()));
 
             auto result = fs.mkdir("/existing");
 
@@ -209,7 +209,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(removing a non-empty directory)")
         {
-            storage.put("/dir", Entry::directory());
+            REQUIRE(storage.put("/dir", Entry::directory()));
             storage.childrenMap["/dir"] = {"child"};
 
             auto result = fs.remove("/dir");
@@ -223,7 +223,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(removing an existing file)")
         {
-            storage.put("/file.txt", Entry::file("content"));
+            REQUIRE(storage.put("/file.txt", Entry::file("content")));
 
             auto result = fs.remove("/file.txt");
 
@@ -236,7 +236,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(removing an empty directory)")
         {
-            storage.put("/emptydir", Entry::directory());
+            REQUIRE(storage.put("/emptydir", Entry::directory()));
             storage.childrenMap["/emptydir"] = {};
 
             auto result = fs.remove("/emptydir");
@@ -261,7 +261,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(listing a file)")
         {
-            storage.put("/file.txt", Entry::file("content"));
+            REQUIRE(storage.put("/file.txt", Entry::file("content")));
 
             auto result = fs.list("/file.txt");
 
@@ -274,7 +274,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(listing a directory)")
         {
-            storage.put("/dir", Entry::directory());
+            REQUIRE(storage.put("/dir", Entry::directory()));
             storage.childrenMap["/dir"] = {"a.txt", "b.txt"};
 
             auto result = fs.list("/dir");
@@ -296,7 +296,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(checking existence of a file)")
         {
-            storage.put("/file.txt", Entry::file("content"));
+            REQUIRE(storage.put("/file.txt", Entry::file("content")));
 
             THEN(R"(exists returns true)")
             {
@@ -306,7 +306,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(checking existence of a directory)")
         {
-            storage.put("/dir", Entry::directory());
+            REQUIRE(storage.put("/dir", Entry::directory()));
 
             THEN(R"(exists returns true)")
             {
@@ -324,7 +324,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(checking isDir on a file)")
         {
-            storage.put("/file.txt", Entry::file("content"));
+            REQUIRE(storage.put("/file.txt", Entry::file("content")));
 
             THEN(R"(isDir returns false)")
             {
@@ -334,7 +334,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 
         WHEN(R"(checking isDir on a directory)")
         {
-            storage.put("/dir", Entry::directory());
+            REQUIRE(storage.put("/dir", Entry::directory()));
 
             THEN(R"(isDir returns true)")
             {
@@ -426,7 +426,7 @@ SCENARIO(R"(Filesystem trait methods reject empty paths)")
         {
             THEN(R"(it triggers a contract violation)")
             {
-                CHECK_THROWS_AS(fs.read(""), arc::ContractViolation);
+                CHECK_THROWS_AS((void)fs.read(""), arc::ContractViolation);
             }
         }
 
@@ -434,7 +434,7 @@ SCENARIO(R"(Filesystem trait methods reject empty paths)")
         {
             THEN(R"(it triggers a contract violation)")
             {
-                CHECK_THROWS_AS(fs.write("", "data"), arc::ContractViolation);
+                CHECK_THROWS_AS((void)fs.write("", "data"), arc::ContractViolation);
             }
         }
 
@@ -442,7 +442,7 @@ SCENARIO(R"(Filesystem trait methods reject empty paths)")
         {
             THEN(R"(it triggers a contract violation)")
             {
-                CHECK_THROWS_AS(fs.mkdir(""), arc::ContractViolation);
+                CHECK_THROWS_AS((void)fs.mkdir(""), arc::ContractViolation);
             }
         }
 
@@ -450,7 +450,7 @@ SCENARIO(R"(Filesystem trait methods reject empty paths)")
         {
             THEN(R"(it triggers a contract violation)")
             {
-                CHECK_THROWS_AS(fs.remove(""), arc::ContractViolation);
+                CHECK_THROWS_AS((void)fs.remove(""), arc::ContractViolation);
             }
         }
 
@@ -458,7 +458,7 @@ SCENARIO(R"(Filesystem trait methods reject empty paths)")
         {
             THEN(R"(it triggers a contract violation)")
             {
-                CHECK_THROWS_AS(fs.list(""), arc::ContractViolation);
+                CHECK_THROWS_AS((void)fs.list(""), arc::ContractViolation);
             }
         }
 

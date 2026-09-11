@@ -1,3 +1,4 @@
+#include "arc/doctest_prelude.h"
 #include "arc/macros.hpp"
 
 // TODO: Why do we need to include ranges again with GCC?

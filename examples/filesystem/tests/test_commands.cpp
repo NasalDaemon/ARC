@@ -516,7 +516,7 @@ SCENARIO(R"(Commands contract: execute rejects empty args)")
 
             THEN(R"(triggers a contract violation)")
             {
-                CHECK_THROWS_AS(commands.execute(empty), arc::ContractViolation);
+                CHECK_THROWS_AS((void)commands.execute(empty), arc::ContractViolation);
             }
         }
     }

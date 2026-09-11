@@ -290,7 +290,7 @@ SCENARIO("call() returns unknown-function error for a user-defined function name
         graph.mocks->setReturnDefault();
         auto functions = graph.node.asTrait(trait::functions);
         auto body = std::make_unique<Expression>(NumberExpr{99.0});
-        functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("99"));
+        REQUIRE(functions.define(std::string("f"), std::vector<std::string>{"x"}, std::move(body), std::string("99")));
 
         WHEN("calling f(5) via call()")
         {
@@ -319,21 +319,21 @@ SCENARIO("Listing builtin functions")
             THEN("returns all built-in function names")
             {
                 CHECK_FALSE(result.empty());
-                CHECK(std::ranges::contains(result, "abs"));
-                CHECK(std::ranges::contains(result, "sqrt"));
-                CHECK(std::ranges::contains(result, "neg"));
-                CHECK(std::ranges::contains(result, "sin"));
-                CHECK(std::ranges::contains(result, "cos"));
-                CHECK(std::ranges::contains(result, "tan"));
-                CHECK(std::ranges::contains(result, "log"));
-                CHECK(std::ranges::contains(result, "ln"));
-                CHECK(std::ranges::contains(result, "add"));
-                CHECK(std::ranges::contains(result, "sub"));
-                CHECK(std::ranges::contains(result, "mul"));
-                CHECK(std::ranges::contains(result, "div"));
-                CHECK(std::ranges::contains(result, "pow"));
-                CHECK(std::ranges::contains(result, "min"));
-                CHECK(std::ranges::contains(result, "max"));
+                CHECK(std::ranges::contains(result, std::string_view{"abs"}));
+                CHECK(std::ranges::contains(result, std::string_view{"sqrt"}));
+                CHECK(std::ranges::contains(result, std::string_view{"neg"}));
+                CHECK(std::ranges::contains(result, std::string_view{"sin"}));
+                CHECK(std::ranges::contains(result, std::string_view{"cos"}));
+                CHECK(std::ranges::contains(result, std::string_view{"tan"}));
+                CHECK(std::ranges::contains(result, std::string_view{"log"}));
+                CHECK(std::ranges::contains(result, std::string_view{"ln"}));
+                CHECK(std::ranges::contains(result, std::string_view{"add"}));
+                CHECK(std::ranges::contains(result, std::string_view{"sub"}));
+                CHECK(std::ranges::contains(result, std::string_view{"mul"}));
+                CHECK(std::ranges::contains(result, std::string_view{"div"}));
+                CHECK(std::ranges::contains(result, std::string_view{"pow"}));
+                CHECK(std::ranges::contains(result, std::string_view{"min"}));
+                CHECK(std::ranges::contains(result, std::string_view{"max"}));
             }
         }
     }
@@ -351,7 +351,7 @@ SCENARIO("Functions contract: call rejects empty function name")
 
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(functions.call(""sv, args), arc::ContractViolation);
+                CHECK_THROWS_AS((void)functions.call(""sv, args), arc::ContractViolation);
             }
         }
     }
@@ -424,7 +424,7 @@ SCENARIO("get returns nullptr for wrong arity")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
+        REQUIRE(defineF(functions));
 
         WHEN("querying get for f/2")
         {
@@ -479,8 +479,8 @@ SCENARIO("Redefining a user function replaces only that arity")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineF2(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineF2(functions));
 
         WHEN("redefining \"f(x) = x * 10\" (arity 1 only)")
         {
@@ -564,7 +564,7 @@ SCENARIO("Referencing a function at wrong arity is rejected")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
+        REQUIRE(defineF(functions));
 
         WHEN("defining \"g(x, y) = f(x, y)\" (calling f with arity 2, which doesn't exist)")
         {
@@ -605,7 +605,7 @@ SCENARIO("Direct recursion does not apply across arities")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF2(functions);
+        REQUIRE(defineF2(functions));
 
         WHEN("defining \"f(x) = f(x, 1)\" (f/1 calls f/2 — different overload, not recursion)")
         {
@@ -626,8 +626,8 @@ SCENARIO("Indirect recursion via redefinition is rejected")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineGDependsOnF(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineGDependsOnF(functions));
 
         WHEN("redefining \"f(x) = g(x)\" (creates cycle f/1 -> g/1 -> f/1)")
         {
@@ -648,7 +648,7 @@ SCENARIO("Non-recursive references are allowed")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
+        REQUIRE(defineF(functions));
 
         WHEN("defining \"g(x) = f(x) + 2\" (g depends on f, no cycle)")
         {
@@ -669,8 +669,8 @@ SCENARIO("Redefining a function updates dependency graph")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineGDependsOnF(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineGDependsOnF(functions));
 
         WHEN("redefining \"g(x) = x * 3\" (g no longer depends on f)")
         {
@@ -696,9 +696,9 @@ SCENARIO("Redefining an overloaded function with dependencies updates correctly"
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineF2(functions);
-        defineGDependsOnF(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineF2(functions));
+        REQUIRE(defineGDependsOnF(functions));
 
         WHEN("calling remove([\"f\"])")
         {
@@ -731,8 +731,8 @@ SCENARIO("Removing user functions respects dependencies")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineGDependsOnF(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineGDependsOnF(functions));
 
         WHEN("calling remove([\"f\"]) (g depends on f)")
         {
@@ -780,9 +780,9 @@ SCENARIO("Undef removes all overloads and checks dependencies")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineF2(functions);
-        defineGDependsOnF(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineF2(functions));
+        REQUIRE(defineGDependsOnF(functions));
 
         WHEN("calling remove([\"f\"])")
         {
@@ -829,8 +829,8 @@ SCENARIO("Removing functions sequentially in dependency order")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineGDependsOnF(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineGDependsOnF(functions));
 
         WHEN("calling remove([\"g\"]) then remove([\"f\"])")
         {
@@ -853,9 +853,9 @@ SCENARIO("clear removes all user functions including overloads")
     {
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
-        defineF(functions);
-        defineF2(functions);
-        functions.define(std::string("g"), std::vector<std::string>{"x"}, fCall(makeVar("x")), std::string("f(x)"));
+        REQUIRE(defineF(functions));
+        REQUIRE(defineF2(functions));
+        REQUIRE(functions.define(std::string("g"), std::vector<std::string>{"x"}, fCall(makeVar("x")), std::string("f(x)")));
 
         WHEN("calling clear")
         {
@@ -891,8 +891,8 @@ SCENARIO("user list includes defined function names")
         arc::test::Graph<node::Functions> graph;
         auto functions = graph.node.asTrait(trait::functions);
         auto userFunctions = graph.node.asTrait(trait::userFunctions);
-        defineF(functions);
-        defineF2(functions);
+        REQUIRE(defineF(functions));
+        REQUIRE(defineF2(functions));
 
         WHEN("calling user list()")
         {
@@ -901,7 +901,7 @@ SCENARIO("user list includes defined function names")
             THEN("result contains \"f\" entries")
             {
                 auto names = result | std::views::keys;
-                CHECK(std::ranges::contains(names, "f"));
+                CHECK(std::ranges::contains(names, std::string_view{"f"}));
             }
         }
     }
@@ -918,7 +918,7 @@ SCENARIO("Functions contract: define rejects empty name")
             THEN("triggers a contract violation")
             {
                 auto body = makeNum(1.0);
-                CHECK_THROWS_AS(functions.define(std::string(""), std::vector<std::string>{}, std::move(body), std::string("")), arc::ContractViolation);
+                CHECK_THROWS_AS((void)functions.define(std::string(""), std::vector<std::string>{}, std::move(body), std::string("")), arc::ContractViolation);
             }
         }
     }

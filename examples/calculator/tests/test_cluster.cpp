@@ -1002,12 +1002,12 @@ SCENARIO("Save and load preserves user functions")
             THEN("\"f(5)\" after load returns \"6\"")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::contains(outputs, "6"));
+                REQUIRE(std::ranges::contains(outputs, std::string_view{"6"}));
             }
             THEN("\"x\" after load returns \"10\"")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::contains(outputs, "10"));
+                REQUIRE(std::ranges::contains(outputs, std::string_view{"10"}));
             }
         }
     }
@@ -1024,7 +1024,7 @@ SCENARIO("Loading user functions with dependencies out of order")
             THEN("\"g(3)\" after load returns \"6\" (even if file has g before f, loader handles ordering)")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::contains(outputs, "6"));
+                REQUIRE(std::ranges::contains(outputs, std::string_view{"6"}));
             }
         }
     }

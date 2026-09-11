@@ -13,9 +13,16 @@
 
 namespace arc {
 
+namespace detail {
+    // Named so that the friend redeclaration in Defer repeats the constraint
+    // exactly: GCC 16 rejects two inline spellings of it as a redeclaration
+    // with different constraints.
+    template<class F>
+    concept DeferCallable = std::invocable<F> or (compiler < gcc(15));
+}
+
 ARC_MODULE_EXPORT
-template<class F = Function<void()>>
-requires std::invocable<F> or (compiler < gcc(15))
+template<detail::DeferCallable F = Function<void()>>
 struct [[nodiscard, maybe_unused]] Defer
 {
     Defer() = default;
@@ -52,8 +59,7 @@ struct [[nodiscard, maybe_unused]] Defer
     }
 
 private:
-    template<class F2>
-    requires std::invocable<F2> or (compiler < gcc(15))
+    template<detail::DeferCallable F2>
     friend struct Defer;
 
     std::optional<F> onExit;

@@ -37,7 +37,8 @@ auto MemoryStorage::loadFromDirectory(std::string_view dirPath) -> std::expected
                         {
                             std::ifstream file(entry.path());
                             std::string content(std::istreambuf_iterator<char>{file}, {});
-                            p->put(fullFsPath, Entry::file(std::move(content)));
+                            // A file the store rejects is skipped, like one that cannot be read.
+                            (void)p->put(fullFsPath, Entry::file(std::move(content)));
                         }
                         catch (std::exception const&)
                         {

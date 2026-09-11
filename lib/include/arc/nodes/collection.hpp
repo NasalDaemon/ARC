@@ -180,7 +180,7 @@ struct Collection
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
             #endif
-            friend auto innerNodeHandle(ElementContext*, AdlTag<Collection>) -> arc::InnerNodeHandle<Context, NodeHandle>;
+            friend consteval auto innerNodeHandle(ElementContext*, AdlTag<Collection>) -> arc::InnerNodeHandle<Context, NodeHandle> { std::unreachable(); }
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic pop
             #endif

@@ -55,14 +55,14 @@ namespace detail {
     {
         using Node = ContextToNode<Context>;
         using GlobalNode = Context::Info::GlobalNode;
-        constexpr GlobalNodePtr(Node* node)
-        {
-            set(node);
-        }
+        constexpr explicit GlobalNodePtr(Node* node)
+            : ptr(getGlobal(node))
+        {}
 
         ARC_INLINE constexpr auto* get() const { return ptr; }
-        ARC_INLINE constexpr void set(Node* node) { ptr = std::addressof(upCast<GlobalNode>(Context{}.getGlobalNode(*node))); }
+        ARC_INLINE constexpr void set(Node* node) { ptr = getGlobal(node); }
     private:
+        static GlobalNode* getGlobal(Node* node) { return std::addressof(upCast<GlobalNode>(Context{}.getGlobalNode(*node))); }
         GlobalNode* ptr = nullptr;
     };
 }

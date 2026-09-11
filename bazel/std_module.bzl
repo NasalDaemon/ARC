@@ -5,7 +5,7 @@ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "CC_TOOLCHAIN_ATTRS", "use_cc_toolchain")
 load("//bazel:cpp_module.bzl", "CppModuleInfo", "toolchain_cxxopts")
-load("@arc_std_paths//:std_paths.bzl", "CLANG_STD_CPPM", "GCC_STD_CPPM")
+load("@arc_cc_info//:cc_info.bzl", "CLANG_STD_CPPM", "CXXOPTS", "GCC_STD_CPPM")
 
 
 def _std_module_impl(ctx):
@@ -60,10 +60,10 @@ def _std_module_impl(ctx):
         ctx.actions.run(
             executable = compiler,
             arguments = [
-                "-std=c++23", "-fmodules-ts",
+                "-fmodules-ts",
                 "-fmodule-mapper=" + mapper_file.path,
                 "-fmodule-only", "-x", "c++", "-c", std_cppm,
-            ] + tc_cxxopts + ctx.fragments.cpp.cxxopts,
+            ] + tc_cxxopts + CXXOPTS + ctx.fragments.cpp.cxxopts,
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file], transitive = [cc_toolchain.all_files]),
             outputs = [gcm],
@@ -73,10 +73,10 @@ def _std_module_impl(ctx):
         ctx.actions.run(
             executable = compiler,
             arguments = [
-                "-std=c++23", "-fmodules-ts",
+                "-fmodules-ts",
                 "-fmodule-mapper=" + mapper_file.path,
                 "-x", "c++", "-c", std_cppm, "-o", obj.path,
-            ] + tc_cxxopts + ctx.fragments.cpp.cxxopts,
+            ] + tc_cxxopts + CXXOPTS + ctx.fragments.cpp.cxxopts,
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file, gcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
@@ -92,9 +92,7 @@ def _std_module_impl(ctx):
         pcm = ctx.actions.declare_file("std.pcm")
         ctx.actions.run(
             executable = compiler,
-            arguments = [
-                "-std=c++23",
-            ] + tc_cxxopts + stdlib_flags + [
+            arguments = tc_cxxopts + CXXOPTS + stdlib_flags + [
                 "-x", "c++-module", "--precompile",
                 "-Wno-reserved-module-identifier",
                 "-Wno-deprecated-declarations",
@@ -108,7 +106,7 @@ def _std_module_impl(ctx):
         obj = ctx.actions.declare_file("std.o")
         ctx.actions.run(
             executable = compiler,
-            arguments = ["-std=c++23"] + tc_cxxopts + ["-c", pcm.path, "-o", obj.path],
+            arguments = tc_cxxopts + CXXOPTS + ["-c", pcm.path, "-o", obj.path],
             inputs = depset(direct = [pcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
             mnemonic = "CppCompileStdModuleObj",

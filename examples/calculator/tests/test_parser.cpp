@@ -446,7 +446,7 @@ SCENARIO("Parser contract: parse rejects empty token span")
 
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(parser.parse(empty, std::string_view{}), arc::ContractViolation);
+                CHECK_THROWS_AS((void)parser.parse(empty, std::string_view{}), arc::ContractViolation);
             }
         }
     }

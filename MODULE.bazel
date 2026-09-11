@@ -20,8 +20,10 @@ use_repo(pip, "arc_gen_deps")
 arc_module_scan_ext = use_extension("//bazel:module_scan.bzl", "arc_module_scan_ext")
 use_repo(arc_module_scan_ext, "arc_module_deps")
 
-arc_std_paths = use_repo_rule("//bazel:std_paths.bzl", "arc_std_paths")
-arc_std_paths(name = "arc_std_paths")
+# Probes the compiler CC/CXX name and writes @arc_cc_info//:cc_info.bzl: the
+# flags every module compile and link needs for it, and its std module source.
+arc_cc_info = use_repo_rule("//bazel:cc_detect.bzl", "arc_cc_info")
+arc_cc_info(name = "arc_cc_info")
 
 bazel_dep(name = "doctest", version = "2.4.12.bcr.1")
 single_version_override(

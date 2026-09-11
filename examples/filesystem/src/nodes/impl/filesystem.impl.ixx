@@ -75,8 +75,7 @@ FILESYSTEM::mkdir(std::string_view path)
     if (!parentEntry->isDir())
         return std::unexpected(FsError::NotADirectory);
 
-    storage.put(normalised, Entry::directory());
-    return {};
+    return storage.put(normalised, Entry::directory());
 }
 
 FILESYSTEM::remove(std::string_view path)

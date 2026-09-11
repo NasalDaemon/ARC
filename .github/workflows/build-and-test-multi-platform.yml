@@ -33,6 +33,15 @@ jobs:
             std_module: std-module
             os: ubuntu-latest
             container: ghcr.io/mattkretz/cplusplus-ci/gcc15
+          - name: gcc
+            version: 16
+            os: ubuntu-latest
+            container: ghcr.io/mattkretz/cplusplus-ci/gcc16
+          - name: gcc
+            version: 16
+            std_module: std-module
+            os: ubuntu-latest
+            container: ghcr.io/mattkretz/cplusplus-ci/gcc16
 
           - name: clang
             version: 20
@@ -59,6 +68,8 @@ jobs:
       run: |
         echo /github/home/.local/bin >> $GITHUB_PATH
         echo /opt/cmake-latest/bin >> $GITHUB_PATH
+        # Run tests against the container compiler's libstdc++, not the system one
+        echo "LD_LIBRARY_PATH=$(dirname "$(c++ -print-file-name=libstdc++.so)")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> $GITHUB_ENV
         pipx install conan
 
     - name: Set up Mold linker on linux

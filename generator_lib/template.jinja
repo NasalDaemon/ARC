@@ -170,10 +170,11 @@ struct {{ trait.name }} : ::arc::Trait
             };
             friend constexpr std::string_view toString({{ group.name }} e)
             {
+                using std::string_view_literals::operator""sv;
                 switch (e)
                 {
                 {% for var in group.variants %}
-                case {{ group.name }}::{{ var }}: return "{{ var }}";
+                case {{ group.name }}::{{ var }}: return "{{ var }}"sv;
                 {% endfor %}
                 }
                 return "<Unknown>";

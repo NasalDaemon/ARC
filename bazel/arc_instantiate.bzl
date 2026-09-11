@@ -18,41 +18,18 @@ _write_src = rule(
 )
 
 
-def _graph_type_hash(graph_type):
+def _impl_hash(graph_type, node_name):
     """Compute a stable 7-digit hash string from graph_type.
 
     Uses Starlark's built-in hash() (Java String.hashCode, guaranteed stable
     within a Bazel version) so that callers don't need to supply a hash.
     """
-    h = hash(graph_type)
+    h = hash("{graph_type}_{node_name}".format(graph_type = graph_type, node_name = node_name))
     if h < 0:
         h = -h
     s = str(h % 10000000)
     return "0" * (7 - len(s)) + s  # zero-pad to 7 digits
 
-
-_IDENT_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-
-
-def _safe_ident(node_path):
-    """Turn a node path into a valid C++ identifier / Bazel target fragment.
-
-    Node paths carry arbitrary C++ punctuation -- `main.channels->atId(
-    pax::ChannelId{}).dag` -- none of which is legal in a module-partition
-    name or a target name.  Every character outside [A-Za-z0-9_] is mapped
-    to a single `_`, one-for-one (no run collapsing), so the mapping stays
-    injective and two distinct node paths can never sanitise to the same
-    identifier.
-    """
-    out = []
-    for ch in node_path.elems():
-        out.append(ch if ch in _IDENT_CHARS else "_")
-    s = "".join(out)
-
-    # A partition name must not start with a digit.
-    if s and s[0] in "0123456789":
-        s = "_" + s
-    return s
 
 
 def arc_graph(
@@ -109,7 +86,6 @@ def arc_graph(
 
 
 def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partition, common_modules, kwargs):
-    hash_str = _graph_type_hash(graph_type)
     tags = kwargs.get("tags", [])
     testonly = kwargs.get("testonly", False)
     pkg = native.package_name()
@@ -128,16 +104,21 @@ def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partitio
         # elements are the same cluster type), and keying on the module makes
         # those collide on both the generated target name and the module
         # partition name.  Node paths are unique within a graph by construction.
-        safe_node = _safe_ident(node_name)
-        child_prefix = name + "__" + safe_node
-        out_file = child_prefix + "_arc_inst.ixx"
-        src_name = child_prefix + "_gensrc"
+        impl_hash = _impl_hash(graph_type, node_name)
 
-        module_name = "{node_module}:{impl_partition}_{safe_node}_{hash}".format(
+        child_prefix = "{name}__{node_module}_{impl_partition}_{hash}".format(
+            name = name,
             node_module = node_module,
             impl_partition = impl_partition,
-            safe_node = safe_node,
-            hash = hash_str,
+            hash = impl_hash,
+        )
+        out_file = child_prefix + "_arc_inst.cpp"
+        src_name = child_prefix + "_gensrc"
+
+        module_name = "{node_module}:{impl_partition}_{hash}".format(
+            node_module = node_module,
+            impl_partition = impl_partition,
+            hash = impl_hash,
         )
 
         _write_src(

@@ -44,10 +44,12 @@ cc_library(
 
 # Header-mode arc library. Exposes the public hpp API but keeps src/include
 # .tpp files compile-only (used by tracer_spy.cpp) so they don't leak.
+# Carries the detected compiler's link flags to every header-mode consumer, as
+# cpp_module does for module-mode ones.
 cc_library(
     name = "arc_headers",
     srcs = ["src/tracer_spy.cpp"],
-    deps = [":arc_headers_lib"],
+    deps = [":arc_headers_lib", "//bazel:cc_link_flags"],
     implementation_deps = [":arc_headers_inc"],
     visibility = ["//visibility:public"],
 )

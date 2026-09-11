@@ -7,11 +7,10 @@ import std;
 
 namespace examples::filesystem::node {
 
-struct hash_str : std::hash<std::string_view>, std::hash<std::string>
+struct hash_str
 {
     using is_transparent = void;
-    using std::hash<std::string_view>::operator();
-    using std::hash<std::string>::operator();
+    std::size_t operator()(std::string_view str) const noexcept { return std::hash<std::string_view>{}(str); }
 };
 
 // MemoryStorage node holds the filesystem tree in memory

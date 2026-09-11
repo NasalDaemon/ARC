@@ -1,3 +1,4 @@
+#include "arc/doctest_prelude.h"
 #include "arc/macros.hpp"
 
 import arc.tests.joined_trait;

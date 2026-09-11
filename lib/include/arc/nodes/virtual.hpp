@@ -147,7 +147,7 @@ struct Virtual
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
             #endif
-            friend auto innerNodeHandle(InnerContext*, AdlTag<Virtual>) -> arc::InnerNodeHandle<Context, ImplNode>;
+            friend consteval auto innerNodeHandle(InnerContext*, AdlTag<Virtual>) -> arc::InnerNodeHandle<Context, ImplNode> { std::unreachable(); }
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic pop
             #endif

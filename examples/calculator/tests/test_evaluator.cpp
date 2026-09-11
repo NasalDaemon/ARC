@@ -258,7 +258,7 @@ SCENARIO("Evaluating numeric expressions sets \"ans\"")
 
         WHEN("evaluating NumberExpr(42)")
         {
-            evaluator.evaluate(*makeNum(42));
+            (void)evaluator.evaluate(*makeNum(42));
 
             THEN("Variables::set is called with \"ans\" and 42.0")
             {

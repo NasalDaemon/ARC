@@ -1,3 +1,5 @@
+#include "arc/doctest_prelude.h"
+
 #if !ARC_IMPORT_STD
 #include <exception>
 #include <chrono>

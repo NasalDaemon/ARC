@@ -23,6 +23,13 @@ jobs:
             config: gcc
             cc: gcc
             cxx: g++
+          - name: gcc
+            version: 16
+            os: ubuntu-latest
+            container: ghcr.io/mattkretz/cplusplus-ci/gcc16
+            config: gcc
+            cc: gcc
+            cxx: g++
 
           - name: clang
             version: 20
@@ -55,6 +62,12 @@ jobs:
         ln -sf "$BAZEL_BIN" /usr/local/bin/bazel
         echo "Linked $BAZEL_BIN -> /usr/local/bin/bazel"
 
+    - name: Use container compiler's libstdc++ at runtime
+      if: matrix.compiler.container != ''
+      run: |
+        # Run tests against the container compiler's libstdc++, not the system one
+        echo "LD_LIBRARY_PATH=$(dirname "$(${{ matrix.compiler.cxx }} -print-file-name=libstdc++.so)")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> $GITHUB_ENV
+
     - name: Set up Clang ${{ matrix.compiler.version }}
       if: matrix.compiler.name == 'clang'
       run: |
@@ -66,4 +79,4 @@ jobs:
         sudo update-alternatives --install /usr/bin/c++     c++     /usr/bin/clang++-${{ matrix.compiler.version }} 100
 
     - name: Test
-      run: bazel test //... `bazel query //benchmarks/...` --config=${{ matrix.compiler.config }} --repo_env=CC=${{ matrix.compiler.cc }} --repo_env=CXX=${{ matrix.compiler.cxx }} --test_output=errors
+      run: bazel test //... `bazel query //benchmarks/...` --config=${{ matrix.compiler.config }} --repo_env=CC=${{ matrix.compiler.cc }} --repo_env=CXX=${{ matrix.compiler.cxx }} --test_output=errors --test_env=LD_LIBRARY_PATH

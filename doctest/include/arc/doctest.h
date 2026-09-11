@@ -8,6 +8,14 @@
 #define _LIBCPP_OSTREAM
 #define _LIBCPP_ISTREAM
 #define _LIBCPP_TYPE_TRAITS
+#else
+#if !ARC_DOCTEST_PRELUDE
+#error "#include \"arc/doctest_prelude.h\" before module imports and before including \"arc/doctest.h\""
+#endif
+#if ARC_DOCTEST_STD_HEADERS
+// std headers already included by arc/doctest_prelude.h
+#define DOCTEST_CONFIG_USE_STD_HEADERS
+#endif
 #endif
 
 #include "doctest/doctest.h"

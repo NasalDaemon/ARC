@@ -7,6 +7,7 @@ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_cc//cc:action_names.bzl", "CPP_LINK_STATIC_LIBRARY_ACTION_NAME")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "CC_TOOLCHAIN_ATTRS", "use_cc_toolchain")
 load("@arc_module_deps//:module_deps.bzl", "FILE_DIRECT_DEPS", "MODULE_DIRECT_DEPS", "MODULE_SOURCES")
+load("@arc_cc_info//:cc_info.bzl", "CXXOPTS")
 
 CppModuleInfo = provider(
     doc = "Information about compiled C++ modules",
@@ -102,7 +103,8 @@ def _get_compiler_and_toolchain(ctx):
     return compiler, cc_toolchain, feature_configuration, is_gcc
 
 def _user_cxxopts(ctx):
-    return ctx.fragments.cpp.cxxopts
+    # The detected compiler's flags first, so --cxxopt can still override them.
+    return CXXOPTS + ctx.fragments.cpp.cxxopts
 
 def _toolchain_cxxopts(cc_toolchain, feature_configuration):
     """The flags a plain cc_library's CppCompile would get from the toolchain.
@@ -494,6 +496,7 @@ def _cpp_module_impl(ctx):
     for dep in ctx.attr.implementation_deps:
         if CcInfo in dep:
             impl_cc_infos.append(CcInfo(linking_context = dep[CcInfo].linking_context))
+    impl_cc_infos.append(ctx.attr._cc_link_flags[CcInfo])
 
     # --- Compile module interfaces from mods ---
     entries = []
@@ -654,6 +657,8 @@ cpp_module = rule(
         "known_direct_deps_map": attr.string_list_dict(),
         # Leaf modules: skip two-step GCC precompile (single pass).
         "leaf":                  attr.bool(default = False),
+        "_cc_link_flags":        attr.label(default = Label("//bazel:cc_link_flags"),
+                                            providers = [CcInfo]),
     } | CC_TOOLCHAIN_ATTRS,
     toolchains = use_cc_toolchain(),
     fragments  = ["cpp"],

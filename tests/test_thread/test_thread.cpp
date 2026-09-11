@@ -1,4 +1,5 @@
 #include "arc/macros.hpp"
+#include "arc/doctest_prelude.h"
 
 #if !ARC_IMPORT_STD
 #include <typeinfo>

@@ -1,3 +1,5 @@
+#include "arc/doctest_prelude.h"
+
 import arc.tests.count;
 import arc;
 

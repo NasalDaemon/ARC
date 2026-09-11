@@ -114,7 +114,8 @@ struct TraitView final : Trait::Meta::Methods
             ARC_ASSERT_IMPLEMENTS(TraitView, Types, Trait);
     }
 
-    using Node = detail::NodeOf<typename ImplAlias::Impl>;
+    using Impl = ImplAlias::Impl;
+    using Node = detail::NodeOf<Impl>;
 
     template<MatchesTrait<Trait> SubTrait>
     static consteval std::true_type isTrait(SubTrait = {}) { return {}; }

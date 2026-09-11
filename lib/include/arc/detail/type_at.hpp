@@ -21,8 +21,20 @@ namespace arc::detail {
 
 #if ARC_TYPE_AT_VER == 1
 
-template<std::size_t I, class... Ts>
-using TypeAt = Ts...[I];
+#   if ARC_COMPILER_GCC
+    template <std::size_t I, typename... Ts>
+    auto getTypeAt() -> Ts...[I];
+
+    template<std::size_t I, class... Ts>
+    requires (I < sizeof...(Ts))
+    using TypeAt = decltype(getTypeAt<I, Ts...>());
+
+#   else
+
+    template<std::size_t I, class... Ts>
+    using TypeAt = Ts...[I];
+
+#   endif
 
 #elif ARC_TYPE_AT_VER == 2
 

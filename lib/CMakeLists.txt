@@ -7,6 +7,11 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(arc_compiler_flags INTERFACE
         "-Werror" "-Wall" "-Wextra" "-Wpedantic"
         "-fdiagnostics-all-candidates" "-fconcepts-diagnostics-depth=5"
+        # A node may reach its host from its own constructor through MemberPtr,
+        # backwards from `this`. At -flifetime-dse=2 GCC counts that read as one
+        # of the node's still-dead *this and warns -Wuninitialized wherever the
+        # read is inlined; level 1 drops only that constructor-entry assumption.
+        "-flifetime-dse=1"
     )
 endif()
 

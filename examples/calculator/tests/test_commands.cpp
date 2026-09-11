@@ -385,7 +385,7 @@ SCENARIO("Commands contract: execute requires isCommand")
         {
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(commands.execute("2 + 3"), arc::ContractViolation);
+                CHECK_THROWS_AS((void)commands.execute("2 + 3"), arc::ContractViolation);
             }
         }
     }

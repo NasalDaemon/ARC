@@ -166,7 +166,7 @@ SCENARIO(R"(DiskStorage stores and retrieves entries on disk)")
 
     GIVEN(R"(a file exists in storage)")
     {
-        storage.put("/file.txt", Entry::file("data"));
+        REQUIRE(storage.put("/file.txt", Entry::file("data")));
         REQUIRE(storage.get("/file.txt").has_value());
 
         WHEN(R"(erasing the file)")
@@ -184,7 +184,7 @@ SCENARIO(R"(DiskStorage stores and retrieves entries on disk)")
 
     GIVEN(R"(an empty directory exists in storage)")
     {
-        storage.put("/emptydir", Entry::directory());
+        REQUIRE(storage.put("/emptydir", Entry::directory()));
         REQUIRE(storage.get("/emptydir").has_value());
 
         WHEN(R"(erasing the directory)")
@@ -214,11 +214,11 @@ SCENARIO(R"(DiskStorage stores and retrieves entries on disk)")
 
     GIVEN(R"(multiple files and directories are put into storage)")
     {
-        storage.put("/docs", Entry::directory());
-        storage.put("/docs/readme.md", Entry::file("# Readme"));
-        storage.put("/docs/guide.md", Entry::file("# Guide"));
-        storage.put("/src", Entry::directory());
-        storage.put("/src/main.cpp", Entry::file("int main() {}"));
+        REQUIRE(storage.put("/docs", Entry::directory()));
+        REQUIRE(storage.put("/docs/readme.md", Entry::file("# Readme")));
+        REQUIRE(storage.put("/docs/guide.md", Entry::file("# Guide")));
+        REQUIRE(storage.put("/src", Entry::directory()));
+        REQUIRE(storage.put("/src/main.cpp", Entry::file("int main() {}")));
 
         WHEN(R"(listing children of a subdirectory)")
         {
@@ -227,8 +227,8 @@ SCENARIO(R"(DiskStorage stores and retrieves entries on disk)")
             THEN(R"(only direct children are listed)")
             {
                 CHECK(docsChildren.size() == 2);
-                bool hasReadme = std::ranges::find(docsChildren, "readme.md") != docsChildren.end();
-                bool hasGuide = std::ranges::find(docsChildren, "guide.md") != docsChildren.end();
+                bool hasReadme = std::ranges::find(docsChildren, std::string_view{"readme.md"}) != docsChildren.end();
+                bool hasGuide = std::ranges::find(docsChildren, std::string_view{"guide.md"}) != docsChildren.end();
                 CHECK(hasReadme);
                 CHECK(hasGuide);
             }
@@ -241,8 +241,8 @@ SCENARIO(R"(DiskStorage stores and retrieves entries on disk)")
             THEN(R"(top-level entries are listed)")
             {
                 CHECK(rootChildren.size() == 2);
-                bool hasDocs = std::ranges::find(rootChildren, "docs") != rootChildren.end();
-                bool hasSrc = std::ranges::find(rootChildren, "src") != rootChildren.end();
+                bool hasDocs = std::ranges::find(rootChildren, std::string_view{"docs"}) != rootChildren.end();
+                bool hasSrc = std::ranges::find(rootChildren, std::string_view{"src"}) != rootChildren.end();
                 CHECK(hasDocs);
                 CHECK(hasSrc);
             }
@@ -264,9 +264,9 @@ SCENARIO(R"(DiskStorage stores and retrieves entries on disk)")
 
     GIVEN(R"(a deeply nested directory structure)")
     {
-        storage.put("/a", Entry::directory());
-        storage.put("/a/b", Entry::directory());
-        storage.put("/a/b/c", Entry::file("deep"));
+        REQUIRE(storage.put("/a", Entry::directory()));
+        REQUIRE(storage.put("/a/b", Entry::directory()));
+        REQUIRE(storage.put("/a/b/c", Entry::file("deep")));
 
         WHEN(R"(listing children of /a)")
         {

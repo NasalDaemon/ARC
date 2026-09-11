@@ -1,5 +1,7 @@
-# Checks that `main` in BINARY has fully collapsed to `return 0`: no function calls,
-# no external tail-calls, and at most MAX_INSNS instructions (default 6).
+# Checks that `main` in BINARY has fully collapsed to `return 0`: it returns, and
+# at most MAX_INSNS instructions (default 1, the one setting the result) come
+# before its first return. A graph that did not fold leaves more work ahead of
+# that return, or no return at all (a tail call out of main).
 #
 # Usage:
 #   cmake -DCONFIG=<cfg> -DBINARY=<exe> -DOBJDUMP=<objdump> [-DMAX_INSNS=n]
@@ -15,7 +17,7 @@ if(NOT DEFINED OBJDUMP)
     message(FATAL_ERROR "OBJDUMP not set")
 endif()
 if(NOT DEFINED MAX_INSNS)
-    set(MAX_INSNS 6)
+    set(MAX_INSNS 1)
 endif()
 
 if(DEFINED CONFIG AND NOT CONFIG STREQUAL "" AND NOT CONFIG STREQUAL "Release")
@@ -36,9 +38,12 @@ endif()
 string(REPLACE "\r" "" asm "${asm}")
 string(REPLACE "\n" ";" lines "${asm}")
 
-# Collect the instruction lines of the <main>: function block
+# The instruction lines of the <main>: block, up to its first return. Whatever
+# objdump lists after that is never reached by a main that did not branch.
 set(in_main FALSE)
+set(returns FALSE)
 set(insns "")
+set(landing_pads "")
 foreach(line IN LISTS lines)
     if(line MATCHES "^[0-9a-f]+ <main>:")
         set(in_main TRUE)
@@ -46,7 +51,16 @@ foreach(line IN LISTS lines)
         if(line MATCHES "^[ \t]*$")
             break() # blank line: start of the next function
         elseif(line MATCHES "^[ \t]*[0-9a-f]+:[ \t]")
+            # Control-flow landing pads (-fcf-protection, branch protection) do no work
+            if(line MATCHES "[ \t](endbr64|endbr32|bti)([ \t]|$)")
+                list(APPEND landing_pads "${line}")
+                continue()
+            endif()
             list(APPEND insns "${line}")
+            if(line MATCHES "[ \t]ret[a-z]*([ \t]|$)")
+                set(returns TRUE)
+                break()
+            endif()
         endif()
     endif()
 endforeach()
@@ -56,36 +70,19 @@ if(NOT in_main)
 endif()
 
 message(STATUS "main() in ${BINARY}:")
-foreach(insn IN LISTS insns)
+foreach(insn IN LISTS landing_pads insns)
     message(STATUS "  ${insn}")
 endforeach()
 
-# Any remaining call means a node boundary survived the optimiser
-set(bad "")
-foreach(insn IN LISTS insns)
-    if(insn MATCHES "[ \t](callq?|blr?)[ \t]") # x86 call/callq, ARM bl/blr
-        list(APPEND bad "${insn}")
-    elseif(insn MATCHES "[ \t](jmp|b)[ \t].*<([^>]+)>")
-        # Unconditional jump to another function is a tail call (graph not folded into main).
-        # Jumps into main's own partitions (main.cold, main.isra, ...) are internal.
-        if(NOT CMAKE_MATCH_2 MATCHES "^main[.+]")
-            list(APPEND bad "${insn}")
-        endif()
-    endif()
-endforeach()
+if(NOT returns)
+    message(FATAL_ERROR "ARC graph did not collapse: main() never returns (a tail call out of main?)")
+endif()
 
-list(LENGTH bad num_bad)
 list(LENGTH insns num_insns)
-
-if(num_bad GREATER 0)
-    string(REPLACE ";" "\n  " bad_str "${bad}")
+math(EXPR before_ret "${num_insns} - 1")
+if(before_ret GREATER MAX_INSNS)
     message(FATAL_ERROR
-        "ARC graph did not collapse: main() still contains ${num_bad} call(s)/tail-call(s):\n  ${bad_str}")
+        "ARC graph did not fully collapse: main() has ${before_ret} instruction(s) before returning (expected <= ${MAX_INSNS})")
 endif()
 
-if(num_insns GREATER MAX_INSNS)
-    message(FATAL_ERROR
-        "ARC graph did not fully collapse: main() has ${num_insns} instructions (expected <= ${MAX_INSNS})")
-endif()
-
-message(STATUS "OK: main() collapsed to ${num_insns} instruction(s) with no calls")
+message(STATUS "OK: main() collapsed to ${before_ret} instruction(s) and a return")

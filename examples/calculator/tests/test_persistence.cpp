@@ -216,7 +216,7 @@ SCENARIO("Loading interdependent functions in any file order")
             THEN("g(3) returns 6, showing both functions loaded correctly despite reverse order")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::contains(outputs, "6"));
+                REQUIRE(std::ranges::contains(outputs, std::string_view{"6"}));
             }
         }
     }
@@ -242,7 +242,7 @@ SCENARIO("Loading interdependent functions in any file order")
             THEN("h(1) returns 7 (= (1+1) + 2 + 3), showing all three functions loaded correctly")
             {
                 INFO(std::format("Outputs were: {}", outputs));
-                REQUIRE(std::ranges::contains(outputs, "7"));
+                REQUIRE(std::ranges::contains(outputs, std::string_view{"7"}));
             }
         }
     }

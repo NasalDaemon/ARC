@@ -52,7 +52,7 @@ struct Union
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
             #endif
-            friend auto innerNodeHandle(InnerContext*, AdlTag<Union>) -> arc::InnerNodeHandle<Context, OptionT>;
+            friend consteval auto innerNodeHandle(InnerContext*, AdlTag<Union>) -> arc::InnerNodeHandle<Context, OptionT> { std::unreachable(); }
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic pop
             #endif

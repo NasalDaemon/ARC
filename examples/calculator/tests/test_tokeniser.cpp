@@ -235,7 +235,7 @@ SCENARIO("Tokeniser contract: tokenise rejects empty input")
         {
             THEN("triggers a contract violation")
             {
-                CHECK_THROWS_AS(tokeniser.tokenise(""sv), arc::ContractViolation);
+                CHECK_THROWS_AS((void)tokeniser.tokenise(""sv), arc::ContractViolation);
             }
         }
     }
