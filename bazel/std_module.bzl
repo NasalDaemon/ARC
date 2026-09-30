@@ -21,7 +21,12 @@ def _std_module_impl(ctx):
         action_name = ACTION_NAMES.cpp_compile,
     )
 
-    # Hand-assembled compile actions: without the toolchain's flags std.o would
+    # Hand-assembled compile actions, given the same flags as every other module
+    # (toolchain, detected, --cxxopt, in that order). The std BMI must agree with
+    # its importers on everything that shapes it: a library configuration macro
+    # (_LIBCPP_HARDENING_MODE, _GLIBCXX_ASSERTIONS) missing here is silently
+    # ignored by every `import std;`, since the importer's definition cannot
+    # reach an already-built BMI. Without the toolchain's flags std.o would also
     # be the one -O0 object in an otherwise -c opt build.
     #
     # _FORTIFY_SOURCE is dropped: it is in the toolchain's -c opt flags, and it
@@ -30,17 +35,14 @@ def _std_module_impl(ctx):
     # declaration referring to 'snprintf' with internal linkage cannot be
     # exported"). The -U the toolchain pairs it with is kept, so the std module
     # is simply built without fortification.
-    tc_cxxopts = [
+    cxxopts = [
         opt
-        for opt in toolchain_cxxopts(cc_toolchain, feature_configuration)
+        for opt in toolchain_cxxopts(cc_toolchain, feature_configuration) + CXXOPTS + ctx.fragments.cpp.cxxopts
         if not opt.startswith("-D_FORTIFY_SOURCE")
     ]
 
     is_gcc = "gcc" in cc_toolchain.compiler and "clang" not in cc_toolchain.compiler
-    stdlib_flags = [] if is_gcc else [
-        opt for opt in ctx.fragments.cpp.cxxopts if opt.startswith("-stdlib=")
-    ]
-    use_libcxx = "-stdlib=libc++" in stdlib_flags
+    use_libcxx = not is_gcc and "-stdlib=libc++" in cxxopts
     std_cppm = ctx.attr.std_cppm if (is_gcc or not use_libcxx) else ctx.attr.clang_std_cppm
 
     if not std_cppm:
@@ -63,7 +65,7 @@ def _std_module_impl(ctx):
                 "-fmodules-ts",
                 "-fmodule-mapper=" + mapper_file.path,
                 "-fmodule-only", "-x", "c++", "-c", std_cppm,
-            ] + tc_cxxopts + CXXOPTS + ctx.fragments.cpp.cxxopts,
+            ] + cxxopts,
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file], transitive = [cc_toolchain.all_files]),
             outputs = [gcm],
@@ -76,7 +78,7 @@ def _std_module_impl(ctx):
                 "-fmodules-ts",
                 "-fmodule-mapper=" + mapper_file.path,
                 "-x", "c++", "-c", std_cppm, "-o", obj.path,
-            ] + tc_cxxopts + CXXOPTS + ctx.fragments.cpp.cxxopts,
+            ] + cxxopts,
             env = {"SOURCE_DATE_EPOCH": "0"},
             inputs = depset(direct = [mapper_file, gcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
@@ -92,8 +94,12 @@ def _std_module_impl(ctx):
         pcm = ctx.actions.declare_file("std.pcm")
         ctx.actions.run(
             executable = compiler,
-            arguments = tc_cxxopts + CXXOPTS + stdlib_flags + [
+            arguments = [
                 "-x", "c++-module", "--precompile",
+            ] + cxxopts + [
+                # After the user's flags, so -Wall/-Werror cannot re-enable them:
+                # std.cppm declares the reserved `std` module and exports
+                # deprecated names by design.
                 "-Wno-reserved-module-identifier",
                 "-Wno-deprecated-declarations",
                 std_cppm, "-o", pcm.path,
@@ -106,7 +112,7 @@ def _std_module_impl(ctx):
         obj = ctx.actions.declare_file("std.o")
         ctx.actions.run(
             executable = compiler,
-            arguments = tc_cxxopts + CXXOPTS + ["-c", pcm.path, "-o", obj.path],
+            arguments = ["-c", pcm.path, "-o", obj.path] + cxxopts,
             inputs = depset(direct = [pcm], transitive = [cc_toolchain.all_files]),
             outputs = [obj],
             mnemonic = "CppCompileStdModuleObj",

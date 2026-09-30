@@ -17,8 +17,8 @@ export struct Functions
         Uses<Variables>
     {
         using Methods::impl;
-        using BuiltinFunctions::Disable::list;
-        using UserFunctions::Disable::list;
+        static void useImpl(BuiltinFunctions::list);
+        static void useImpl(UserFunctions::list);
 
         // BuiltinFunctions
         auto call(std::string_view name, std::span<double const> args) const -> std::expected<double, EvalError>;

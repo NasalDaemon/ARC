@@ -40,8 +40,8 @@ struct Emplace
     template<class Type>
     ARC_INLINE explicit constexpr operator Type() &&
     {
-        std::same_as<Type> decltype(auto) result = std::move(factory)(Constructor<Type>{});
-        return result;
+        static_assert(std::is_same_v<Type, std::invoke_result_t<F, Constructor<Type>>>);
+        return std::move(factory)(Constructor<Type>{});
     }
 
     [[no_unique_address]] F factory;
@@ -59,8 +59,8 @@ struct InPlace
     template<class Type>
     ARC_INLINE explicit(false) constexpr operator Type() &&
     {
-        std::same_as<Type> decltype(auto) result = std::move(factory)(Constructor<Type>{});
-        return result;
+        static_assert(std::is_same_v<Type, std::invoke_result_t<F, Constructor<Type>>>);
+        return std::move(factory)(Constructor<Type>{});
     }
 
     [[no_unique_address]] F factory;

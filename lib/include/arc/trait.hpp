@@ -18,13 +18,6 @@ template<class... Ts>
 struct AdlTag{};
 
 ARC_MODULE_EXPORT
-struct DisableNamedImpl{};
-
-ARC_MODULE_EXPORT
-template<class T>
-struct DisableNamedImplFor : DisableNamedImpl {};
-
-ARC_MODULE_EXPORT
 struct MethodsBase{};
 
 ARC_MODULE_EXPORT

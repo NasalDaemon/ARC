@@ -19,16 +19,19 @@ import os
 import sys
 
 _SKIP_DIRS = frozenset({
-    "bazel-bin", "bazel-out", "bazel-testlogs", "build", "cmake-build", ".git",
+    "bazel-bin", "bazel-out", "bazel-testlogs", "build", ".git",
     ".cache", "__pycache__", "node_modules", ".worktrees", ".bazel",
 })
+# Build trees skipped by prefix, as in scan_module_deps.py: cmake-build-debug
+# (CLion's default) and friends hold FetchContent sources.
+_SKIP_DIR_PREFIXES = ("bazel-", "cmake-build")
 
 
 def walk_root(workspace):
     for root, dirs, files in os.walk(workspace, followlinks=False):
         dirs[:] = sorted(
             d for d in dirs
-            if d not in _SKIP_DIRS and not d.startswith("bazel-")
+            if d not in _SKIP_DIRS and not d.startswith(_SKIP_DIR_PREFIXES)
         )
         for fname in files:
             path = os.path.join(root, fname)

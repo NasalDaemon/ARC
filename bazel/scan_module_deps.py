@@ -39,9 +39,13 @@ import sys
 import tempfile
 
 _SKIP_DIRS = frozenset({
-    "bazel-bin", "bazel-out", "bazel-testlogs", "build", "cmake-build", ".git",
+    "bazel-bin", "bazel-out", "bazel-testlogs", "build", ".git",
     ".cache", "__pycache__", "node_modules", ".worktrees", ".bazel",
 })
+# Build trees skipped by prefix, not name: CMake users name them freely
+# (cmake-build-debug is CLion's default), and a tree's FetchContent sources
+# would otherwise be scanned as workspace modules.
+_SKIP_DIR_PREFIXES = ("bazel-", "cmake-build")
 
 _WELL_KNOWN_TARGETS = {
     "std": "@arc//lib:std_module",
@@ -288,7 +292,7 @@ def main(argv):
         for root, dirs, files in os.walk(workspace, followlinks=False):
             dirs[:] = sorted(
                 d for d in dirs
-                if d not in _SKIP_DIRS and not d.startswith("bazel-")
+                if d not in _SKIP_DIRS and not d.startswith(_SKIP_DIR_PREFIXES)
             )
             for fname in sorted(files):
                 is_ixx_arc = fname.endswith(".ixx.arc")

@@ -8,6 +8,7 @@
 #define ARC_ASSERT_ARGS(pos, ...) static_cast<bool>(__VA_ARGS__), "ARC trait contract failure: " #__VA_ARGS__ " (" pos ")"
 #define ARC_CAT(l, r) l ## r
 #define ARC_JOIN(l, r) l r
+#define ARC_STR(...) #__VA_ARGS__
 #define ARC_APPLY(macro, ...) ARC_JOIN(macro, (__VA_ARGS__))
 #define ARC_ISH(...) ARC_ISH __VA_ARGS__
 #define ARC_ESC_(...) ARC_VANISH_ ## __VA_ARGS__
@@ -225,11 +226,11 @@
     static void applicable(method);
 
 #define ARC_NAMED_METHOD_IMPL_DISABLE(method) \
-    static void method(::arc::DisableNamedImplFor<ARC_This_Trait::method>);
+    static void method(auto&&...) = delete;
 
 #define ARC_NAMED_METHOD_IMPL(method) \
     template<::arc::IsNode Self, class... Args> \
-    requires (not requires { Self::method(::arc::DisableNamedImplFor<ARC_This_Trait::method>{}); }) \
+    requires (not requires { Self::useImpl(ARC_This_Trait::method{}); }) \
     ARC_INLINE constexpr decltype(auto) impl(this Self& self, ARC_This_Trait::method m, Args&&... args) \
         requires requires { self.method(ARC_FWD(args)...); } or ::arc::HasDefaultImpl<Self, ARC_This_Trait::method, Args...> \
     { \

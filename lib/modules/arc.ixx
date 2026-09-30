@@ -419,8 +419,6 @@ export namespace arc {
     using arc::makeTraitView;
     // trait.hpp
     using arc::AdlTag;
-    using arc::DisableNamedImpl;
-    using arc::DisableNamedImplFor;
     using arc::MethodsBase;
     using arc::HasMethods;
     using arc::Trait;
