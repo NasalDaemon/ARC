@@ -105,13 +105,13 @@ private:
 
         Destroy destroy;
 
-        [[no_unique_address]]
+        ARC_NO_UNIQUE_ADDRESS
         detail::EmptyIf<not Policy.mutableCall, MutableFunction> mutableFunction{};
 
-        [[no_unique_address]]
+        ARC_NO_UNIQUE_ADDRESS
         detail::EmptyIf<not Policy.constCall, ImmutableFunction> immutableFunction{};
 
-        [[no_unique_address]]
+        ARC_NO_UNIQUE_ADDRESS
         detail::EmptyIf<not Policy.copyable, Copy> copy{};
     };
 
@@ -164,7 +164,7 @@ private:
             }
         }
 
-        [[no_unique_address]] F f;
+        ARC_NO_UNIQUE_ADDRESS F f;
     };
 
     struct Deleter

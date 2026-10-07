@@ -65,8 +65,8 @@ ARC_MODULE_EXPORT
 template<class Trait, std::size_t Ifs, class... Args>
 struct ProtoSnap
 {
-    [[no_unique_address]] std::tuple<Args...> args{};
-    [[no_unique_address]] std::array<bool, Ifs> ifs{};
+    ARC_NO_UNIQUE_ADDRESS std::tuple<Args...> args{};
+    ARC_NO_UNIQUE_ADDRESS std::array<bool, Ifs> ifs{};
     StateTransitionLog<Trait> log{};
 };
 

@@ -86,7 +86,7 @@ struct Lazy
             : initialiser(
                 [...args = ARC_FWD(args)](Node const* self) mutable -> void
                 {
-                    std::construct_at(self->state.storage(), std::move(args)...);
+                    std::construct_at(self->state.value(), std::move(args)...);
                 })
         {}
 
@@ -94,14 +94,14 @@ struct Lazy
             : initialiser(other.initialiser)
         {
             if (hasState())
-                std::construct_at(state.storage(), *other.state.value());
+                std::construct_at(state.value(), *other.state.value());
         }
 
         constexpr Node(Node&& other)
             : initialiser(std::move(other.initialiser))
         {
             if (hasState())
-                std::construct_at(state.storage(), std::move(*other.state.value()));
+                std::construct_at(state.value(), std::move(*other.state.value()));
             else // ensure that moved-from uninitialised Lazy nodes are left in a state that will throw if they are used
                 other.initialiser = [](Node const*) -> void { throw std::runtime_error("arc::node::Lazy node moved from before initialisation"); };
         }

@@ -136,7 +136,7 @@ struct Virtual
 
         private:
             Node* virtualHost;
-            [[no_unique_address]] detail::GlobalNodePtr<Context> globalNode;
+            ARC_NO_UNIQUE_ADDRESS detail::GlobalNodePtr<Context> globalNode;
         };
 
         template<IsNodeHandle ImplNode>

@@ -214,20 +214,19 @@ struct CircularBuffer
             buffer.mask = mask;
         }
 
-        T* outStorage = buffer.data.storageAt(0);
         for (decltype(auto) elem : ARC_FWD(range))
         {
             if constexpr (std::ranges::view<R>)
             {
                 static_assert(std::constructible_from<T, std::ranges::range_reference_t<R>>,
                     "CircularBuffer::CircularBuffer: buffer element type not constructible from view reference type");
-                std::construct_at(outStorage + writeIndex, ARC_FWD(elem));
+                std::construct_at(buffer.value_at(writeIndex), ARC_FWD(elem));
             }
             else
             {
                 static_assert(std::constructible_from<T, decltype(std::forward_like<R>(elem))>,
                     "CircularBuffer::CircularBuffer: buffer element type not constructible from range element type");
-                std::construct_at(outStorage + writeIndex, std::forward_like<R>(elem));
+                std::construct_at(buffer.value_at(writeIndex), std::forward_like<R>(elem));
             }
             ++writeIndex;
         }
@@ -376,7 +375,7 @@ struct CircularBuffer
                 grow_buffer();
         }
 
-        T* dst = std::construct_at(buffer.storage_at(writeIndex), std::forward<Args>(args)...);
+        T* dst = std::construct_at(buffer.value_at(writeIndex), std::forward<Args>(args)...);
         // Increment writeIndex after constructing the new element in case of exceptions
         ++writeIndex;
         return *dst;
@@ -423,13 +422,13 @@ struct CircularBuffer
             {
                 static_assert(std::constructible_from<T, std::ranges::range_reference_t<R>>,
                     "CircularBuffer::append: buffer element type not constructible from view reference type");
-                std::construct_at(buffer.storage_at(writeIndex), ARC_FWD(elem));
+                std::construct_at(buffer.value_at(writeIndex), ARC_FWD(elem));
             }
             else
             {
                 static_assert(std::constructible_from<T, decltype(std::forward_like<R>(elem))>,
                     "CircularBuffer::append: buffer element type not constructible from range element type");
-                std::construct_at(buffer.storage_at(writeIndex), std::forward_like<R>(elem));
+                std::construct_at(buffer.value_at(writeIndex), std::forward_like<R>(elem));
             }
             ++writeIndex;
         }
@@ -684,7 +683,7 @@ private:
                 for (; index < size; ++index)
                 {
                     auto* src = other.value_at(readIndex + index);
-                    T* dst = storage_at(newReadIndex + index);
+                    T* dst = value_at(newReadIndex + index);
                     std::construct_at(dst, std::forward_like<Other>(*src));
                 }
             }
@@ -714,11 +713,7 @@ private:
 
         constexpr auto* value_at(this auto& self, std::size_t index) noexcept
         {
-            return std::launder(self.storage_at(index));
-        }
-        constexpr auto* storage_at(this auto& self, std::size_t index) noexcept
-        {
-            return self.data.storageAt(index & self.mask);
+            return self.data.valueAt(index & self.mask);
         }
     };
 

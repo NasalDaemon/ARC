@@ -28,12 +28,52 @@
 
 #if !ARC_IMPORT_STD
 #include <cstddef>
-#include <new>
+#include <memory>
 #include <type_traits>
 #include <utility>
 #endif
 
 namespace arc {
+
+namespace detail {
+
+template<class Head, class... Tail>
+union VariadicUnion
+{
+    ARC_NO_UNIQUE_ADDRESS Head head;
+    ARC_NO_UNIQUE_ADDRESS VariadicUnion<Tail...> tail;
+
+    constexpr VariadicUnion() {}
+    constexpr ~VariadicUnion() {}
+
+    template<std::size_t I>
+    ARC_INLINE constexpr auto* get(this auto& self) noexcept
+    {
+        static_assert(I <= sizeof...(Tail));
+        if constexpr (I == 0)
+            return std::addressof(self.head);
+        else
+            return self.tail.template get<I - 1>();
+    }
+};
+
+template<class Head>
+union VariadicUnion<Head>
+{
+    ARC_NO_UNIQUE_ADDRESS Head head;
+
+    constexpr VariadicUnion() {}
+    constexpr ~VariadicUnion() {}
+
+    template<std::size_t I>
+    ARC_INLINE constexpr auto* get(this auto& self) noexcept
+    {
+        static_assert(I == 0);
+        return std::addressof(self.head);
+    }
+};
+
+}
 
 ARC_MODULE_EXPORT
 template<IsNodeHandle... Options>
@@ -62,7 +102,7 @@ struct Union
             {
                 static_assert(not std::is_const_v<Option>, "Cannot exchange implementation of a node in a const context");
                 static_assert((... or std::is_same_v<T, Options>), "Cannot exchange with a node that is not listed as an option in the hosting arc::Union");
-                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<Option Node::*>(&Node::bytes));
+                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<Option Node::*>(&Node::union_));
                 Node& node = nodePtr.getClassFromMember(option);
                 if constexpr (ContextHasGlobalTrait<Context, Global<trait::Scheduler>>)
                 {
@@ -115,7 +155,7 @@ struct Union
             requires detail::HasLocalLink<Context, Trait> or detail::IsGlobalTrait<Trait>
             static constexpr auto getNode(Option& option, Trait trait)
             {
-                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::bytes));
+                auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::union_));
                 return Context{}.getNode(nodePtr.getClassFromMember(option), trait);
             }
 
@@ -140,7 +180,7 @@ struct Union
                 }
                 else
                 {
-                    auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::bytes));
+                    auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<OptionNode<Option> Node::*>(&Node::union_));
                     return Context{}.template getParentNode<Parent>(nodePtr.getClassFromMember(node));
                 }
             }
@@ -284,7 +324,7 @@ struct Union
         template<std::size_t I>
         ARC_INLINE constexpr NodeAt<I>& constructImpl(auto&&... args) noexcept
         {
-            NodeAt<I>* next = new (bytes) NodeAt<I>(ARC_FWD(args)...);
+            NodeAt<I>* next = std::construct_at(get<I>(), ARC_FWD(args)...);
             index = I;
             return *next;
         }
@@ -299,15 +339,9 @@ struct Union
         }
 
         template<std::size_t Index>
-        ARC_INLINE constexpr auto* get() &
+        ARC_INLINE constexpr auto* get(this auto& self)
         {
-            return std::launder(reinterpret_cast<NodeAt<Index>*>(bytes));
-        }
-
-        template<std::size_t Index>
-        ARC_INLINE constexpr auto const* get() const &
-        {
-            return std::launder(reinterpret_cast<NodeAt<Index> const*>(bytes));
+            return self.union_.template get<Index>();
         }
 
         template<class F>
@@ -336,11 +370,13 @@ struct Union
             return arc::indexOf<Option, Options...>();
         }
 
-        static constexpr std::size_t Align = std::max({alignof(ToNode<Options>)...});
-        static constexpr std::size_t Size = std::max({sizeof(ToNode<Options>)...});
-
         std::size_t index = sizeof...(Options); // If index == sizeof...(Options), then the union is uninitialised
-        alignas(Align) std::byte bytes[Size] ARC_INDETERMINATE;
+        ARC_NO_UNIQUE_ADDRESS detail::VariadicUnion<ToNode<Options>...> union_;
+
+        static constexpr std::size_t MaxAlign = std::max({alignof(ToNode<Options>)...});
+        static constexpr std::size_t MaxSize = std::max({sizeof(ToNode<Options>)...});
+        static_assert(alignof(decltype(union_)) == MaxAlign);
+        static_assert(sizeof(union_) == (MaxSize + MaxAlign - 1) / MaxAlign * MaxAlign);
     };
 };
 

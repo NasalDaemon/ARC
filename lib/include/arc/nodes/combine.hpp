@@ -31,7 +31,7 @@ namespace detail {
             static auto resolveLink(T, LinkPriorityMin) -> ResolvedLink<ParentContext, T>;
         };
 
-        [[no_unique_address]] ContextToNodeState<Context> node{};
+        ARC_NO_UNIQUE_ADDRESS ContextToNodeState<Context> node{};
 
         friend ARC_IF_MSVC_ELSE(constexpr)(consteval) auto getNodePointer(arc::AdlTag<Context>)
         {

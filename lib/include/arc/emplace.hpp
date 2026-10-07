@@ -44,9 +44,9 @@ struct Emplace
         return std::move(factory)(Constructor<Type>{});
     }
 
-    [[no_unique_address]] F factory;
+    ARC_NO_UNIQUE_ADDRESS F factory;
     // Ensure that Emplace is never relocated to avoid dangling references
-    [[no_unique_address]] detail::NonRelocatable nonRelocatable{};
+    ARC_NO_UNIQUE_ADDRESS detail::NonRelocatable nonRelocatable{};
 };
 
 template<class F>
@@ -63,9 +63,9 @@ struct InPlace
         return std::move(factory)(Constructor<Type>{});
     }
 
-    [[no_unique_address]] F factory;
+    ARC_NO_UNIQUE_ADDRESS F factory;
     // Ensure that InPlace is never relocated to avoid dangling references
-    [[no_unique_address]] detail::NonRelocatable nonRelocatable{};
+    ARC_NO_UNIQUE_ADDRESS detail::NonRelocatable nonRelocatable{};
 };
 
 template<class F>

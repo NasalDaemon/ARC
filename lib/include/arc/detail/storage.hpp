@@ -7,23 +7,32 @@
 #if !ARC_IMPORT_STD
 #include <cstddef>
 #include <memory>
-#include <new>
+#include <type_traits>
 #endif
 
 namespace arc::detail {
 
 template<class T>
+union StorageUnion
+{
+    constexpr StorageUnion() {}
+    constexpr ~StorageUnion() requires std::is_trivially_destructible_v<T> = default;
+    constexpr ~StorageUnion() {}
+    T t;
+};
+
+template<class T>
 struct Storage
 {
-    constexpr Storage() {} // explicit no-op constructor to prevent zero-initialization of bytes
+    constexpr Storage() {} // explicit no-op constructor to leave t uninitialised
 
-    constexpr T* storage() { return reinterpret_cast<T*>(bytes); }
-    constexpr const T* storage() const { return reinterpret_cast<const T*>(bytes); }
-    constexpr T* value() { return std::launder(storage()); }
-    constexpr const T* value() const { return std::launder(storage()); }
+    constexpr T* value() { return std::addressof(u.t); }
+    constexpr const T* value() const { return std::addressof(u.t); }
 
 private:
-    alignas(T) std::byte bytes[sizeof(T)] ARC_INDETERMINATE;
+    // u is not [[no_unique_address]]: a potentially-overlapping subobject is not
+    // transparently replaceable, so u.t would no longer name the object constructed in it
+    StorageUnion<T> u;
 };
 
 template<IsStateless T>
@@ -31,30 +40,34 @@ struct Storage<T>
 {
     constexpr Storage() {} // explicit no-op constructor to prevent zero-initialization
 
-    constexpr T* storage() { return std::addressof(t); }
-    constexpr const T* storage() const { return std::addressof(t); }
-    constexpr T* value() { return storage(); }
-    constexpr const T* value() const { return storage(); }
+    constexpr T* value() { return std::addressof(t); }
+    constexpr const T* value() const { return std::addressof(t); }
 
 private:
-    [[no_unique_address]] T t ARC_INDETERMINATE;
+    ARC_NO_UNIQUE_ADDRESS T t;
 };
+
+// GCC < 16 crashes exporting a constexpr function containing an array new-expression
+// of a type with a non-trivial destructor from a module
+#if ARC_COMPILER_LT(GCC, 16)
+#   define ARC_STORAGE_BUFFER_CONSTEXPR
+#else
+#   define ARC_STORAGE_BUFFER_CONSTEXPR constexpr
+#endif
 
 template<class T>
 struct StorageBuffer
 {
-    constexpr StorageBuffer(std::size_t capacity)
+    ARC_STORAGE_BUFFER_CONSTEXPR StorageBuffer(std::size_t capacity)
         : data(capacity ? new Storage<T>[capacity] : nullptr)
     {}
 
     StorageBuffer() = default;
 
-    constexpr T* storageAt(std::size_t index) noexcept { return static_cast<T*>(data.get()) + index; }
-    constexpr const T* storageAt(std::size_t index) const noexcept { return static_cast<const T*>(data.get()) + index; }
-    constexpr T* valueAt(std::size_t index) noexcept { return std::launder(storageAt(index)); }
-    constexpr const T* valueAt(std::size_t index) const noexcept { return std::launder(storageAt(index)); }
+    constexpr T* valueAt(std::size_t index) noexcept { return static_cast<Storage<T>*>(data.get())[index].value(); }
+    constexpr const T* valueAt(std::size_t index) const noexcept { return static_cast<Storage<T> const*>(data.get())[index].value(); }
 
-    void reset() noexcept { data.reset(); }
+    constexpr void reset() noexcept { data.reset(); }
 
 private:
     struct Deleter
@@ -67,6 +80,8 @@ private:
 
     std::unique_ptr<void, Deleter> data;
 };
+
+#undef ARC_STORAGE_BUFFER_CONSTEXPR
 
 } // namespace arc::detail
 

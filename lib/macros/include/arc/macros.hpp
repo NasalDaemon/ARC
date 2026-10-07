@@ -127,11 +127,14 @@
 
 #define ARC_COLD [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
 
-#if ARC_CPP_VERSION >= 202602L
+// Only valid on automatic variables and function parameters, never on data members
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(indeterminate)
 #   define ARC_INDETERMINATE [[indeterminate]]
 #else
 #   define ARC_INDETERMINATE
 #endif
+
+#define ARC_NO_UNIQUE_ADDRESS [[ARC_IF_MSVC(msvc::)no_unique_address]]
 
 // Clang won't detail the failure in the build diagnostic when asserting the concept directly
 #if ARC_COMPILER_CLANG
@@ -322,7 +325,7 @@
     static void resolveLinkGlobal();
 
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
-    [[no_unique_address]] ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \
+    ARC_NO_UNIQUE_ADDRESS ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \
     friend consteval auto getNodePointer(::arc::AdlTag<Context>) \
     { \
         using P = Context::Parent; \

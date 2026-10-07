@@ -208,7 +208,7 @@ namespace detail {
                 delete static_cast<Derived const*>(self);
             }
 
-            [[no_unique_address]] T value;
+            ARC_NO_UNIQUE_ADDRESS T value;
         };
 
         struct Deleter

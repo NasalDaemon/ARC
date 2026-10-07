@@ -64,7 +64,7 @@ namespace detail {
                 {
                     if (other.engaged.test(i))
                     {
-                        std::construct_at(std::get<i>(privateData).storage(), *std::get<i>(other.privateData).value());
+                        std::construct_at(std::get<i>(privateData).value(), *std::get<i>(other.privateData).value());
                         engaged.set(i);
                     }
                 });
@@ -77,7 +77,7 @@ namespace detail {
                 {
                     if (other.engaged.test(i))
                     {
-                        std::construct_at(std::get<i>(privateData).storage(), std::move(*std::get<i>(other.privateData).value()));
+                        std::construct_at(std::get<i>(privateData).value(), std::move(*std::get<i>(other.privateData).value()));
                         engaged.set(i);
                     }
                 });
@@ -94,8 +94,8 @@ namespace detail {
 
         std::size_t eventId = 0;
         Bitset<Count> engaged;
-        [[no_unique_address]] SharedData sharedData;
-        [[no_unique_address]] std::tuple<detail::Storage<Data>...> privateData;
+        ARC_NO_UNIQUE_ADDRESS SharedData sharedData;
+        ARC_NO_UNIQUE_ADDRESS std::tuple<detail::Storage<Data>...> privateData;
     };
 
     template<class T>
@@ -265,7 +265,7 @@ struct DataStoreNode
                 requires std::constructible_from<PrivateData, Args...>
             {
                 static_assert(detail::alwaysTrue<Args...> and isOptionalListener<I>(), "DataListener init that returns PrivateData must not use the injected constructor");
-                PrivateData* p = std::construct_at(std::get<I>(holder.privateData).storage(), ARC_FWD(args)...);
+                PrivateData* p = std::construct_at(std::get<I>(holder.privateData).value(), ARC_FWD(args)...);
                 holder.engaged.set(I);
                 return p;
             };
@@ -325,7 +325,7 @@ struct DataStoreNode
                         }
                         else
                         {
-                            new (std::get<I>(it->second.privateData).storage()) PrivateDataAt<I>(this->init<I>(*it));
+                            new (std::get<I>(it->second.privateData).value()) PrivateDataAt<I>(this->init<I>(*it));
                             it->second.engaged.set(I);
                         }
                     });

@@ -44,6 +44,7 @@ namespace detail {
         WeakDynamicHandle() = default;
 
         auto lock() const noexcept { return DynamicHandle<Storage, Element>(ptr); }
+        bool empty() const noexcept { return *this == WeakDynamicHandle{}; }
 
         bool operator==(WeakDynamicHandle const& other) const noexcept
         {
@@ -59,7 +60,7 @@ namespace detail {
     private:
         friend Storage;
         friend struct DynamicHandle<Storage, Element>;
-        constexpr explicit WeakDynamicHandle(std::weak_ptr<Element> element) : ptr(element.lock()) {}
+        constexpr explicit WeakDynamicHandle(std::weak_ptr<Element> element) : ptr(element) {}
         std::weak_ptr<Element> ptr{};
     };
 
@@ -479,7 +480,7 @@ public:
     }
 
 private:
-    [[no_unique_address]] std::conditional_t<Dynamic, std::vector<ID>, detail::Void> freeIds;
+    ARC_NO_UNIQUE_ADDRESS std::conditional_t<Dynamic, std::vector<ID>, detail::Void> freeIds;
 };
 
 // Collection policy: bundles element lifetime (dynamic vs static) with the

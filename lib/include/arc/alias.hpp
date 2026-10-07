@@ -65,8 +65,8 @@ struct Alias<T, Key, Keys...> final
 
 private:
     Alias<Impl> alias;
-    [[no_unique_address]] Key key;
-    [[no_unique_address]] std::tuple<Keys...> keys;
+    ARC_NO_UNIQUE_ADDRESS Key key;
+    ARC_NO_UNIQUE_ADDRESS std::tuple<Keys...> keys;
 };
 
 template<class T, class... Key>

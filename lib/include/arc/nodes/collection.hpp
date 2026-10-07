@@ -65,7 +65,7 @@ namespace key {
         Elements() = default;
         explicit Elements(Predicate pred) : pred(std::move(pred)) {}
 
-        [[no_unique_address]] Predicate pred{};
+        ARC_NO_UNIQUE_ADDRESS Predicate pred{};
     };
 
     template<class Pred>
@@ -132,8 +132,8 @@ struct Collection
         {
             ID id;
             Node* collection;
-            [[no_unique_address]] detail::GlobalNodePtr<Context> globalNode;
-            [[no_unique_address]] ElementNode node;
+            ARC_NO_UNIQUE_ADDRESS detail::GlobalNodePtr<Context> globalNode;
+            ARC_NO_UNIQUE_ADDRESS ElementNode node;
 
             explicit Element(ID const& id, Node* collection, auto&&... args)
                 : id(id), collection(collection), globalNode(collection), node(ARC_FWD(args)...)
