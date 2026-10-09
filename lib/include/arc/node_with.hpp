@@ -63,13 +63,15 @@ struct Resolve<void*>
 template<class Node, class... T>
 struct AssertNoImpl
 {
-    static_assert(alwaysFalse<Node, T...>, "Cannot use Impl more than once when building a node");
+    ARC_STATIC_ASSERT(alwaysFalse<Node, T...>)("Cannot use Impl more than once when building a node",
+        (node, arc::typeName<Node>));
 };
 
 template<class Node, class... T>
 struct AssertNoUses
 {
-    static_assert(alwaysFalse<Node, T...>, "Cannot use Uses more than once when building a node");
+    ARC_STATIC_ASSERT(alwaysFalse<Node, T...>)("Cannot use Uses more than once when building a node",
+        (node, arc::typeName<Node>));
 };
 
 template<IsNodeBase Node, class... DependTraits, class... TraitTs>

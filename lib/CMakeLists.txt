@@ -13,6 +13,12 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         # read is inlined; level 1 drops only that constructor-entry assumption.
         "-flifetime-dse=1"
     )
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    target_compile_options(arc_compiler_flags INTERFACE "/W4" "/WX")
+    # For ARC_STATIC_ASSERT: MSVC doesn't support C++20's __VA_OPT__ without this flag.
+    # Header consumers (arc::headers, pch) must unfortunately inherit it; arc_module_lib
+    # links arc_lib privately, so module consumers do not.
+    target_compile_options(arc_lib INTERFACE "/Zc:preprocessor")
 endif()
 
 # arc_lib_compiled adds non-template definitions for arc::headers consumers only;

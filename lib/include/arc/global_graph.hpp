@@ -8,6 +8,7 @@
 #include "arc/ensure.hpp"
 #include "arc/graph.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 
 #if !ARC_IMPORT_STD
@@ -32,6 +33,7 @@ namespace detail {
 
             struct GlobalContext : arc::Context<Cluster, GlobalNodeHandle>
             {
+                static constexpr char const NodeName[] = "global";
                 using Info = GlobalContextInfo;
 
                 template<class Trait>
@@ -47,6 +49,7 @@ namespace detail {
 
             struct MainContext : arc::Context<Cluster, MainCluster>
             {
+                static constexpr char const NodeName[] = "main";
                 using Info = MainContextInfo;
 
                 template<class N>
@@ -68,7 +71,8 @@ namespace detail {
             ARC_NODE(GlobalContext, global)
             ARC_NODE(MainContext, main)
 
-            static_assert(IsCluster<decltype(main)>, "MainCluster must be a cluster type");
+            ARC_STATIC_ASSERT(IsCluster<decltype(main)>)("MainCluster must be a cluster type",
+                ARC_SA_NODE(main, MainContext));
 
             constexpr auto* operator->(this auto& self)
             {

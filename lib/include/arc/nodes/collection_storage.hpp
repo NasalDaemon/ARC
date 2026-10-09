@@ -3,6 +3,7 @@
 
 #include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <algorithm>
@@ -372,7 +373,8 @@ ARC_MODULE_EXPORT
 template<class Element, class ID, bool Dynamic>
 struct IndexStorage : detail::VectorStorageBase<Element, ID, Dynamic>
 {
-    static_assert(std::unsigned_integral<ID>, "IndexStorage requires an unsigned integral ID");
+    ARC_STATIC_ASSERT(std::unsigned_integral<ID>)("IndexStorage requires an unsigned integral ID",
+        (id, arc::typeName<ID>)(element, arc::typeName<Element>));
 
 private:
     using Base = detail::VectorStorageBase<Element, ID, Dynamic>;

@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_GLOBAL_TRAIT_HPP
 
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait.hpp"
 
 namespace arc {
@@ -33,7 +34,8 @@ ARC_MODULE_EXPORT
 template<IsTrait T>
 struct Global : T
 {
-    static_assert(IsNonGlobalTrait<T>, "Global trait must wrap a non-global trait");
+    ARC_STATIC_ASSERT(IsNonGlobalTrait<T>)("Global trait must wrap a non-global trait",
+        (trait, arc::typeName<T>));
 
     using Trait = T;
 

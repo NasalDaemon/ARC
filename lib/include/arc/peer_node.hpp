@@ -5,6 +5,7 @@
 #include "arc/detail/cast.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node.hpp"
 #include "arc/node_with_fwd.hpp"
 #include "arc/traits/peer.hxx"
@@ -46,7 +47,9 @@ struct PeerNode : Node
     template<class Self>
     static constexpr void assertNodeContext()
     {
-        static_assert(detail::TraitsHasTrait<typename Self::Traits, trait::Peer>, "Peer node is missing implementation for arc::trait::Peer.");
+        ARC_STATIC_ASSERT_INLINE(detail::TraitsHasTrait<typename Self::Traits, trait::Peer>)(
+            "Peer node is missing implementation for arc::trait::Peer",
+            ARC_SA_NODE(node, arc::ContextOf<Self>));
         Node::assertNodeContext<Self>();
     }
 };

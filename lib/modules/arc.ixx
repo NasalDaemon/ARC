@@ -187,6 +187,7 @@ export namespace arc {
         using pred::NonUnary;
         using pred::Stateless;
         using pred::HasDepends;
+        using pred::HasTraits;
     }
     // environment.hpp
     using arc::Environment;
@@ -214,7 +215,6 @@ export namespace arc {
     using arc::IsNonGlobalTrait;
     using arc::global;
     // graph.hpp
-    using arc::InlineGraph;
     using arc::Graph;
     using arc::constructGraph;
     // group.hpp
@@ -365,6 +365,8 @@ export namespace arc {
         using trait::Scheduler;
         using trait::scheduler;
     }
+    // static_assert.hpp
+    using arc::nodePath;
     // traits/spy.hpp
     inline namespace trait {
         using arc::trait::SpyOnly;

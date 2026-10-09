@@ -7,6 +7,7 @@
 #include "arc/ensure.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/nodes/collection.hpp"
 
@@ -64,7 +65,8 @@ struct Adapt
 
         detail::ToVirtualNodeImpl<Facade, Facade_> facade{};
         friend consteval auto getNodePointer(arc::AdlTag<Facade_>) { return ARC_MEM_PTR(Cluster, facade); }
-        static_assert(IsInterface<decltype(facade)>);
+        ARC_STATIC_ASSERT(IsInterface<decltype(facade)>)("arc::Adapt facade must be an interface",
+            (facade, arc::typeName<decltype(facade)>));
 
         template<class... Ts>
         requires (... and not IsArgs<Ts>)

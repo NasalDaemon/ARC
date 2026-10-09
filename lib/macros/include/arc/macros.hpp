@@ -6,7 +6,7 @@
 #endif
 
 #define ARC_ASSERT_ARGS(pos, ...) static_cast<bool>(__VA_ARGS__), "ARC trait contract failure: " #__VA_ARGS__ " (" pos ")"
-#define ARC_CAT(l, r) l ## r
+#define ARC_CAT(l, r) l##r
 #define ARC_JOIN(l, r) l r
 #define ARC_STR(...) #__VA_ARGS__
 #define ARC_APPLY(macro, ...) ARC_JOIN(macro, (__VA_ARGS__))
@@ -88,11 +88,6 @@
 // ARC_COMPILER_LT(GCC, major, minor=0, patch=0)
 #define ARC_COMPILER_LT(NAME, ...) ARC_COMPILER_CMP(NAME, <, __VA_ARGS__)
 
-#if ARC_COMPILER_CLANG
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
-
 #if ARC_COMPILER_MSVC
 #   define ARC_CPP_VERSION _MSVC_LANG
 #else
@@ -119,13 +114,18 @@
 #   define ARC_AUTOCOMPLETE 0
 #endif
 
-#if ARC_COMPILER_MSVC
-#   define ARC_INLINE [[msvc::forceinline]] inline
-#else
-#   define ARC_INLINE [[gnu::always_inline, gnu::artificial]] inline
+#if ARC_COMPILER_CLANG
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 
-#define ARC_COLD [[using ARC_IF_GNU_ELSE(gnu)(msvc): noinline, cold]]
+#if ARC_COMPILER_MSVC
+#   define ARC_INLINE [[msvc::forceinline]] inline
+#   define ARC_COLD [[msvc::noinline]]
+#else
+#   define ARC_INLINE [[gnu::always_inline, gnu::artificial]] inline
+#   define ARC_COLD [[gnu::noinline, gnu::cold]]
+#endif
 
 // Only valid on automatic variables and function parameters, never on data members
 #if defined(__has_cpp_attribute) && __has_cpp_attribute(indeterminate)
@@ -135,15 +135,6 @@
 #endif
 
 #define ARC_NO_UNIQUE_ADDRESS [[ARC_IF_MSVC(msvc::)no_unique_address]]
-
-// Clang won't detail the failure in the build diagnostic when asserting the concept directly
-#if ARC_COMPILER_CLANG
-#   define ARC_ASSERT_IMPLEMENTS(Impl, Types, Trait) \
-    static_assert(::arc::detail::alwaysTrue<::arc::detail::Implements<Impl, Types, Trait>>)
-#else
-#   define ARC_ASSERT_IMPLEMENTS(Impl, Types, Trait) \
-    static_assert(::arc::Implements<Impl, Types, Trait>)
-#endif
 
 #define ARC_DECLVAL(...) static_cast<auto(*)() -> __VA_ARGS__>(nullptr)()
 #define ARC_TYPENAME(...) decltype(ARC_DECLVAL(__VA_ARGS__))
@@ -324,7 +315,14 @@
 #define ARC_LINK_TO_GLOBAL() \
     static void resolveLinkGlobal();
 
+// Name of the node in its parent cluster, used to build arc::nodePath when the context does not declare
+// `static constexpr char const NodeName[]` (as DSL-generated contexts do)
+#define ARC_NODE_NAME(Context, nodeName) \
+    friend consteval char const* getNodeName(::arc::AdlTag<Context>) { return #nodeName; }
+
+// Name declared before the member, so it is visible while the member's node type is instantiated
 #define ARC_NODE(Context, nodeName, ... /* predicates */) \
+    ARC_NODE_NAME(Context, nodeName) \
     ARC_NO_UNIQUE_ADDRESS ::arc::Ensure<::arc::ContextToNodeState<Context>, ## __VA_ARGS__> nodeName{}; \
     friend consteval auto getNodePointer(::arc::AdlTag<Context>) \
     { \

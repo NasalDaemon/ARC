@@ -14,6 +14,7 @@
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node.hpp"
 #include "arc/traits.hpp"
 #include "arc/traits/dynamic_node.hxx"
@@ -36,16 +37,18 @@ namespace detail {
     template<class... T>
     struct INodeAssertNoImpl
     {
-        static_assert(alwaysFalse<T...>,
+        ARC_STATIC_ASSERT(alwaysFalse<T...>)(
             "YourNode::Impl is disabled for arc::INode; "
-            "use arc::INodeImpl<YourNode, ...>/arc::Impl<YourNode, ...>/arc::Build<YourNode> instead");
+            "use arc::INodeImpl<YourNode, ...>/arc::Impl<YourNode, ...>/arc::Build<YourNode> instead",
+            (args, arc::typeName<void(T...)>));
     };
     template<class... T>
     struct INodeAssertNoUses
     {
-        static_assert(alwaysFalse<T...>,
+        ARC_STATIC_ASSERT(alwaysFalse<T...>)(
             "YourNode::Uses is disabled for arc::INode; "
-            "use arc::Uses<YourNode, ...>/arc::INodeOf<Interfaces...>::Uses<...>/arc::Build<YourNode> instead");
+            "use arc::Uses<YourNode, ...>/arc::INodeOf<Interfaces...>::Uses<...>/arc::Build<YourNode> instead",
+            (args, arc::typeName<void(T...)>));
     };
 
     struct INodeBase : Node
@@ -60,7 +63,8 @@ namespace detail {
         requires IsVirtualContext<ContextOf<Self>>
         ARC_INLINE constexpr auto exchangeImpl(this Self& self, auto&&... args)
         {
-            static_assert(not std::is_const_v<Self>, "Cannot exchange implementation of a node in a const context");
+            ARC_STATIC_ASSERT_INLINE(not std::is_const_v<Self>)("Cannot exchange implementation of a node in a const context",
+                ARC_SA_NODE(node, Self)(new_impl, arc::typeName<T>));
             return ContextOf<Self>::template exchangeImpl<T>(self, ARC_FWD(args)...);
         }
 
@@ -143,6 +147,7 @@ struct Virtual
         struct InnerContext : Context
         {
             static InnerContext isVirtualContext(detail::IsVirtualContextTag);
+            using NodePath = detail::NodePathOf<Context>;
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
@@ -186,7 +191,8 @@ struct Virtual
             constexpr auto getParentMemPtr()
             {
                 // Disable member pointer access to children as implementation can be swapped out at runtime
-                static_assert(detail::alwaysFalse<Parent>, "arc::Virtual does not have a stable member pointer to its children");
+                ARC_STATIC_ASSERT_INLINE(detail::alwaysFalse<Parent>)("arc::Virtual does not have a stable member pointer to its children",
+                    ARC_SA_NODE_CONTEXT(parent, Parent) ARC_SA_NODE_CONTEXT(node, Context));
             }
 
             template<IsContext Parent, class N>
@@ -283,7 +289,7 @@ struct Virtual
             using TraitInterface = InterfaceOf<Trait>;
             using Types = TraitInterface::Traits::template ResolveTypes<Trait, TraitInterface>;
             using Interface = AsInterface<TraitInterface>;
-            ARC_ASSERT_IMPLEMENTS(TraitInterface, Types, Trait);
+            static_assert((detail::assertImplements<TraitInterface, Types, Trait>(), true));
         };
 
         // arc::Virtual implements arc::trait::DynamicNode::exchangeImpl by visiting all contained nodes
@@ -392,8 +398,9 @@ struct Virtual
 
             if constexpr (ContextHasGlobalTrait<Context, Global<trait::Scheduler>>)
             {
-                static_assert(ContextHasTrait<ContextOf<Current>, trait::DynamicNode>,
-                    "Node inside arc::Virtual can only exchange its implementation with a scheduler when it has the arc::trait::DynamicNode trait");
+                ARC_STATIC_ASSERT_INLINE(ContextHasTrait<ContextOf<Current>, trait::DynamicNode>)(
+                    "Node inside arc::Virtual can only exchange its implementation with a scheduler when it has the arc::trait::DynamicNode trait",
+                    ARC_SA_NODE(current, Current));
                 auto scheduler = this->getGlobal(trait::scheduler);
                 if (not scheduler.inExclusiveMode())
                 {

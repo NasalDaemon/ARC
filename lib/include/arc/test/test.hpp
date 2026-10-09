@@ -10,6 +10,7 @@
 #include "arc/key.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/nodes/map_info.hpp"
 #include "arc/test/mock_fwd.hpp"
 #include "arc/node.hpp"
@@ -65,7 +66,8 @@ struct TestOnlyNode : arc::Node
     template<class Self>
     static constexpr void assertNodeContext()
     {
-        static_assert(IsTestContext<ContextOf<Self>>, "This node may only be used in a test context.");
+        ARC_STATIC_ASSERT_INLINE(IsTestContext<ContextOf<Self>>)("This node may only be used in a test context",
+            ARC_SA_NODE_CONTEXT(node, arc::ContextOf<Self>));
         arc::Node::assertNodeContext<Self>();
     }
 };

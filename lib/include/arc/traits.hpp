@@ -3,6 +3,7 @@
 
 #include "arc/detached.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/link.hpp"
 #include "arc/traits_fwd.hpp"
 
@@ -146,9 +147,11 @@ namespace arc::detail {
     template<class DR1, class DR2, class... TraitTs1, class... TraitTs2>
     struct CombineTraits<Traits<DR1, TraitTs1...>, Traits<DR2, TraitTs2...>>
     {
-        static_assert(std::is_same_v<DR1, DR2>, "Cannot combine Traits with different DefaultResolvers");
-        static_assert(std::is_same_v<DR1, TraitsDefault> or std::is_same_v<DR1, TraitsOpenDefault>,
-            "May only combine arc::Traits<...> or arc::TraitsOpen<...>");
+        ARC_STATIC_ASSERT(std::is_same_v<DR1, DR2>)("Cannot combine Traits with different DefaultResolvers",
+            (lhs, arc::typeName<DR1>)(rhs, arc::typeName<DR2>));
+        ARC_STATIC_ASSERT(std::is_same_v<DR1, TraitsDefault> or std::is_same_v<DR1, TraitsOpenDefault>)(
+            "May only combine arc::Traits<...> or arc::TraitsOpen<...>",
+            (resolver, arc::typeName<DR1>));
         using type = Traits<DR1, TraitTs1..., TraitTs2...>;
     };
 

@@ -7,6 +7,7 @@
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 namespace arc {
 
@@ -37,8 +38,11 @@ namespace detail {
     template<IsContext Context, IsGlobalTrait GlobalTrait>
     consteval void assertContextHasGlobalTrait()
     {
-        static_assert(ContextHasGlobal<Context>, "Context does not have a global node or cluster");
-        static_assert(ContextHasGlobalTrait<Context, GlobalTrait>, "Global node or cluster does not have the requested trait");
+        ARC_STATIC_ASSERT_INLINE(ContextHasGlobal<Context>)("Context does not have a global node or cluster",
+            ARC_SA_NODE_CONTEXT(node, Context)(trait, arc::typeName<GlobalTrait>));
+        ARC_STATIC_ASSERT_INLINE(ContextHasGlobalTrait<Context, GlobalTrait>)(
+            "Global node or cluster does not have the requested trait",
+            ARC_SA_NODE_CONTEXT(node, Context)(trait, arc::typeName<GlobalTrait>));
     }
 
     template<class Context>

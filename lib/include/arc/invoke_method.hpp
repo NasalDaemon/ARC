@@ -6,6 +6,7 @@
 #include "arc/global_trait.hpp"
 #include "arc/invoke_method_fwd.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait_view_fwd.hpp"
 #include "arc/traits/spy.hpp"
 
@@ -39,8 +40,10 @@ namespace detail {
     template<class Context, class View, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethodWithSpy(std::nullptr_t/* spy */, View&& view, Node& node, Method method, Args&&... args)
     {
-        static_assert(CanInvokeMethod<Node, Method, Args...>);
-        static_assert(HasMethods<View>);
+        ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)("Method cannot be invoked on node with the given arguments",
+            ARC_SA_NODE(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+        ARC_STATIC_ASSERT_INLINE(HasMethods<View>)("View does not expose trait methods",
+            (view, arc::typeName<View>));
         if constexpr (ImplementsMethod<Node, Method, Args...>)
             return node.impl(method, ARC_FWD(args)...);
         else
@@ -50,8 +53,10 @@ namespace detail {
     template<class Context, class SpyTraitView, class View, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethodWithSpy(SpyTraitView spy, View&& view, Node& node, Method method, Args&&... args)
     {
-        static_assert(CanInvokeMethod<Node, Method, Args...>);
-        static_assert(HasMethods<View>);
+        ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)("Method cannot be invoked on node with the given arguments",
+            ARC_SA_NODE(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+        ARC_STATIC_ASSERT_INLINE(HasMethods<View>)("View does not expose trait methods",
+            (view, arc::typeName<View>));
         auto caller = [&](auto&&... spyArgs) -> decltype(auto)
         {
             if constexpr (ImplementsMethod<Node, Method, Args...>)
@@ -79,7 +84,8 @@ namespace detail {
     template<class Context, class Trait, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethod(Node& node, Method method, Args&&... args)
     {
-        static_assert(CanInvokeMethod<Node, Method, Args...>);
+        ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)("Method cannot be invoked on node with the given arguments",
+            ARC_SA_NODE(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
         return invokeMethodWithSpy<Context>(getSpy<Context, Trait>(node), node, node, method, ARC_FWD(args)...);
     }
 

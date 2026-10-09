@@ -2,7 +2,7 @@
 #define INCLUDE_ARC_NODE_FWD_HPP
 
 #include "arc/detail/concepts.hpp"
-#include "arc/emplace.hpp"
+#include "arc/emplace_fwd.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
 #include "arc/trait.hpp"

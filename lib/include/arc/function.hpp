@@ -6,6 +6,7 @@
 #include "arc/compiler.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <concepts>
@@ -61,7 +62,9 @@ template<class R, class... Args, FunctionPolicy Policy_>
 struct Function<R(Args...), Policy_>
 {
     static constexpr FunctionPolicy Policy = Policy_;
-    static_assert(Policy.constCall or Policy.mutableCall);
+    ARC_STATIC_ASSERT(Policy.constCall or Policy.mutableCall)(
+        "arc::Function policy must allow const and/or mutable calls",
+        (signature, arc::typeName<R(Args...)>));
 
     Function() = default;
     Function(Function&&) = default;

@@ -3,7 +3,9 @@
 
 #include "arc/macros.hpp"
 
-#if ARC_CPP_VERSION > 202302L and __cpp_pack_indexing >= 202311L
+// Not clang 21's pack indexing: in an alias template its result may stay dependent after substitution,
+// failing constraints that resolve through it as non-constant (or crashing clang)
+#if ARC_CPP_VERSION > 202302L and __cpp_pack_indexing >= 202311L and not ARC_COMPILER_CLANG
 #   define ARC_TYPE_AT_VER 1
 #elif ARC_COMPILER_GNU
 #   define ARC_TYPE_AT_VER 2

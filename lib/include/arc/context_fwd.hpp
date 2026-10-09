@@ -91,7 +91,7 @@ ARC_MODULE_EXPORT
 struct NullContext;
 
 ARC_MODULE_EXPORT
-template<class Root>
+template<class Root = void, class NodeHandle = void>
 struct RootContext;
 
 ARC_MODULE_EXPORT

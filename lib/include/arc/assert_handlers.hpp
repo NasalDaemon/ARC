@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_ASSERT_HANDLERS_HPP
 
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <iostream>
@@ -35,7 +36,8 @@ struct ContractAssertHandler : AssertHandlerBase
     #else
     ARC_INLINE constexpr void operator()(auto, bool, const char*) const
     {
-        static_assert(false, "ContractAssertHandler: requires compiler support for C++20 contracts or later");
+        ARC_STATIC_ASSERT_INLINE(false)("ContractAssertHandler: requires compiler support for C++26 contracts",
+            (cpp_version, ARC_CPP_VERSION));
     }
     #endif
 };

@@ -9,6 +9,7 @@
 #include "arc/assert_handlers.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 
 #include "arc/finalise.hpp"
@@ -68,7 +69,8 @@ namespace detail {
             // depending on oneself allows for the runtime optimisation to exist.
             // Self may be a decorated context (e.g. MappedContext) derived from the
             // context the link resolves to, so derived_from rather than is_same_v.
-            static_assert(not std::derived_from<Self, typename Other::Context>, "Dependency on self not allowed");
+            ARC_STATIC_ASSERT_INLINE(not std::derived_from<Self, typename Other::Context>)("Dependency on self not allowed",
+                ARC_SA_NODE_CONTEXT(node, Self)(trait, arc::typeName<Trait>));
             auto thisMemPtr = getNodePointer(AdlTag<Self>{});
             auto otherMemPtr = getNodePointer(AdlTag<typename Other::Context>{});
             auto& otherNode = otherMemPtr.getMemberFromClass(thisMemPtr.getClassFromMember(node));
@@ -168,17 +170,34 @@ namespace detail {
     auto getRootAssertHandler() -> Root::ArcContractAssertHandler;
 }
 
-template<class Root_>
-struct RootContext : NullContext
+namespace detail {
+    template<class Root>
+    struct RootInfo : NullContext::Info
+    {
+        static constexpr decltype(getRootAssertHandler<Root>()) ContractAssert{};
+    };
+
+    // Names the root cluster in diagnostics, when known. Not `NodeHandle`: the root context hosts no node,
+    // so arc::InnerNodeHandle of it stays void (code such as loggers reads void as "no source node")
+    template<class NodeHandle_>
+    struct RootNodeHandle
+    {
+        using RootCluster = NodeHandle_;
+    };
+    template<>
+    struct RootNodeHandle<void>
+    {};
+}
+
+// Root_: user-defined root type (or void for the defaults), NodeHandle_: handle of the root cluster (or void if unknown)
+template<class Root_, class NodeHandle_>
+struct RootContext : NullContext, detail::RootNodeHandle<NodeHandle_>
 {
-    struct Root : Root_
+    struct Root : std::conditional_t<std::is_void_v<Root_>, NullContext::Root, Root_>
     {
         using Context = RootContext;
     };
-    struct Info : NullContext::Info
-    {
-        static constexpr decltype(detail::getRootAssertHandler<Root_>()) ContractAssert{};
-    };
+    using Info = std::conditional_t<std::is_void_v<Root_>, NullContext::Info, detail::RootInfo<Root_>>;
 };
 
 template<class Parent_, IsNodeHandle NodeHandle_>

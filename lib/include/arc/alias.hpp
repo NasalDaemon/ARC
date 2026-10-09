@@ -4,6 +4,7 @@
 #include "arc/detail/compress.hpp"
 
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 #include "detail/cast.hpp"
 
@@ -19,7 +20,8 @@ ARC_MODULE_EXPORT
 template<class T, class... Key>
 struct Alias final
 {
-    static_assert(sizeof...(Key) == 0);
+    ARC_STATIC_ASSERT(sizeof...(Key) == 0)("arc::Alias does not accept keys",
+        (type, arc::typeName<T>)(key_count, sizeof...(Key)));
 
     using Impl = T;
     using Interface = std::remove_const_t<T>;

@@ -491,14 +491,22 @@ class Cluster:
         return "cluster"
 
     @property
+    def source_file(self) -> str:
+        # Name of the file the cluster is defined in
+        return input_path.name
+
+    @property
     def full_name(self) -> str:
         if self.namespace.name:
             return f"{self.namespace.name}::{self.name}"
         else:
             return self.name
 
-    def predicates(self, node) -> list[str]:
-        return []
+    def predicates(self, node: Node | Repeater) -> list[str]:
+        if isinstance(node, Repeater):
+            return []
+        traits = set(f'::arc::NoTrait<{node.node_alias}>' if trait in NO_TRAIT else trait for _, _, trait in node.clients)
+        return [f"::arc::pred::HasTraits<{', '.join(traits)}>"]
 
     def predicates_str(self, node) -> str:
         if preds := self.predicates(node):
@@ -522,7 +530,7 @@ class Cluster:
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown cluster template: {c.data}')
 
-    def get_connection_error(self, lnode: Node, rnode: Node, is_override: bool) -> None:
+    def get_connection_error(self, lnode: Node, rnode: Node, is_override: bool) -> str | None:
         return None
 
     def arrow_sign(self, arrow: Tree) -> str:
@@ -922,7 +930,7 @@ class Domain(Cluster):
     def predicates(self, node: Node | Repeater) -> list[str]:
         if isinstance(node, Repeater):
             return []
-        preds = ["::arc::pred::HasDepends"]
+        preds = super().predicates(node) + ["::arc::pred::HasDepends"]
         if not node.is_unary:
             preds.append("::arc::pred::NonUnary")
             return preds
@@ -1051,7 +1059,7 @@ class Method:
 
     @cached_property
     def is_template(self):
-        if self.templates or next((True for t, n in self.params if t.is_auto), False):
+        if self.templates or any(t.is_auto for t, n in self.params):
             return True
         return False
 

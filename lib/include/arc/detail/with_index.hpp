@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_DETAIL_WITH_INDEX_HPP
 
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <algorithm>
@@ -22,7 +23,8 @@ struct WithIndexInvokeTag
 
     static consteval auto getIndexTag()
     {
-        static_assert(count == 1);
+        ARC_STATIC_ASSERT_INLINE(count == 1)("Index tag is only available when invoked with a single index",
+            (count, count)(index, Index));
         return std::integral_constant<std::size_t, Index>{};
     };
 

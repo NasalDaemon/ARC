@@ -4,6 +4,7 @@
 #include "arc/detail/cast.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/context_fwd.hpp"
 
@@ -36,7 +37,8 @@ ARC_MODULE_EXPORT
 template<class NodeT, IsDetachedInterface Interface>
 struct DetachedImpl : Interface, private NodeT
 {
-    static_assert(IsStateless<Interface>);
+    ARC_STATIC_ASSERT(IsStateless<Interface>)("arc::DetachedImpl interface must be stateless",
+        (interface, arc::typeName<Interface>)(node, arc::typeName<NodeT>));
 
     ARC_NODE_USE_PUBLIC_MEMBERS(NodeT)
     using NodeT::finalise;

@@ -9,6 +9,7 @@
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node.hpp"
 #include "arc/trait.hpp"
 
@@ -37,6 +38,8 @@ struct Lazy
 
         struct InnerContext : Context
         {
+            using NodePath = detail::NodePathOf<Context>;
+
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"

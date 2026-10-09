@@ -15,6 +15,7 @@
 #include "arc/node_with_fwd.hpp"
 #include "arc/no_trait.hpp"
 #include "arc/trait.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait_view.hpp"
 #include "arc/traits_fwd.hpp"
 
@@ -60,18 +61,21 @@ struct Node
     {
         Self::template assertNodeContext<Self>();
         if constexpr (not detail::IsNodeState<Self>)
-            static_assert(NodeDependencyListed<Self, Trait>, "Requested trait missing from node's arc::Depends list");
+            ARC_STATIC_ASSERT_INLINE(NodeDependencyListed<Self, Trait>)("Requested trait missing from node's arc::Depends<>/Uses<> list",
+                (trait, arc::typeName<Trait>) ARC_SA_NODE(node, arc::ContextOf<Self>));
         using Context = ContextOf<Self>;
         using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
         if constexpr (IsGlobalTrait<Trait>)
         {
             if constexpr (not ContextHasGlobalConnection<Context> and not detail::ImplicitDependencyAllowed<Context, Trait>)
-                static_assert(detail::HasGlobalLink<Context, Trait>, "Node missing link to a global node dependency");
+                ARC_STATIC_ASSERT_INLINE(detail::HasGlobalLink<Context, Trait>)("Node missing link to a global node dependency",
+                    (trait, arc::typeName<Trait>) ARC_SA_NODE_CONTEXT(node, Context));
         }
         else
         {
-            static_assert(detail::HasLocalLink<Context, Trait>, "Node missing link to a dependency");
+            ARC_STATIC_ASSERT_INLINE(detail::HasLocalLink<Context, Trait>)("Node missing link to a dependency",
+                (trait, arc::typeName<Trait>) ARC_SA_NODE_CONTEXT(node, Context));
         }
         auto target = Context{}.getNode(node, trait);
         return makeTraitView(self, target, trait, key, keys...);
@@ -110,10 +114,11 @@ struct Node
         using ThisNode = UnderlyingNode<Self>;
         auto& node = detail::upCast<ThisNode>(self);
 
-        static_assert(Self::Traits::template HasTrait<Trait>, "Trait not listed in node's arc::Traits");
+        ARC_STATIC_ASSERT_INLINE(Self::Traits::template HasTrait<Trait>)("Trait not listed in node's arc::Traits<>/Impl<>",
+            (trait, arc::typeName<Trait>) ARC_SA_NODE(node, arc::ContextOf<Self>));
         using Interface = Self::Traits::template ResolveInterface<Trait, ThisNode>;
-        using Types = Self::Traits::template ResolveTypes<Trait, ThisNode>;
-        return detail::TargetRef{detail::downCast<Interface>(node), std::type_identity<Types>{}};
+        using TraitTypes = Self::Traits::template ResolveTypes<Trait, ThisNode>;
+        return detail::TargetRef{detail::downCast<Interface>(node), std::type_identity<TraitTypes>{}};
     }
 
     template<IsTrait Trait, class Self>
@@ -131,14 +136,16 @@ struct Node
     template<class Self>
     static consteval void assertNodeContext()
     {
-        static_assert(NodeDependenciesSatisfied<Self, true>, "Not all entries in node's arc::Depends are satisfied transitively.");
+        ARC_STATIC_ASSERT_INLINE(NodeDependenciesSatisfied<Self, true>)("Not all entries in node's arc::Depends<>/Uses<> are satisfied transitively",
+            ARC_SA_NODE_CONTEXT(node, arc::ContextOf<Self>)(missing, detail::missingDependencies<Self, true>()));
     }
 
     // For use by nodes host in arc::Union or arc::Virtual
     template<IsNodeHandle T, class Self>
     constexpr decltype(auto) exchangeImpl(this Self& self, auto&&... args)
     {
-        static_assert(not std::is_const_v<Self>);
+        ARC_STATIC_ASSERT_INLINE(not std::is_const_v<Self>)("Cannot exchange implementation of a node in a const context",
+            ARC_SA_NODE(node, arc::ContextOf<Self>)(new_impl, arc::typeName<T>));
         return ContextOf<Self>::template exchangeImpl<T>(self, ARC_FWD(args)...);
     }
 

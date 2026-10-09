@@ -4,6 +4,7 @@
 #include "arc/detail/cast.hpp"
 #include "arc/cluster_fwd.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"
 #include "arc/trait_view_fwd.hpp"
@@ -44,7 +45,8 @@ template<class Node, class Method, class... Args>
 requires HasDefaultImpl<Node, Method, Args...>
 ARC_INLINE constexpr decltype(auto) invokeMethodDefault(Node& node, Method method, Args&&... args)
 {
-    static_assert(HasMethods<Node>);
+    ARC_STATIC_ASSERT_INLINE(HasMethods<Node>)("Node does not expose trait methods",
+        ARC_SA_NODE(node, Node)(method, arc::typeName<Method>));
     return TraitOf<Method>::Meta::DefaultImpl::defaultImpl(node, method, ARC_FWD(args)...);
 }
 

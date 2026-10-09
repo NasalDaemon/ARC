@@ -8,6 +8,7 @@
 #include "arc/context.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
@@ -25,6 +26,8 @@ namespace detail {
         struct Context : arc::Context<CombineNode, Node>
         {
             using ParentContext = ContextParameterOf<CombineNode>;
+            // Parts of a combined node share its path
+            using NodePath = detail::NodePathOf<ParentContext>;
 
             template<class T>
             requires detail::HasLocalLink<ParentContext, T>

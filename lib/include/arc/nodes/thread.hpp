@@ -13,6 +13,7 @@
 #include "arc/key.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/nodes/map_info.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"
@@ -130,7 +131,8 @@ namespace detail {
     template<std::size_t ThreadId>
     struct RequireThread
     {
-        static_assert(ThreadId != ThreadEnvironment::DynamicThreadId, "arc::OnThread cannot be used with dynamic thread id, use arc::OnDynThread instead");
+        ARC_STATIC_ASSERT(ThreadId != ThreadEnvironment::DynamicThreadId)("arc::OnThread cannot be used with dynamic thread id, use arc::OnDynThread instead",
+            (thread_id, ThreadId));
 
         static consteval bool anyThreadId() { return ThreadId == ThreadEnvironment::AnyThreadId; }
 
@@ -180,9 +182,13 @@ namespace detail {
                 if constexpr (not anyThreadId())
                 {
                     using Environment = Target::Environment;
-                    static_assert(Environment::template HasTag<ThreadEnvironment::Tag>, "Access denied from unknown thread");
+                    ARC_STATIC_ASSERT_INLINE(Environment::template HasTag<ThreadEnvironment::Tag>)("Access denied from unknown thread",
+                        ARC_SA_NODE_CONTEXT(target, Target)(required_thread, RequiredThreadId));
                     constexpr auto threadId = Environment::template Get<ThreadEnvironment::Tag>::ThreadId;
-                    static_assert(threadId == RequiredThreadId, "Access denied from current thread");
+                    ARC_STATIC_ASSERT_INLINE(threadId == RequiredThreadId)("Access denied from current thread",
+                        ARC_SA_NODE_CONTEXT(target, Target)
+                        (current_thread, threadId)
+                        (required_thread, RequiredThreadId));
                 }
                 Context::Info::assertAccessible(target);
             }
@@ -212,6 +218,7 @@ public:
     struct Impl : InnerNode<Context>
     {
         using InnerNode<Context>::InnerNode;
+        using Inner = OnThread::InnerNode<Context>;
 
         constexpr void visit(this auto& self, auto&& visitor)
         {
@@ -219,7 +226,7 @@ public:
             {
                 auto scheduler = self.getGlobal(trait::scheduler);
                 if (ThreadId == ThreadEnvironment::AnyThreadId or scheduler.isCurrentThread(ThreadId))
-                    self.InnerNode<Context>::visit(ARC_FWD(visitor));
+                    self.Inner::visit(ARC_FWD(visitor));
                 else
                     scheduler.postTask(
                         ThreadId,
@@ -230,7 +237,7 @@ public:
             }
             else
             {
-                self.InnerNode<Context>::visit(ARC_FWD(visitor));
+                self.Inner::visit(ARC_FWD(visitor));
             }
         }
     };
@@ -251,9 +258,10 @@ namespace key {
         static constexpr void assertCanAcquireAccess()
         {
             if constexpr (sizeof...(Tags) > 0)
-                static_assert((... or std::is_same_v<Tags, ThreadEnvironment::Tag>),
+                ARC_STATIC_ASSERT_INLINE((... or std::is_same_v<Tags, ThreadEnvironment::Tag>))(
                     "arc::key::DynThreadAssert can only acquire thread affinity; "
-                    "another key is required to acquire access to the target. Put access keys first.");
+                    "another key is required to acquire access to the target. Put access keys first.",
+                    (required_access, arc::typeName<void(Tags...)>));
         }
 
         template<class Source, class Target>
@@ -445,7 +453,8 @@ namespace key {
         template<class T, std::size_t CurrentThreadId>
         struct Interface : T
         {
-            static_assert(std::derived_from<Poster, ThreadPost>);
+            ARC_STATIC_ASSERT(std::derived_from<Poster, ThreadPost>)("Poster must derive from arc::ThreadPost",
+                (poster, arc::typeName<Poster>));
             constexpr decltype(auto) visit(this auto& self, auto&& visitor)
             {
                 std::size_t dynamicRequiredThreadId = requiredThreadId;
@@ -482,9 +491,10 @@ namespace key {
         static constexpr void assertCanAcquireAccess()
         {
             if constexpr (sizeof...(Tags) > 0)
-                static_assert((... or std::is_same_v<Tags, ThreadEnvironment::Tag>),
+                ARC_STATIC_ASSERT_INLINE((... or std::is_same_v<Tags, ThreadEnvironment::Tag>))(
                     "arc::key::ThreadPost can only acquire thread affinity; "
-                    "another key is required to acquire access to the target. Put access keys first.");
+                    "another key is required to acquire access to the target. Put access keys first.",
+                    (required_access, arc::typeName<void(Tags...)>));
         }
 
         template<class Source, class Target>
@@ -492,13 +502,18 @@ namespace key {
         {
             constexpr auto requiredThreadId = ContextOf<Target>::Info::RequiredThreadId;
             // Would be a ARC library bug if calling acquireAccess despite target accepting any thread id
-            static_assert(requiredThreadId != ThreadEnvironment::AnyThreadId);
+            ARC_STATIC_ASSERT_INLINE(requiredThreadId != ThreadEnvironment::AnyThreadId)("ARC library bug: acquireAccess called for a target accepting any thread",
+                ARC_SA_NODE(source, Source) ARC_SA_NODE(target, Target));
             constexpr auto currentThreadId = detail::getCurrentStaticThread<Source>();
 
             using Environment = Source::Environment;
             using Env = Environment::template InsertOrReplace<ThreadEnvironment::WithId<requiredThreadId>>;
             using WithEnv = arc::TransferEnv<Env, Target>;
-            static_assert(WithEnv::Environment::template Get<ThreadEnvironment::Tag>::ThreadId == requiredThreadId);
+            ARC_STATIC_ASSERT_INLINE(WithEnv::Environment::template Get<ThreadEnvironment::Tag>::ThreadId == requiredThreadId)(
+                "ARC library bug: thread environment was not updated to the required thread",
+                ARC_SA_NODE(target, Target)
+                (thread_id, WithEnv::Environment::template Get<ThreadEnvironment::Tag>::ThreadId)
+                (required_thread, requiredThreadId));
             return detail::downCast<Interface<WithEnv, currentThreadId>>(target);
         }
 

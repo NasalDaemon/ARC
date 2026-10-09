@@ -8,6 +8,7 @@
 #include "arc/empty_types.hpp"
 #include "arc/trait.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 
 namespace arc {
@@ -25,6 +26,8 @@ struct MapInfo
     template<class Context>
     struct MappedContext : Context
     {
+        using NodePath = detail::NodePathOf<Context>;
+
         template<class NH>
         friend auto innerNodeHandle(MappedContext*, AdlTag<NH>) -> arc::InnerNodeHandle<Context, NodeHandle>;
 
@@ -35,7 +38,8 @@ struct MapInfo
 
         using Info = InfoMapper::template MapInfo<detail::CompressContext<Context>>;
 
-        static_assert(std::derived_from<Info, typename Context::Info>);
+        ARC_STATIC_ASSERT(std::derived_from<Info, typename Context::Info>)("Mapped Info must derive from the original context's Info",
+            (mapper, arc::typeName<InfoMapper>)(info, arc::typeName<Info>)(original_info, arc::typeName<typename Context::Info>));
     };
 
     template<class Context>

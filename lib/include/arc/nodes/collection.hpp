@@ -18,6 +18,7 @@
 #include "arc/global_trait.hpp"
 #include "arc/key.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/traits/peer.hxx"
@@ -147,7 +148,8 @@ struct Collection
                 // Remove dynamic environment components from Caller, as the peers are independent instances
                 using Environment = Caller::Environment::template RemoveDynamic<>;
                 using NodeState = TransferEnv<Environment, arc::ContextToNodeState<detail::Decompress<ContextOf<Caller>>>>;
-                static_assert(std::is_same_v<CallerNode, TargetNode>);
+                ARC_STATIC_ASSERT_INLINE(std::is_same_v<CallerNode, TargetNode>)("Peers must be the same node type",
+                    ARC_SA_NODE(caller, ContextOf<Caller>) ARC_SA_NODE(target, ContextOf<Target>));
                 return collection->elementsView()
                     | std::views::transform([](auto const& item) { return std::to_address(item); })
                     | std::views::filter(
@@ -176,6 +178,8 @@ struct Collection
 
         struct ElementContext : Context
         {
+            using NodePath = detail::NodePathOf<Context, true>;
+
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
@@ -210,7 +214,8 @@ struct Collection
             template<IsContext Parent>
             constexpr auto getParentMemPtr()
             {
-                static_assert(std::is_same_v<Parent, ElementContext>, "arc::Collection does not have a stable member pointer relative to its parent node");
+                ARC_STATIC_ASSERT_INLINE(std::is_same_v<Parent, ElementContext>)("arc::Collection does not have a stable member pointer relative to its parent node",
+                    ARC_SA_NODE_CONTEXT(parent, Parent) ARC_SA_NODE_CONTEXT(element, ElementContext));
                 return ARC_MEM_PTR(Element, node);
             }
 
@@ -259,9 +264,11 @@ struct Collection
         {
             // Checked here rather than at class scope, as Element must be complete
             if constexpr (Dynamic)
-                static_assert(IsDynamicCollectionStorage<Storage, Element, ID>);
+                ARC_STATIC_ASSERT_INLINE(IsDynamicCollectionStorage<Storage, Element, ID>)("Storage does not satisfy the dynamic collection storage requirements",
+                    (storage, arc::typeName<Storage>)(id, arc::typeName<ID>));
             else
-                static_assert(IsCollectionStorage<Storage, Element, ID>);
+                ARC_STATIC_ASSERT_INLINE(IsCollectionStorage<Storage, Element, ID>)("Storage does not satisfy the collection storage requirements",
+                    (storage, arc::typeName<Storage>)(id, arc::typeName<ID>));
 
             // Nodes must not be invalidated by insertions, so the store must not relocate elements.
             store.ensureSpareCapacity();
@@ -366,7 +373,8 @@ struct Collection
 
         [[nodiscard]] constexpr ElementNode* insert(InsertId const& id, auto&&... args) requires Dynamic
         {
-            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+            ARC_STATIC_ASSERT_INLINE(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>)("arc::Collection::insert is not supported with a global scheduler yet",
+                ARC_SA_NODE_CONTEXT(node, Context));
 
             Element* el = addImpl(true, id, ARC_FWD(args)...).first;
             if (el)
@@ -376,7 +384,8 @@ struct Collection
 
         [[nodiscard]] constexpr std::pair<ElementNode*, bool> tryInsert(InsertId const& id, auto&&... args) requires Dynamic
         {
-            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+            ARC_STATIC_ASSERT_INLINE(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>)("arc::Collection::tryInsert is not supported with a global scheduler yet",
+                ARC_SA_NODE_CONTEXT(node, Context));
 
             auto [element, inserted] = addImpl(false, id, ARC_FWD(args)...);
             if (element && inserted)
@@ -394,7 +403,8 @@ struct Collection
         template<class Self, std::predicate<ID, StrongHandle, detail::ConstLike<Self, ElementNode>&> F>
         constexpr void removeIf(this Self& self, F&& func) requires Dynamic
         {
-            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+            ARC_STATIC_ASSERT_INLINE(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>)("arc::Collection::removeIf is not supported with a global scheduler yet",
+                ARC_SA_NODE_CONTEXT(node, Context));
 
             self.store.eraseIf(
                 [&](detail::ConstLike<Self, Element>& el)
@@ -405,7 +415,8 @@ struct Collection
 
         constexpr bool remove(ID const& id) requires Dynamic
         {
-            static_assert(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>, "Not supported yet");
+            ARC_STATIC_ASSERT_INLINE(not ContextHasGlobalTrait<Context, arc::trait::Scheduler>)("arc::Collection::remove is not supported with a global scheduler yet",
+                ARC_SA_NODE_CONTEXT(node, Context));
 
             return store.erase(id);
         }
@@ -446,7 +457,8 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::AsTrait : Node
     template<class T>
     static constexpr auto finalise(auto&, key::Element<T> const&, auto const&...)
     {
-        static_assert(std::is_same_v<T, ID> or std::is_same_v<T, StrongHandle>, "T is not ID or Handle type");
+        ARC_STATIC_ASSERT_INLINE(std::is_same_v<T, ID> or std::is_same_v<T, StrongHandle>)("arc::key::Element type is not the collection's ID or Handle type",
+            (key_type, arc::typeName<T>)(id, arc::typeName<ID>)(handle, arc::typeName<StrongHandle>));
     }
 
     ARC_INLINE constexpr auto finalise(this auto& self, auto& source, auto const& key, auto const&... keys)
@@ -520,19 +532,22 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::ControlView : Node, ar
 
     [[nodiscard]] constexpr std::pair<StrongHandle, bool> tryInsert(InsertId const& id, auto&&... args)
     {
-        static_assert(Dynamic, "tryInsert is only available for dynamic collections");
+        ARC_STATIC_ASSERT_INLINE(Dynamic)("tryInsert is only available for dynamic collections",
+            (id, arc::typeName<ID>));
         auto [element, inserted] = addImpl(false, id, ARC_FWD(args)...);
         return {this->store.handleFor(element), inserted};
     }
 
     constexpr bool remove(ID const& id)
     {
-        static_assert(Dynamic, "remove is only available for dynamic collections");
+        ARC_STATIC_ASSERT_INLINE(Dynamic)("remove is only available for dynamic collections",
+            (id, arc::typeName<ID>));
         return Node::remove(id);
     }
     constexpr bool remove(StrongHandle const& handle)
     {
-        static_assert(Dynamic, "remove is only available for dynamic collections");
+        ARC_STATIC_ASSERT_INLINE(Dynamic)("remove is only available for dynamic collections",
+            (handle, arc::typeName<StrongHandle>));
         return this->store.contains(handle) and Node::remove(Storage::idOf(handle));
     }
 
@@ -558,7 +573,8 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::ControlView : Node, ar
     template<class Self>
     constexpr void removeIf(this Self& self, auto&& func)
     {
-        static_assert(Dynamic, "removeIf is only available for dynamic collections");
+        ARC_STATIC_ASSERT_INLINE(Dynamic)("removeIf is only available for dynamic collections",
+            (id, arc::typeName<ID>));
         self.Node::removeIf(
             [&](ID const& id, StrongHandle handle, auto& node)
             {

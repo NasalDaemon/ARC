@@ -15,7 +15,11 @@ compiler.runtime={{ runtime }}
 
 # Clang, GCC
 {% else %}
+{% if (compiler == "gcc" and version >= 15) or (compiler == "clang" and version >= 20) %}
+compiler.cppstd=gnu26
+{% else %}
 compiler.cppstd=gnu23
+{% endif %}
 compiler.libcxx={{ "libstdc++11" if compiler == "gcc" else "libc++" }}
 
 [conf]

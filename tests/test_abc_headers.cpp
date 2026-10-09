@@ -8,13 +8,13 @@ TEST_CASE("abc headers")
 {
     arc::Graph<cluster::AliceBob> g{.ellie{101}};
     g.onConstructed();
-    auto aliceWrite = g.asTrait(trait::alice);
-    aliceWrite.set(11);
+    auto aliceView = g.asTrait(trait::alice);
+    aliceView.set(11);
 
-    using AliceWrite = decltype(aliceWrite);
-    static_assert(std::is_same_v<int, AliceWrite::Types::AliceType>);
-    static_assert(aliceWrite.isTrait(trait::aliceWrite));
-    static_assert(aliceWrite.isTrait(trait::aliceRead));
+    using AliceView = decltype(aliceView);
+    static_assert(std::is_same_v<int, AliceView::Types::AliceType>);
+    static_assert(aliceView.isTrait(trait::aliceWrite));
+    static_assert(aliceView.isTrait(trait::aliceRead));
 
     CHECK(11 == g.alice.asTrait(trait::alice).get());
     CHECK(64 == g.alice.asTrait(trait::bob).get());

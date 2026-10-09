@@ -113,10 +113,10 @@ def _arc_cc_info_impl(rctx):
 
     reflection = "__cpp_impl_reflection" in (
         _predefined(rctx, cxx, ["-std=c++26", "-freflection"]) or {})
-    cxxopts = ["-std=c++26", "-freflection"] if reflection else ["-std=c++23"]
+    cxxopts = ["-std=c++26", "-freflection"] if reflection else ["-std=c++26"]
     linkopts = []
     if compiler == "gcc":
-        cxxopts += ["-fdiagnostics-all-candidates", "-fconcepts-diagnostics-depth=6"]
+        cxxopts.append("-fconcepts-diagnostics-depth=2")
         # A node may reach its host from its own constructor through MemberPtr,
         # backwards from `this`. At -flifetime-dse=2 GCC counts that read as one
         # of the node's still-dead *this and warns -Wuninitialized wherever the

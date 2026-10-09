@@ -7,6 +7,7 @@
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
 #include "arc/resolve.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait.hpp"
 #include "arc/test_context.hpp"
 
@@ -72,6 +73,19 @@ struct Depends
     // On failure, the missing required trait types are named in a list for better error messages
     template<class Node, bool Transitive>
     using AssertSatisfied = detail::AllVoid<decltype(detail::dependencySatisfied<Node, Traits, Transitive>())...>;
+
+    // Comma separated names of the unsatisfied dependencies, for ARC_STATIC_ASSERT_INLINE messages
+    template<class Node, bool Transitive>
+    static consteval std::string missingDependencies()
+    {
+        std::string missing;
+        ([&]
+        {
+            if constexpr (not std::is_void_v<decltype(detail::dependencySatisfied<Node, Traits, Transitive>())>)
+                missing.append(missing.empty() ? "" : ", ").append(arc::typeName<detail::DependsTrait<Traits>>);
+        }(), ...);
+        return missing;
+    }
 };
 
 } // namespace arc

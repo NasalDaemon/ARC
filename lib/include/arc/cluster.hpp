@@ -9,6 +9,7 @@
 #include "arc/environment.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/trait.hpp"
 #include "arc/trait_view.hpp"
@@ -106,7 +107,10 @@ struct Domain : Cluster
     template<class Context>
     static consteval void ensureDepth()
     {
-        static_assert(Context::Depth <= Params.MaxDepth);
+        ARC_STATIC_ASSERT_INLINE(Context::Depth <= Params.MaxDepth)("Cluster nesting exceeds the arc::Domain's maximum depth",
+            ARC_SA_NODE_CONTEXT(node, Context)
+            (depth, Context::Depth)
+            (max_depth, Params.MaxDepth));
     }
 };
 

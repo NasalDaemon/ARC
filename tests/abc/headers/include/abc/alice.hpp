@@ -56,7 +56,7 @@ struct Alice
         int impl(trait::Charlie::get method) const;
 
         static_assert(std::is_same_v<decltype(NodeBase::alice), BobType>);
-        static_assert(std::is_same_v<arc::NullContext::Root, arc::ResolveRoot<Context>>);
+        static_assert(std::is_base_of_v<arc::NullContext::Root, arc::ResolveRoot<Context>>);
         static_assert(std::is_same_v<arc::NullContext::Info, arc::ResolveInfo<Context>>);
     };
 };

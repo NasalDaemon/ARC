@@ -7,6 +7,7 @@
 #include "arc/environment.hpp"
 #include "arc/group.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/key.hpp"
 
 #if !ARC_IMPORT_STD
@@ -45,8 +46,10 @@ namespace detail {
     template<class Source, class Target>
     ARC_INLINE constexpr auto& permittedView(Target& target)
     {
-        static_assert(IsReadPermittedNode<Source, Target>,
-            "Cannot finalise connection: source group has no permission to connect to target group");
+        ARC_STATIC_ASSERT_INLINE(IsReadPermittedNode<Source, Target>)(
+            "Cannot finalise connection: source group has no permission to connect to target group",
+            ARC_SA_NODE_CONTEXT(source, Source)
+            ARC_SA_NODE_CONTEXT(target, Target));
 
         if constexpr (IsWritePermittedNode<Source, Target>)
             return target;
@@ -70,7 +73,10 @@ ARC_INLINE constexpr auto finalise(Source&, Target& target)
 {
     constexpr auto accessTags = detail::accessTagsRequiredFromKeys<Source, Target>();
     if constexpr (std::tuple_size_v<decltype(accessTags)> != 0)
-        static_assert(detail::alwaysFalse<Source, Target>, "Incorrect or insufficient keys to acquire access to target from source");
+        ARC_STATIC_ASSERT_INLINE(detail::alwaysFalse<Source, Target>)("Incorrect or insufficient keys to acquire access to target from source",
+            ARC_SA_NODE_CONTEXT(source, Source)
+            ARC_SA_NODE_CONTEXT(target, Target)
+            (required_access, arc::typeName<std::remove_const_t<decltype(accessTags)>>));
     return makeAlias(detail::permittedView<Source>(target));
 }
 

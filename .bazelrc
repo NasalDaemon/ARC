@@ -1,4 +1,4 @@
-build --repo_env=BAZEL_CXXOPTS="-std=c++23"
+build --repo_env=BAZEL_CXXOPTS="-std=c++26"
 build --cxxopt=-Werror
 build --cxxopt=-Wall
 build --cxxopt=-Wextra

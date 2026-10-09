@@ -6,6 +6,7 @@
 #include "arc/link.hpp"
 #include "arc/context_fwd.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node_fwd.hpp"
 #include "arc/test_context.hpp"
 
@@ -48,7 +49,8 @@ namespace detail {
     requires LocallyResolvable<T, Trait>
     struct ResolveTraitT<T, Trait>
     {
-        static_assert(not IsGlobalTrait<Trait> or test::IsTestContext<T>, "Global traits may only be resolved locally in a test context");
+        ARC_STATIC_ASSERT(not IsGlobalTrait<Trait> or test::IsTestContext<T>)("Global traits may only be resolved locally in a test context",
+            ARC_SA_NODE_CONTEXT(node, T)(trait, arc::typeName<Trait>));
         using Target = ResolveLink<T, Trait>;
         using type = ResolveTraitT<ContextToNode<typename Target::Context>, typename Target::Trait>::type;
     };

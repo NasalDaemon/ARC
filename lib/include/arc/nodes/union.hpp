@@ -17,6 +17,7 @@
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node.hpp"
 #include "arc/resolve.hpp"
 #include "arc/trait.hpp"
@@ -49,7 +50,8 @@ union VariadicUnion
     template<std::size_t I>
     ARC_INLINE constexpr auto* get(this auto& self) noexcept
     {
-        static_assert(I <= sizeof...(Tail));
+        ARC_STATIC_ASSERT_INLINE(I <= sizeof...(Tail))("Union index out of range",
+            (index, I)(size, sizeof...(Tail) + 1));
         if constexpr (I == 0)
             return std::addressof(self.head);
         else
@@ -68,7 +70,8 @@ union VariadicUnion<Head>
     template<std::size_t I>
     ARC_INLINE constexpr auto* get(this auto& self) noexcept
     {
-        static_assert(I == 0);
+        ARC_STATIC_ASSERT_INLINE(I == 0)("Union index out of range",
+            (index, I)(size, 1));
         return std::addressof(self.head);
     }
 };
@@ -88,6 +91,7 @@ struct Union
         struct InnerContext : Context
         {
             static InnerContext isUnionContext(detail::IsUnionContextTag);
+            using NodePath = detail::NodePathOf<Context>;
             #if ARC_COMPILER_GCC
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnon-template-friend"
@@ -100,14 +104,17 @@ struct Union
             template<IsNodeHandle T, class Option>
             static constexpr auto exchangeImpl(Option& option, auto&&... args)
             {
-                static_assert(not std::is_const_v<Option>, "Cannot exchange implementation of a node in a const context");
-                static_assert((... or std::is_same_v<T, Options>), "Cannot exchange with a node that is not listed as an option in the hosting arc::Union");
+                ARC_STATIC_ASSERT_INLINE(not std::is_const_v<Option>)("Cannot exchange implementation of a node in a const context",
+                    ARC_SA_NODE(current, Option)(new_impl, arc::typeName<T>));
+                ARC_STATIC_ASSERT_INLINE((... or std::is_same_v<T, Options>))("Cannot exchange with a node that is not listed as an option in the hosting arc::Union",
+                    (new_impl, arc::typeName<T>)(options, arc::typeName<void(Options...)>));
                 auto const nodePtr = detail::memberPtr<Node>(std::bit_cast<Option Node::*>(&Node::union_));
                 Node& node = nodePtr.getClassFromMember(option);
                 if constexpr (ContextHasGlobalTrait<Context, Global<trait::Scheduler>>)
                 {
-                    static_assert(ContextHasTrait<ContextOf<Option>, trait::DynamicNode>,
-                        "Node inside arc::Union can only exchange its implementation with a scheduler when it has the arc::trait::DynamicNode trait");
+                    ARC_STATIC_ASSERT_INLINE(ContextHasTrait<ContextOf<Option>, trait::DynamicNode>)(
+                        "Node inside arc::Union can only exchange its implementation with a scheduler when it has the arc::trait::DynamicNode trait",
+                        ARC_SA_NODE(current, Option)(new_impl, arc::typeName<T>));
                     auto const scheduler = node.getGlobal(trait::scheduler);
                     // Only execute the exchange if the scheduler is in exclusive mode as this is the
                     // way to guarantee there will be no dangling references to the old implementation
@@ -168,7 +175,8 @@ struct Union
             constexpr auto getParentMemPtr()
             {
                 // Disable member pointer access to children as the implementation can be swapped out at runtime
-                static_assert(detail::alwaysFalse<Parent>, "arc::Union does not have a stable member pointer relative to its parent node");
+                ARC_STATIC_ASSERT_INLINE(detail::alwaysFalse<Parent>)("arc::Union does not have a stable member pointer relative to its parent node",
+                    ARC_SA_NODE_CONTEXT(parent, Parent) ARC_SA_NODE_CONTEXT(node, Context));
             }
 
             template<IsContext Parent, class Option>
@@ -375,8 +383,11 @@ struct Union
 
         static constexpr std::size_t MaxAlign = std::max({alignof(ToNode<Options>)...});
         static constexpr std::size_t MaxSize = std::max({sizeof(ToNode<Options>)...});
-        static_assert(alignof(decltype(union_)) == MaxAlign);
-        static_assert(sizeof(union_) == (MaxSize + MaxAlign - 1) / MaxAlign * MaxAlign);
+        ARC_STATIC_ASSERT(alignof(decltype(union_)) == MaxAlign)("ARC library bug: unexpected arc::Union alignment",
+            (align, alignof(decltype(union_)))(expected, MaxAlign));
+        ARC_STATIC_ASSERT(sizeof(union_) == (MaxSize + MaxAlign - 1) / MaxAlign * MaxAlign)("ARC library bug: unexpected arc::Union size",
+            (size, sizeof(union_))
+            (expected, (MaxSize + MaxAlign - 1) / MaxAlign * MaxAlign));
     };
 };
 

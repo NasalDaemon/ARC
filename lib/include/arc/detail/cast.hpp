@@ -1,8 +1,11 @@
 #ifndef INCLUDE_ARC_DETAIL_CAST_HPP
 #define INCLUDE_ARC_DETAIL_CAST_HPP
 
+#include "arc/detail/cast_fwd.hpp"
+
 #include "arc/compiler.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <bit>
@@ -35,32 +38,40 @@ ARC_INLINE constexpr ConstLike<Other, T>& constLike(T& value)
 template<class Derived, class Base>
 ARC_INLINE constexpr Derived& downCast(Base& base)
 {
-    static_assert(std::is_base_of_v<Base, Derived>);
+    ARC_STATIC_ASSERT_INLINE(std::is_base_of_v<Base, Derived>)("downCast target must derive from the source type",
+        (base, arc::typeName<Base>)(derived, arc::typeName<Derived>));
     if constexpr (not isMsvc) // MSVC doesn't have proper EBO
-        static_assert(sizeof(Derived) == sizeof(Base));
+        ARC_STATIC_ASSERT_INLINE(sizeof(Derived) == sizeof(Base))("downCast target must not add state to the source type",
+            (base, arc::typeName<Base>)(derived, arc::typeName<Derived>)
+            (base_size, sizeof(Base))(derived_size, sizeof(Derived)));
     return *(Derived*)std::addressof(base);
 }
 
 template<class Derived, class Base>
 ARC_INLINE constexpr Derived const& downCast(Base const& base)
 {
-    static_assert(std::is_base_of_v<Base, Derived>);
+    ARC_STATIC_ASSERT_INLINE(std::is_base_of_v<Base, Derived>)("downCast target must derive from the source type",
+        (base, arc::typeName<Base>)(derived, arc::typeName<Derived>));
     if constexpr (not isMsvc) // MSVC doesn't have proper EBO
-        static_assert(sizeof(Derived) == sizeof(Base));
+        ARC_STATIC_ASSERT_INLINE(sizeof(Derived) == sizeof(Base))("downCast target must not add state to the source type",
+            (base, arc::typeName<Base>)(derived, arc::typeName<Derived>)
+            (base_size, sizeof(Base))(derived_size, sizeof(Derived)));
     return *(Derived const*)std::addressof(base);
 }
 
 template<class Base, class Derived>
 ARC_INLINE constexpr Base& upCast(Derived& derived)
 {
-    static_assert(std::is_base_of_v<Base, Derived>);
+    ARC_STATIC_ASSERT_INLINE(std::is_base_of_v<Base, Derived>)("upCast source must derive from the target type",
+        (base, arc::typeName<Base>)(derived, arc::typeName<Derived>));
     return *(Base*)std::addressof(derived);
 }
 
 template<class Base, class Derived>
 ARC_INLINE constexpr Base const& upCast(Derived const& derived)
 {
-    static_assert(std::is_base_of_v<Base, Derived>);
+    ARC_STATIC_ASSERT_INLINE(std::is_base_of_v<Base, Derived>)("upCast source must derive from the target type",
+        (base, arc::typeName<Base>)(derived, arc::typeName<Derived>));
     return *(Base const*)std::addressof(derived);
 }
 
@@ -119,8 +130,10 @@ struct MemberPtr
     template<class BaseClass>
     constexpr MemberPtr(Member BaseClass::* memPtr) : memPtr(memPtr)
     {
-        static_assert(std::is_base_of_v<BaseClass, Class>);
-        static_assert(not IsVirtualBaseOf<BaseClass, Class>);
+        ARC_STATIC_ASSERT_INLINE(std::is_base_of_v<BaseClass, Class>)("MemberPtr class must derive from the member's class",
+            (member_class, arc::typeName<BaseClass>)(class, arc::typeName<Class>));
+        ARC_STATIC_ASSERT_INLINE(not IsVirtualBaseOf<BaseClass, Class>)("MemberPtr does not support members of virtual bases",
+            (member_class, arc::typeName<BaseClass>)(class, arc::typeName<Class>));
         if consteval
         {
             if (memPtr == nullptr)

@@ -7,6 +7,7 @@
 #include "arc/invoke_method.hpp"
 #include "arc/key.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/no_trait.hpp"
 #include "arc/protocol.hpp"
 #include "arc/trait.hpp"
@@ -107,11 +108,9 @@ struct TraitView final : Trait::Meta::Methods
     ARC_INLINE constexpr TraitView(Trait, ImplAlias alias, std::type_identity<Types_>)
         : alias(alias)
     {
-        static_assert(not IsTrait<TraitView>);
-        if constexpr (not std::is_const_v<typename ImplAlias::Interface>)
-            ARC_ASSERT_IMPLEMENTS(typename ImplAlias::Interface, Types, Trait);
-        if constexpr (not std::is_const_v<typename ImplAlias::Impl>)
-            ARC_ASSERT_IMPLEMENTS(TraitView, Types, Trait);
+        ARC_STATIC_ASSERT_INLINE(not IsTrait<TraitView>)("TraitView must not itself be a trait",
+            (trait, arc::typeName<Trait>));
+        assertImplements();
     }
 
     using Impl = ImplAlias::Impl;
@@ -136,7 +135,8 @@ struct TraitView final : Trait::Meta::Methods
     template<class SubTrait, bool Fallback = false>
     constexpr TraitView asTrait(this auto&& self, SubTrait = {}, std::bool_constant<Fallback> = {})
     {
-        static_assert(Fallback, "Cannot convert to requested trait");
+        ARC_STATIC_ASSERT_INLINE(Fallback)("Cannot convert to requested trait",
+            (from, arc::typeName<Trait>)(to, arc::typeName<SubTrait>));
         return self;
     }
 
@@ -177,6 +177,14 @@ struct TraitView final : Trait::Meta::Methods
     }
 
 private:
+    static constexpr void assertImplements()
+    {
+        if constexpr (not std::is_const_v<typename ImplAlias::Interface>)
+            detail::assertImplements<typename ImplAlias::Interface, Types, Trait>();
+        if constexpr (not std::is_const_v<typename ImplAlias::Impl>)
+            detail::assertImplements<TraitView, Types, Trait>();
+    }
+
     template<class Method>
     struct MethodFunctor
     {

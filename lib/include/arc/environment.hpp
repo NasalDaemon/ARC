@@ -4,6 +4,7 @@
 #include "arc/detail/cast.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <concepts>
@@ -162,7 +163,8 @@ ARC_MODULE_EXPORT
 template<EnvironmentPart... Es, class Target>
 ARC_INLINE constexpr auto& mergeEnvParts(Target& t)
 {
-    static_assert(sizeof...(Es) > 0);
+    ARC_STATIC_ASSERT_INLINE(sizeof...(Es) > 0)("mergeEnvParts requires at least one environment part",
+        (target, arc::typeName<Target>));
     using NewEnv = Target::Environment::template Merge<Es...>;
     if constexpr (std::is_same_v<NewEnv, typename Target::Environment>)
         return t;
@@ -175,7 +177,10 @@ template<class Environment, class Target>
 requires (not EnvironmentPart<Environment>)
 ARC_INLINE constexpr auto& withEnv(Target& t)
 {
-    static_assert(Target::Environment::IsEmpty);
+    ARC_STATIC_ASSERT_INLINE(Target::Environment::IsEmpty)("withEnv requires a target without an existing environment",
+        (target, arc::typeName<Target>)
+        (existing, arc::typeName<typename Target::Environment>)
+        (environment, arc::typeName<Environment>));
     if constexpr (Environment::IsEmpty)
         return t;
     else

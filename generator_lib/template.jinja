@@ -903,8 +903,10 @@ struct {{ cluster.name }}
 {
     {% if cluster.trunk_traits %}
     using Trunk = ::arc::Trunk<{{ cluster.trunk_traits | join(", ") }}>;
-
     {% endif %}
+    // File the cluster is defined in, for diagnostics
+    static constexpr char const FileName[] = "{{ cluster.source_file }}";
+
     template<class Context>
     struct Node;
 };
@@ -968,6 +970,7 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
     {% for node in cluster.nodes %}
     struct {{ node.context }} : ::arc::Context<Node, {{ node.context }}Node_>
     {
+        static constexpr char const NodeName[] = "{{ node.name }}";
         {% if node.connected_to_global %}
         ARC_LINK_TO_GLOBAL()
         {% endif %}

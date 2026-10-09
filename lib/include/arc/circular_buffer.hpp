@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_CIRCULAR_BUFFER_HPP
 
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/detail/concepts.hpp"
 #include "arc/detail/storage.hpp"
 
@@ -218,14 +219,16 @@ struct CircularBuffer
         {
             if constexpr (std::ranges::view<R>)
             {
-                static_assert(std::constructible_from<T, std::ranges::range_reference_t<R>>,
-                    "CircularBuffer::CircularBuffer: buffer element type not constructible from view reference type");
+                ARC_STATIC_ASSERT_INLINE(std::constructible_from<T, std::ranges::range_reference_t<R>>)(
+                    "CircularBuffer::CircularBuffer: buffer element type not constructible from view reference type",
+                    (element, arc::typeName<T>)(reference, arc::typeName<std::ranges::range_reference_t<R>>));
                 std::construct_at(buffer.value_at(writeIndex), ARC_FWD(elem));
             }
             else
             {
-                static_assert(std::constructible_from<T, decltype(std::forward_like<R>(elem))>,
-                    "CircularBuffer::CircularBuffer: buffer element type not constructible from range element type");
+                ARC_STATIC_ASSERT_INLINE(std::constructible_from<T, decltype(std::forward_like<R>(elem))>)(
+                    "CircularBuffer::CircularBuffer: buffer element type not constructible from range element type",
+                    (element, arc::typeName<T>)(range_element, arc::typeName<decltype(std::forward_like<R>(elem))>));
                 std::construct_at(buffer.value_at(writeIndex), std::forward_like<R>(elem));
             }
             ++writeIndex;
@@ -420,14 +423,16 @@ struct CircularBuffer
         {
             if constexpr (std::ranges::view<R>)
             {
-                static_assert(std::constructible_from<T, std::ranges::range_reference_t<R>>,
-                    "CircularBuffer::append: buffer element type not constructible from view reference type");
+                ARC_STATIC_ASSERT_INLINE(std::constructible_from<T, std::ranges::range_reference_t<R>>)(
+                    "CircularBuffer::append: buffer element type not constructible from view reference type",
+                    (element, arc::typeName<T>)(reference, arc::typeName<std::ranges::range_reference_t<R>>));
                 std::construct_at(buffer.value_at(writeIndex), ARC_FWD(elem));
             }
             else
             {
-                static_assert(std::constructible_from<T, decltype(std::forward_like<R>(elem))>,
-                    "CircularBuffer::append: buffer element type not constructible from range element type");
+                ARC_STATIC_ASSERT_INLINE(std::constructible_from<T, decltype(std::forward_like<R>(elem))>)(
+                    "CircularBuffer::append: buffer element type not constructible from range element type",
+                    (element, arc::typeName<T>)(range_element, arc::typeName<decltype(std::forward_like<R>(elem))>));
                 std::construct_at(buffer.value_at(writeIndex), std::forward_like<R>(elem));
             }
             ++writeIndex;

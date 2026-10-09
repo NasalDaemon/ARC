@@ -6,6 +6,7 @@
 #include "arc/cluster.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/node.hpp"
 #include "arc/nodes/collection.hpp"
 
@@ -67,24 +68,29 @@ namespace detail {
 
             struct Main_ : arc::Context<Cluster, Main>
             {
+                static constexpr char const NodeName[] = "main";
                 template<class Trait>
                 static ResolvedLink<OutVirtual_, Trait> resolveLink(Trait, LinkPriorityMin);
             };
 
             struct InFacade_ : arc::Context<Cluster, InFacade>
             {
+                static constexpr char const NodeName[] = "inFacade";
                 template<class Trait>
                 static ResolvedLink<Main_, Trait> resolveLink(Trait, LinkPriorityMin);
             };
 
             struct OutVirtual_ : arc::Context<Cluster, arc::Virtual<OutInterfaces...>>
-            {};
+            {
+                static constexpr char const NodeName[] = "outVirtual";
+            };
 
             ARC_NODE(Main_, main)
 
             detail::ToVirtualNodeImpl<InFacade, InFacade_> inFacade{};
             friend consteval auto getNodePointer(arc::AdlTag<InFacade_>) { return ARC_MEM_PTR(Cluster, inFacade); }
-            static_assert(IsInterface<decltype(inFacade)>);
+            ARC_STATIC_ASSERT(IsInterface<decltype(inFacade)>)("arc::Box input facade must be an interface",
+                (facade, arc::typeName<decltype(inFacade)>));
 
             ARC_NODE(OutVirtual_, outVirtual)
 

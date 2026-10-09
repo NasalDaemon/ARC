@@ -10,6 +10,7 @@
 #include "arc/function.hpp"
 #include "arc/invoke_method.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/test/mock_fwd.hpp"
 #include "arc/node.hpp"
 #include "arc/test_context.hpp"
@@ -190,7 +191,8 @@ namespace detail {
                 : Base(copy, destroy)
                 , value(std::forward<Args>(args)...)
             {
-                static_assert(not std::is_reference_v<T>);
+                ARC_STATIC_ASSERT_INLINE(not std::is_reference_v<T>)("Mock storage cannot hold a reference type",
+                    (type, arc::typeName<T>));
             }
 
             static constexpr Base* copy(Base const* self)
@@ -383,7 +385,8 @@ namespace detail {
             template<class T>
             constexpr bool convertibleTo() const
             {
-                static_assert(std::is_reference_v<T>, "T must be a reference type");
+                ARC_STATIC_ASSERT_INLINE(std::is_reference_v<T>)("T must be a reference type",
+                    (type, arc::typeName<T>));
                 return lref == std::is_lvalue_reference_v<T>
                    and (std::is_const_v<std::remove_reference_t<T>> or not isConst)
                    and typeId == arc::typeId<std::remove_cvref_t<T>>;
@@ -594,10 +597,13 @@ namespace detail {
         template<class Method, class... Args, std::invocable<std::remove_cvref_t<Args> const&...> F = ArgsTuple>
         auto visitCallLogs(std::size_t startIndex, F&& visitor = {})
         {
-            static_assert((... and not std::is_reference_v<Args>), "Only value types are supported arg types for visitCallLogs");
-            static_assert(sizeof...(Args) > 0, "Cannot visit calls with no arguments");
-            static_assert((std::is_copy_constructible_v<std::remove_cvref_t<Args>> and ...),
-                "All argument types must be copy constructible to be logged");
+            ARC_STATIC_ASSERT_INLINE((... and not std::is_reference_v<Args>))("Only value types are supported arg types for visitCallLogs",
+                (method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+            ARC_STATIC_ASSERT_INLINE(sizeof...(Args) > 0)("Cannot visit calls with no arguments",
+                (method, arc::typeName<Method>));
+            ARC_STATIC_ASSERT_INLINE((std::is_copy_constructible_v<std::remove_cvref_t<Args>> and ...))(
+                "All argument types must be copy constructible to be logged",
+                (method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
             if (not loggingAllCalls)
                 throw std::runtime_error("visitCallLogs: Call logging is not enabled for this mock, please enable logging");
 
@@ -779,7 +785,8 @@ namespace detail {
         template<class Method, class... Args>
         static consteval TypeId implType(Method(*)(Args...) = nullptr)
         {
-            static_assert(not IsFunctionSignature<Method>);
+            ARC_STATIC_ASSERT_INLINE(not IsFunctionSignature<Method>)("Mock method tag must not be a function signature",
+                (method, arc::typeName<Method>));
             return arc::typeId<ImplTag, Method, Args...>;
         }
 

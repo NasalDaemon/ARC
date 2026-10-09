@@ -5,7 +5,13 @@
 
 #if ARC_COMPRESS_TYPES
 
-#include "arc/detail/cast.hpp"
+// Not arc/detail/cast.hpp, which depends on this file (via arc/static_assert.hpp and arc/context_fwd.hpp)
+#include "arc/detail/cast_fwd.hpp"
+
+#if !ARC_IMPORT_STD
+#include <concepts>
+#include <type_traits>
+#endif
 
 #define ARC_COMPRESSOR_ID(id) _d1C##id##_
 

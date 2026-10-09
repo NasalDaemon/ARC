@@ -109,13 +109,13 @@ struct TracerSpy : arc::Node
     // tearing down the graph.
     void reset(Params p);
     // Reset but preserve params
-    void reset(std::optional<bool> recording = std::nullopt)
+    void reset(std::optional<bool> newRecording = std::nullopt)
     {
         reset({
             .minDepth = minDepthLog,
             .maxDepth = maxDepthLog,
             .maxEvents = events.max_size(),
-            .recording = recording.value_or(this->recording)
+            .recording = newRecording.value_or(recording)
         });
     }
 

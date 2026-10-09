@@ -4,6 +4,7 @@
 #include "arc/detail/concepts.hpp"
 
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
@@ -35,13 +36,15 @@ struct Default
     template<class... Tags>
     static constexpr void assertCanAcquireAccess()
     {
-        static_assert(sizeof...(Tags) == 0, "Access cannot be acquired with arc::key::Default");
+        ARC_STATIC_ASSERT_INLINE(sizeof...(Tags) == 0)("Access cannot be acquired with arc::key::Default",
+            (required_access, arc::typeName<void(Tags...)>));
     }
 
     template<class Source, class Target>
     static constexpr Target& acquireAccess(Source&, Target& target)
     {
-        static_assert(arc::detail::alwaysFalse<Source, Target>, "Access denied");
+        ARC_STATIC_ASSERT_INLINE(arc::detail::alwaysFalse<Source, Target>)("Access denied",
+            ARC_SA_NODE_CONTEXT(source, Source) ARC_SA_NODE_CONTEXT(target, Target));
         return target;
     }
 };

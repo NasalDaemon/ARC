@@ -1,7 +1,10 @@
 #ifndef INCLUDE_ARC_FACTORY_HPP
 #define INCLUDE_ARC_FACTORY_HPP
 
+#include "arc/emplace_fwd.hpp"
+
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 
 #if !ARC_IMPORT_STD
 #include <concepts>
@@ -40,7 +43,9 @@ struct Emplace
     template<class Type>
     ARC_INLINE explicit constexpr operator Type() &&
     {
-        static_assert(std::is_same_v<Type, std::invoke_result_t<F, Constructor<Type>>>);
+        ARC_STATIC_ASSERT_INLINE(std::is_same_v<Type, std::invoke_result_t<F, Constructor<Type>>>)(
+            "arc::Emplace factory must return exactly the target type",
+            (target, arc::typeName<Type>)(returned, arc::typeName<std::invoke_result_t<F, Constructor<Type>>>));
         return std::move(factory)(Constructor<Type>{});
     }
 
@@ -59,7 +64,9 @@ struct InPlace
     template<class Type>
     ARC_INLINE explicit(false) constexpr operator Type() &&
     {
-        static_assert(std::is_same_v<Type, std::invoke_result_t<F, Constructor<Type>>>);
+        ARC_STATIC_ASSERT_INLINE(std::is_same_v<Type, std::invoke_result_t<F, Constructor<Type>>>)(
+            "arc::InPlace factory must return exactly the target type",
+            (target, arc::typeName<Type>)(returned, arc::typeName<std::invoke_result_t<F, Constructor<Type>>>));
         return std::move(factory)(Constructor<Type>{});
     }
 

@@ -7,6 +7,7 @@
 #include "arc/detail/storage.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/macros.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/nodes/repeater.hpp"
 
 #include "arc/traits/datastore.hpp"
@@ -106,7 +107,8 @@ namespace detail {
     template<class T>
     constexpr std::true_type isEvent(T const&)
     {
-        static_assert(not IsNotEvent<T>);
+        ARC_STATIC_ASSERT_INLINE(not IsNotEvent<T>)("Type returned from useData callback is not an event",
+            (type, arc::typeName<T>));
         return {};
     }
 
@@ -118,7 +120,8 @@ namespace detail {
     template<class T>
     constexpr T const& getEvent(T const& event)
     {
-        static_assert(not IsNotEvent<T>);
+        ARC_STATIC_ASSERT_INLINE(not IsNotEvent<T>)("Type returned from useData callback is not an event",
+            (type, arc::typeName<T>));
         return event;
     }
 
@@ -148,7 +151,8 @@ struct DataStoreNode
             using ResolvedTypes = arc::ResolveTypes<Node, DataListenerTrait>;
             if constexpr (requires { ResolvedTypes::TypesCount; })
             {
-                static_assert(ResolvedTypes::TypesCount > 1, "DataStore behind a repeater requires at least two DataListeners");
+                ARC_STATIC_ASSERT_INLINE(ResolvedTypes::TypesCount > 1)("DataStore behind a repeater requires at least two DataListeners",
+                    (shared_data, arc::typeName<SharedData>)(listener_count, ResolvedTypes::TypesCount));
                 return ResolvedTypes::TypesCount;
             }
             else
@@ -183,7 +187,8 @@ struct DataStoreNode
             using ResolvedNode = detail::ResolveTraitFromNode<Node, DataListenerTrait>::Node;
             if constexpr (sizeof...(Is) == 1)
             {
-                static_assert(std::is_same_v<ListenerContext, ContextOf<ResolvedNode>>);
+                ARC_STATIC_ASSERT_INLINE(std::is_same_v<ListenerContext, ContextOf<ResolvedNode>>)("DataListener context does not match the resolved listener node",
+                    ARC_SA_NODE(listener, ListenerContext) ARC_SA_NODE(resolved, ContextOf<ResolvedNode>));
                 return 0;
             }
             else
@@ -218,7 +223,8 @@ struct DataStoreNode
             }
             else if (decltype(auto) event = f(id, sharedData, static_cast<void*>(nullptr)); detail::isEvent(event))
             {
-                static_assert(not std::is_const_v<Self>, "useData with returned event cannot be called on const DataStore");
+                ARC_STATIC_ASSERT_INLINE(not std::is_const_v<Self>)("useData with returned event cannot be called on const DataStore",
+                    (shared_data, arc::typeName<SharedData>)(event, arc::typeName<std::remove_cvref_t<decltype(event)>>));
                 self.notifyItem(item, detail::getEvent(event));
             }
         }
@@ -264,7 +270,8 @@ struct DataStoreNode
             auto const constructor = [&holder = item.second]<class... Args>(Args&&... args) -> PrivateData*
                 requires std::constructible_from<PrivateData, Args...>
             {
-                static_assert(detail::alwaysTrue<Args...> and isOptionalListener<I>(), "DataListener init that returns PrivateData must not use the injected constructor");
+                ARC_STATIC_ASSERT_INLINE(detail::alwaysTrue<Args...> and isOptionalListener<I>())("DataListener init that returns PrivateData must not use the injected constructor",
+                    (private_data, arc::typeName<PrivateData>)(listener_index, I));
                 PrivateData* p = std::construct_at(std::get<I>(holder.privateData).value(), ARC_FWD(args)...);
                 holder.engaged.set(I);
                 return p;
@@ -282,7 +289,7 @@ struct DataStoreNode
         }
 
         template<std::size_t I>
-        static consteval bool isOptionalListener()
+        static constexpr bool isOptionalListener()
         {
             return std::is_void_v<decltype(std::declval<Node>().template init<I>(std::declval<Item&>()))>;
         }
@@ -433,7 +440,8 @@ struct DataStoreNode<SharedData, Map>::Node<Context>::FromDataListener : Node
         }
         else if (decltype(auto) event = f(id, sharedData, privateData); detail::isEvent(event))
         {
-            static_assert(not std::is_const_v<Self>, "useData with returned event cannot be called on const DataStore");
+            ARC_STATIC_ASSERT_INLINE(not std::is_const_v<Self>)("useData with returned event cannot be called on const DataStore",
+                (shared_data, arc::typeName<SharedData>)(event, arc::typeName<std::remove_cvref_t<decltype(event)>>));
             self.template notifyItem<true>(item, detail::getEvent(event));
         }
     }
