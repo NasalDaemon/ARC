@@ -367,6 +367,16 @@ export namespace arc {
     }
     // static_assert.hpp
     using arc::nodePath;
+    using arc::assertImplements;
+    namespace detail {
+        // Used by ARC_STATIC_ASSERT macros in generated module units
+        using detail::staticAssertString;
+        using detail::staticAssertNodeName;
+        using detail::staticAssertNodePath;
+        using detail::staticAssertParentCluster;
+        // Used by ARC_METHODS
+        using detail::assertManualImplements;
+    }
     // traits/spy.hpp
     inline namespace trait {
         using arc::trait::SpyOnly;
@@ -429,7 +439,6 @@ export namespace arc {
     using arc::TraitExpects;
     using arc::TraitCanProvide;
     using arc::MatchesTrait;
-    using arc::Implements;
     using arc::IsMethodOf;
     using arc::TraitOf;
     using arc::JoinedTrait;
@@ -449,6 +458,7 @@ export namespace arc {
     using arc::typeId;
     // type_name.hpp
     using arc::typeName;
+    using arc::typeNameDecompressed;
     // nodes/union.hpp
     using arc::Union;
     namespace node {

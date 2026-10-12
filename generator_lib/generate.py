@@ -34,7 +34,7 @@ is_embedded: bool = input_path.suffixes[-1] != '.arc'
 quiet: bool = args.quiet
 
 grammar_file = dir_path.joinpath(dir_path, 'arc_module.lark' if is_module else 'arc_header.lark')
-arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True)
+arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True, propagate_positions=True)
 
 reconstructor = Reconstructor(arc_parser)
 
@@ -110,6 +110,32 @@ def get_pos(t: Tree | Token | None, full_path: bool = True) -> str:
         return get_pos(t.children[0], full_path=full_path)
     else:
         raise TypeError(f"Expected Tree or Token, got {type(t)}")
+
+
+def get_tree_pos(t: Tree) -> str:
+    """Position of the start of a tree, including any leading keywords filtered from its children."""
+    line, col = get_line(t.meta.line, t.meta.column)
+    return f"{input_path.name}:{line}:{col}"
+
+
+_DSL_COMMENT_RE = re.compile(r'//[^\n]*|/\*.*?\*/', re.DOTALL)
+
+def dsl_text(start_pos: int, end_pos: int) -> str:
+    """Source text of the DSL as written, on a single line, for diagnostics."""
+    source = _DSL_COMMENT_RE.sub(' ', text[start_pos:end_pos]).replace('`', '')
+    return ' '.join(source.split())
+
+
+def cpp_string_literal(s: str) -> str:
+    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+class Requirement:
+    """A requirement asserted by a trait's Meta::assertImplements, with the DSL it was generated from."""
+    def __init__(self, cpp: str, dsl: str, pos: str):
+        self.cpp = cpp
+        self.dsl = dsl
+        self.pos = pos
 
 
 _NAMED_EXPR_RE = re.compile(r'^([A-Za-z_]\w*)\s*:\s*(.+)$', re.DOTALL)
@@ -462,6 +488,8 @@ class Cluster:
     def __init__(self, name: str, namespace: "Namespace"):
         self.name = name
         self.namespace = namespace
+        # Location of the cluster's name in the file it is defined in, file:line:col
+        self.pos: str = input_path.name
         self.templates: list[tuple[CppType, str]] = []
         self.context_name: str = "Context"
         self.root_name: str | None = None
@@ -489,11 +517,6 @@ class Cluster:
     @property
     def cluster_class(self) -> str:
         return "cluster"
-
-    @property
-    def source_file(self) -> str:
-        # Name of the file the cluster is defined in
-        return input_path.name
 
     @property
     def full_name(self) -> str:
@@ -1008,6 +1031,8 @@ class Method:
         self.trait = trait
         self.name: str = "<unknown>"
         self.pos: str = ""
+        # Method declaration as written in the DSL, excluding contracts and default implementation
+        self.dsl: str | None = None
         self.templates: list[tuple[CppType, str]] = []
         self.return_type: CppType = CppType("decltype(auto)", is_auto=True)
         self.params: list[tuple[CppType, str]] = []
@@ -1062,6 +1087,22 @@ class Method:
         if self.templates or any(t.is_auto for t, n in self.params):
             return True
         return False
+
+    @property
+    def dsl_signature(self) -> str:
+        if self.dsl is not None:
+            return self.dsl
+        params = ", ".join(f"{type_}{type_.pack} {name}" for type_, name in self.params)
+        return f"{self.name}({params}){' const' if self.is_const else ''} -> {self.return_type}"
+
+    def set_dsl(self, tree: Tree):
+        signature_end = tree.meta.end_pos
+        for c in tree.children:
+            if isinstance(c, Tree) and c.data in (imported('pre_contract'), imported('post_contract'), imported('is_clause'),
+                                                   imported('if_clause'), imported('to_clause'), imported('method_default_impl')):
+                signature_end = c.meta.start_pos
+                break
+        self.dsl = dsl_text(tree.meta.start_pos, signature_end)
 
     @cached_property
     def is_unconstrained_return(self):
@@ -1144,7 +1185,7 @@ class Trait:
         self.impl_named = False
         self.methods: list[Method] = []
         self.method_names: list[str] = []
-        self.requires: list[str] = []
+        self.requires: list[Requirement] = []
         self.has_const_requires = False
         self.has_mutable_requires = False
         self.templates: list[tuple[CppType, str]] = []
@@ -1190,18 +1231,22 @@ class Trait:
                 if c.data == imported('trait_type'):
                     if self.types_name is None:
                         self.types_name = "Types_T_" # use ugly name if not specified to avoid shadowing
-                    self.requires.append(f"typename {self.types_name}::{c.children[0].value};")
+                    self.requires.append(Requirement(f"typename {self.types_name}::{c.children[0].value};",
+                                                     dsl_text(c.meta.start_pos, c.meta.end_pos), get_tree_pos(c)))
                 elif c.data == imported('trait_root'):
                     if self.root_name is None:
                         self.root_name = "Root_T_" # use ugly name if not specified to avoid shadowing
-                    self.requires.append(f"typename {self.root_name}::{c.children[0].value};")
+                    self.requires.append(Requirement(f"typename {self.root_name}::{c.children[0].value};",
+                                                     dsl_text(c.meta.start_pos, c.meta.end_pos), get_tree_pos(c)))
                 elif c.data == imported('trait_info'):
                     if self.info_name is None:
                         self.info_name = "Info_T_" # use ugly name if not specified to avoid shadowing
-                    self.requires.append(f"typename {self.info_name}::{c.children[0].value};")
+                    self.requires.append(Requirement(f"typename {self.info_name}::{c.children[0].value};",
+                                                     dsl_text(c.meta.start_pos, c.meta.end_pos), get_tree_pos(c)))
                 elif c.data == imported('trait_method_signature'):
                     method = Method(self)
                     method.walk(c.children)
+                    method.set_dsl(c)
                     self.methods.append(method)
                 elif c.data == imported('trait_method_elipsis'):
                     method = Method(self)
@@ -1210,8 +1255,10 @@ class Trait:
                     method.pos = get_pos(c, False)
                     if len(c.children) > 1:
                         method.is_const = True
+                    method.set_dsl(c)
                     self.methods.append(method)
                 elif c.data == imported('trait_requires'):
+                    dsl = dsl_text(c.meta.start_pos, c.meta.end_pos)
                     if c.children[0].data == imported('trait_requires_block'):
                         add_colon_to_requires_statements.visit(c.children[0])
                         requires = "requires " + reconstruct(c.children[0])
@@ -1219,7 +1266,7 @@ class Trait:
                         requires = reconstruct(c.children[0].children[0])
                     if not requires.endswith(';'):
                         requires += ';'
-                    self.requires.append(requires)
+                    self.requires.append(Requirement(requires, dsl, get_tree_pos(c)))
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown trait entity: {c.data}')
         if self.const_trait:
@@ -1855,6 +1902,7 @@ class Repr:
         scope = tree.children[-1]
         name, namespace = self.split_namespace(tree, source_ns, scope.children[0].value)
         cluster = namespace.add_cluster(name, scope.children[0], is_domain=is_domain)
+        cluster.pos = get_pos(scope.children[0], False)
         if has_template:
             cluster.add_template(tree.children[0])
         cluster.walk(scope.children[1:])
@@ -1921,6 +1969,7 @@ class Repr:
 
 template_loader = jinja2.FileSystemLoader(searchpath=dir_path)
 template_env = jinja2.Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
+template_env.filters['cpp_string'] = cpp_string_literal
 jinja_template = template_env.get_template(f"template.{'ixx' if is_module else 'hxx'}.jinja")
 output_text = jinja_template.render(repr=Repr(parsed), export="export " if is_module else "ARC_MODULE_EXPORT\n")
 

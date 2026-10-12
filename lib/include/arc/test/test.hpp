@@ -42,9 +42,12 @@ struct MockTrait : Trait
 {
     static TraitExpects<Trait> expects();
 
-    // Mocks are to bypass checks, and may implement only what is needed for testing
-    template<class Self, class...>
-    using Implements = void;
+    struct Meta : Trait::Meta
+    {
+        // Mocks are to bypass checks, and may implement only what is needed for testing
+        template<class Self, class Impl, class Types>
+        static consteval void assertImplements() {}
+    };
 };
 
 ARC_MODULE_EXPORT

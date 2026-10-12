@@ -25,12 +25,12 @@ namespace trait {
 
         ARC_METHODS(Name)
 
-        template<class Self, class T, class Types>
-        requires requires (T const c)
+        template<class Self, class Impl, class Types>
+        friend consteval void assertImplements(arc::AdlTag<Name>)
         {
-            { c.impl(get_c) } -> std::same_as<int>;
+            ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Impl must implement: get() const -> int",
+                requires (Impl const c) { { c.impl(get_c) } -> std::same_as<int>; });
         }
-        using Implements = void;
     };
 
 } // namespace trait

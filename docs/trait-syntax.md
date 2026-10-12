@@ -21,8 +21,8 @@ Header includes and module imports should be listed at the top of the file. [See
 ```cpp
 namespace my {
 
-// Non-template methods are added to the `arc::Implements<Impl, my::Trait>` concept,
-// which is enforced in the call to `getNode` and `asTrait`.
+// Non-template methods are asserted by `arc::assertImplements<Impl, Types, my::Trait>()`,
+// which is called by `getNode` and `asTrait`. Each failure names the method as written here.
 trait Trait
 {
     // `getNode(trait).method(int)` can be called in a const context
@@ -36,7 +36,7 @@ trait Trait
     method(double d) -> double
 }
 
-// Template methods are supported, but are not added to the `arc::Implements<Impl, my::Complex>` concept,
+// Template methods are supported, but are not asserted by `arc::assertImplements<Impl, Types, my::Complex>()`,
 // so their existance is *not* enforced in the call to `getNode` or `asTrait`.
 // Instead, compilation only fails when the method is called and it is not implemented or conforming.
 trait Complex
@@ -91,13 +91,13 @@ trait Trait4 [Types, Root]
     // Can add arbitrary concept constraints, including:
     // `impl_` for mutable implementation, `const_` for const implementation
 
-    // Added to arc::Implements<Impl, Trait4>:
+    // Asserted by arc::assertImplements<Impl, Types, Trait4>():
     // mutable implementation have have mutableMethod(std::string)
     requires (std::string s) {
         impl_.mutableMethod(s)
     }
 
-    // Added to arc::Implements<Impl, Trait4>
+    // Asserted by arc::assertImplements<Impl, Types, Trait4>():
     // const implementation have have constMethod(int)
     requires const_.constMethod(0)
 }

@@ -50,8 +50,11 @@ struct Trait
 ARC_MODULE_EXPORT
 struct UnconstrainedTrait : Trait
 {
-    template<class...>
-    using Implements = void;
+    struct Meta : Trait::Meta
+    {
+        template<class Self, class Impl, class Types>
+        static consteval void assertImplements() {}
+    };
 };
 
 ARC_MODULE_EXPORT
@@ -71,7 +74,6 @@ concept IsTrait = requires (T trait) {
     requires IsStateless<typename T::Meta::GlobalResolver>;
     requires IsStateless<typename T::Meta::Converter>;
     trait.expects();
-    typename detail::TakesNaryClassTemplate<T::template Implements>;
 };
 
 ARC_MODULE_EXPORT
@@ -91,18 +93,18 @@ template<class T, class Trait>
 concept MatchesTrait = TraitCanProvide<Trait, TraitExpects<T>>;
 
 namespace detail {
-    template<class Trait, class Impl, class Types, IsTrait... Subtraits>
-    requires (sizeof...(Subtraits) > 0)
-    using ImplementsAll = ToVoid<typename Subtraits::template Implements<Trait, Decompress<Impl>, Decompress<Types>>...>;
-
-    template<class Impl, class Types, IsTrait... Traits>
-    requires (sizeof...(Traits) > 0)
-    using Implements = ToVoid<typename Traits::template Implements<Traits, Decompress<Impl>, Decompress<Types>>...>;
+    // For ARC_METHODS: calls the checks a hand-written trait may declare as a hidden friend, found by ADL
+    //     template<class Self, class Impl, class Types>
+    //     friend consteval void assertImplements(arc::AdlTag<Trait>)
+    // Trait is the declaring trait, so that only its own friend is found, rather than those of the traits joined into Self
+    ARC_MODULE_EXPORT
+    template<class Trait, class Self, class Impl, class Types>
+    consteval void assertManualImplements()
+    {
+        if constexpr (requires { assertImplements<Self, Impl, Types>(AdlTag<Trait>{}); })
+            assertImplements<Self, Impl, Types>(AdlTag<Trait>{});
+    }
 }
-
-ARC_MODULE_EXPORT
-template<class Impl, class Types, class... Traits>
-concept Implements = requires { typename detail::Implements<Impl, Types, Traits...>; };
 
 ARC_MODULE_EXPORT
 template<class Method, class Trait>
@@ -155,10 +157,13 @@ struct JoinedTrait : Traits...
         {};
         struct Converter : Traits::Meta::Converter...
         {};
-    };
 
-    template<class Self, class Impl, class Types>
-    using Implements = detail::ImplementsAll<Self, Impl, Types, Traits...>;
+        template<class Self, class Impl, class Types>
+        static consteval void assertImplements()
+        {
+            (Traits::Meta::template assertImplements<Self, Impl, Types>(), ...);
+        }
+    };
 
     template<class Expected>
     requires (... or TraitCanProvide<Traits, Expected>)
@@ -207,8 +212,14 @@ struct Trunk : arc::Trait
 
     static void expects();
 
-    template<class...> requires false
-    using Implements = void;
+    struct Meta : Trait::Meta
+    {
+        template<class Self, class Impl, class Types>
+        static consteval void assertImplements()
+        {
+            static_assert(detail::alwaysFalse<Self, Impl, Types>, "arc::Trunk cannot be implemented, only its traits can");
+        }
+    };
 };
 
 namespace detail {
@@ -240,12 +251,13 @@ namespace detail {
         {
             // All methods are made duck methods
             using Methods = Trait_::Meta::DuckMethods;
+
+            // Duck methods need not be implemented
+            template<class Self, class Impl, class Types>
+            static consteval void assertImplements() {}
         };
 
         static TraitExpects<Trait_> expects();
-
-        template<class Self, class...>
-        using Implements = void;
     };
 }
 

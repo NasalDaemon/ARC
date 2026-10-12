@@ -7,7 +7,10 @@ load("//bazel:arc_gen.bzl", "arc_gen_headers")
 # when they depend on :arc_module.
 cc_library(
     name = "arc_macros",
-    hdrs = ["macros/include/arc/macros.hpp"],
+    hdrs = [
+        "macros/include/arc/macros.hpp",
+        "macros/include/arc/static_assert_macros.hpp",
+    ],
     includes = ["macros/include"],
     visibility = ["//visibility:public"],
 )

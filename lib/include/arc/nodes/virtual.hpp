@@ -289,7 +289,7 @@ struct Virtual
             using TraitInterface = InterfaceOf<Trait>;
             using Types = TraitInterface::Traits::template ResolveTypes<Trait, TraitInterface>;
             using Interface = AsInterface<TraitInterface>;
-            static_assert((detail::assertImplements<TraitInterface, Types, Trait>(), true));
+            static_assert((arc::assertImplements<TraitInterface, Types, Trait>(), true));
         };
 
         // arc::Virtual implements arc::trait::DynamicNode::exchangeImpl by visiting all contained nodes

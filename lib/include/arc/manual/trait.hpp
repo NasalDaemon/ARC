@@ -7,6 +7,7 @@
 #include "arc/invoke_method_fwd.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
+#include "arc/static_assert.hpp"
 #include "arc/trait.hpp"
 #include "arc/trait_view_fwd.hpp"
 

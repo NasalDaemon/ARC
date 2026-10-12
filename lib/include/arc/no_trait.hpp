@@ -11,10 +11,7 @@ namespace arc {
 ARC_MODULE_EXPORT
 template<IsNodeHandle Node>
 struct NoTrait : Trait
-{
-    template<class...>
-    using Implements = void;
-};
+{};
 
 ARC_MODULE_EXPORT
 template<IsNodeHandle Node>
@@ -25,9 +22,6 @@ struct NullTrait : Trait
 {
     template<class T>
     static void canProvide(NoTrait<T>);
-
-    template<class...>
-    using Implements = void;
 };
 
 namespace detail {

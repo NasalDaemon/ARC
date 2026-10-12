@@ -144,6 +144,13 @@
 #define ARC_FWD1(name)    ARC_FWD2(decltype(name), name)
 
 // ARC_METHODS(TraitName, MethodList=ARC_METHODS_TraitName)
+// To check implementations in arc::assertImplements, the trait may declare a hidden friend
+//     template<class Self, class Impl, class Types>
+//     friend consteval void assertImplements(arc::AdlTag<TraitName>)
+//     {
+//         ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "message", requirement...);
+//     }
+// where Self is the trait being implemented, which may be a trait joining or renaming TraitName
 #define ARC_METHODS(...) ARC_OVERLOAD(ARC_METHODS, __VA_ARGS__)(__VA_ARGS__)
 
 #define ARC_METHODS2(TraitName, METHOD_LIST) \
@@ -206,6 +213,11 @@
         { \
             ARC_TRAIT_CONVERTER(TraitName) \
         }; \
+        template<class Self, class Impl, class Types> \
+        static consteval void assertImplements() \
+        { \
+            ::arc::detail::assertManualImplements<TraitName, Self, Impl, Types>(); \
+        } \
     };
 #define ARC_METHODS1(traitName) \
     ARC_METHODS2(traitName, ARC_METHODS_ ## traitName)
@@ -222,10 +234,12 @@
 #define ARC_NAMED_METHOD_IMPL_DISABLE(method) \
     static void method(auto&&...) = delete;
 
+// Overloads for each method tag deduce the tag and constrain it rather than taking it by type: clang 21 crashes
+// sorting the non-viable candidates for its diagnostic when every tag fails to convert (ARC_SIGNATURE_METHOD_TAG too)
 #define ARC_NAMED_METHOD_IMPL(method) \
-    template<::arc::IsNode Self, class... Args> \
+    template<::arc::IsNode Self, std::same_as<ARC_This_Trait::method> M, class... Args> \
     requires (not requires { Self::useImpl(ARC_This_Trait::method{}); }) \
-    ARC_INLINE constexpr decltype(auto) impl(this Self& self, ARC_This_Trait::method m, Args&&... args) \
+    ARC_INLINE constexpr decltype(auto) impl(this Self& self,  M m, Args&&... args) \
         requires requires { self.method(ARC_FWD(args)...); } or ::arc::HasDefaultImpl<Self, ARC_This_Trait::method, Args...> \
     { \
         if constexpr (requires { self.method(ARC_FWD(args)...); }) \
@@ -271,7 +285,8 @@
     }
 
 #define ARC_SIGNATURE_METHOD_TAG(method) \
-    static auto impl(auto& self, ARC_This_Trait::method, auto&&... args) -> decltype(ARC_This_Trait::Meta::Signatures::method(self, ARC_FWD(args)...));
+    template<::std::same_as<ARC_This_Trait::method> ARC_Method_> \
+    static auto impl(auto& self, ARC_Method_, auto&&... args) -> decltype(ARC_This_Trait::Meta::Signatures::method(self, ARC_FWD(args)...));
 
 #define ARC_TRAIT_RESOLVER(...) ARC_OVERLOAD(ARC_TRAIT_RESOLVER, __VA_ARGS__)(__VA_ARGS__)
 #define ARC_TRAIT_RESOLVER2(function, Trait) \
@@ -354,5 +369,8 @@
 #if ARC_COMPILER_CLANG
 #pragma clang diagnostic pop
 #endif
+
+// Include static_assert_macros after all common macros have been defined
+#include "arc/static_assert_macros.hpp"
 
 #endif // INCLUDE_ARC_MACROS_HPP

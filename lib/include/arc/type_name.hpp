@@ -1,6 +1,7 @@
 #ifndef ARC_TYPE_NAME_HPP
 #define ARC_TYPE_NAME_HPP
 
+#include "arc/detail/compress.hpp"
 #include "arc/macros.hpp"
 
 #if !ARC_IMPORT_STD
@@ -57,6 +58,10 @@ namespace detail {
 ARC_MODULE_EXPORT
 template<class T>
 inline constexpr std::string_view typeName = detail::typeName<T>();
+
+ARC_MODULE_EXPORT
+template<class T>
+inline constexpr std::string_view typeNameDecompressed = detail::typeName<detail::Decompress<T>>();
 
 } // namespace arc
 

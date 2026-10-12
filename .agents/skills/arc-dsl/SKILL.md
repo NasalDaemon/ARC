@@ -85,7 +85,7 @@ trait <Name>
 } // namespace <project>
 ```
 
-Non-template, non-defaulted methods are added to the `arc::Implements` concept and enforced at `getNode`/`asTrait` time. Template methods are only checked when actually called.
+Non-template, non-defaulted methods are asserted by `arc::assertImplements<Impl, Types, Trait>()` at `getNode`/`asTrait` time, each failure naming the method as written in the DSL. Template methods are only checked when actually called.
 
 **`[Const]` annotation** — `trait ReadOnly [Const]` enforces that every method declared in the trait is `const` (including template and `...` methods). The generator rejects any non-const method at generation time.
 

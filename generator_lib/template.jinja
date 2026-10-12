@@ -55,6 +55,33 @@ template<
     {%- endfor -%}
 {%- endmacro -%}
 
+{%- macro method_invoke(method) -%}
+    {{ "const_" if method.is_const else "impl_" }}.impl({{ method.name }}_c
+        {%- for type, name in method.params -%}
+        , ARC_FWD({{ name }})
+        {%- endfor -%}
+    )
+{%- endmacro -%}
+
+{# Requirement asserted by Meta::assertImplements for a non-template method without a default implementation #}
+{# index must match the method's index in Meta::Constraints, i.e. its index in trait.methods #}
+{%- macro method_requirement(trait, method, index) -%}
+    requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_
+        {%- for type, name in method.params -%}
+        , {{ type }} {{ name }}
+        {%- endfor -%}
+    ) {
+    {%- if method.is_unconstrained_return %} {{ method_invoke(method) }};
+    {%- elif method.is_auto_return %} { {{ method_invoke(method) }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ index }}, {{ trait.types_name or "void" }}>;
+    {%- else %} { {{ method_invoke(method) }} } -> ::arc::InvokeConvertibleTo<ARC_TYPENAME({{ method.return_type }})>;
+    {%- endif %} }
+{%- endmacro -%}
+
+{%- macro assert_implements(trait, message, requirement) -%}
+    ARC_ASSERT_IMPLEMENTS(ARC_This_Trait, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ message | cpp_string }},
+                {{ requirement }});
+{%- endmacro -%}
+
 {%- macro method_template_params(trait, method) -%}
 template<class Self
     {%- if trait.types_name -%}
@@ -755,52 +782,36 @@ struct {{ trait.name }} : ::arc::Trait
         {
             {{ trait_converter(trait.name) }}
         };
+        // Asserts that Impl/Types meet each requirement of the trait independently, so that a failure names the requirement
+        // as written in the DSL. Self is the trait being implemented, which may be a trait joining or renaming this one.
+        template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "ARC_Types_" }}
+            {%- if trait.root_name -%}
+            , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<{{ trait.impl_name }}>>
+            {%- endif -%}
+            {%- if trait.info_name -%}
+            , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<{{ trait.impl_name }}>>
+            {%- endif -%}
+        >
+        static consteval void assertImplements()
+        {
+            {% if trait.has_protocol %}
+            if constexpr (not ::arc::IsTraitViewOf<{{ trait.impl_name }}, {{ trait.name }}>)
+                {{ trait.protocol_name }}::Meta::template assertImplements<{{ trait.protocol_name }}, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}>();
+            {% endif %}
+            {{ assert_implements(trait, "Trait implementation must list its traits with arc::Traits<> or arc::Node::Impl<>",
+                "requires { typename " ~ trait.impl_name ~ "::Traits; }") }}
+            {% for require in trait.requires %}
+            {{ assert_implements(trait, require.pos ~ ": Trait requirement not satisfied: " ~ require.dsl,
+                "requires (" ~ trait.impl_name ~ " impl_, " ~ trait.impl_name ~ " const const_) { " ~ require.cpp ~ " }") }}
+            {% endfor %}
+            {% for method in trait.methods %}
+            {% if not method.is_template and not method.optional and method.default_impl is none %}
+            {{ assert_implements(trait, (method.pos ~ ": " if method.pos else "") ~ "Trait method not implemented: " ~ method.dsl_signature,
+                method_requirement(trait, method, loop.index)) }}
+            {% endif %}
+            {% endfor %}
+        }
     };
-
-    template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "ARC_Types_" }}
-    {%- if trait.root_name -%}
-        , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<{{ trait.impl_name }}>>
-    {%- endif -%}
-    {%- if trait.info_name -%}
-        , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<{{ trait.impl_name }}>>
-    {%- endif -%}
-    >
-    requires requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_)
-    {
-        {% if trait.has_protocol %}
-        requires ::arc::IsTraitViewOf<{{ trait.impl_name }}, {{ trait.name }}>
-              or ::arc::Implements<{{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ trait.protocol_name }}>;
-        {% endif %}
-        typename {{ trait.impl_name }}::Traits;
-        {% for require in trait.requires %}
-        {{ require }}
-        {% endfor %}
-        {% for method in trait.methods if not method.is_template and not method.optional and method.default_impl is none %}
-
-        {% macro require_invoke() -%}
-            {{ "const_" if method.is_const else "impl_" }}.impl({{ method.name }}_c
-                {%- for type, name in method.params -%}
-                , ARC_FWD({{ name }})
-                {%- endfor -%}
-            )
-        {%- endmacro %}
-        {% set comma = joiner(", ") %}
-        requires requires (
-            {%- for type, name in method.params -%}
-            {{ comma() }}{{ type }} {{ name }}
-            {%- endfor -%}
-            ) {
-        {% if method.is_unconstrained_return %}
-            {{ require_invoke() }};
-        {% elif method.is_auto_return %}
-            { {{ require_invoke() }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ loop.index }}, {{ trait.types_name or "void" }}>;
-        {% else %}
-            { {{ require_invoke() }} } -> ::arc::InvokeConvertibleTo<ARC_TYPENAME({{ method.return_type }})>;
-        {% endif %}
-        };
-        {% endfor %}
-    }
-    using Implements = void;
 };
 
 {% if trait.templates %}
@@ -904,8 +915,8 @@ struct {{ cluster.name }}
     {% if cluster.trunk_traits %}
     using Trunk = ::arc::Trunk<{{ cluster.trunk_traits | join(", ") }}>;
     {% endif %}
-    // File the cluster is defined in, for diagnostics
-    static constexpr char const FileName[] = "{{ cluster.source_file }}";
+    // Where the cluster is defined in the DSL, file:line:col, for diagnostics
+    static constexpr char const SourceLocation[] = "{{ cluster.pos }}";
 
     template<class Context>
     struct Node;

@@ -29,9 +29,6 @@ concept SameAsOrVoid = std::is_void_v<T> or std::same_as<T, PrivateData>;
 template<template<class> class Template>
 using TakesUnaryClassTemplate = void;
 
-template<template<class...> class Template>
-using TakesNaryClassTemplate = void;
-
 template<template<class, auto...> class Template>
 using TakesUnaryClassPackedAutoTemplate = void;
 

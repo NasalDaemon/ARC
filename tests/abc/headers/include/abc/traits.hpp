@@ -11,13 +11,13 @@ struct AliceRead : arc::Trait
 
     ARC_METHODS(AliceRead)
 
-    template<class Self, class T, class Types>
-    requires requires (T const c)
+    template<class Self, class Impl, class Types>
+    friend consteval void assertImplements(arc::AdlTag<AliceRead>)
     {
-        typename Types::AliceType;
-        { c.impl(get_c) } -> std::same_as<int>;
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Types must declare AliceType", requires { typename Types::AliceType; });
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Impl must implement: get() const -> int",
+            requires (Impl const c) { { c.impl(get_c) } -> std::same_as<int>; });
     }
-    using Implements = void;
 } inline constexpr aliceRead{};
 
 struct AliceWrite : arc::Trait
@@ -27,13 +27,12 @@ struct AliceWrite : arc::Trait
 
     ARC_METHODS(AliceWrite)
 
-    template<class Self, class T, class Types>
-    requires requires (T t, int i)
+    template<class Self, class Impl, class Types>
+    friend consteval void assertImplements(arc::AdlTag<AliceWrite>)
     {
-        typename Types::AliceType;
-        t.impl(set_c, i);
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Types must declare AliceType", requires { typename Types::AliceType; });
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Impl must implement: set(int)", requires (Impl t, int i) { t.impl(set_c, i); });
     }
-    using Implements = void;
 } inline constexpr aliceWrite{};
 
 struct Bob : arc::Trait
@@ -44,13 +43,13 @@ struct Bob : arc::Trait
 
     ARC_METHODS(Bob)
 
-    template<class Self, class T, class Types>
-    requires requires (T const c)
+    template<class Self, class Impl, class Types>
+    friend consteval void assertImplements(arc::AdlTag<Bob>)
     {
-        typename Types::BobType;
-        { c.impl(trait::Bob::get_c) } -> std::same_as<int>;
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Types must declare BobType", requires { typename Types::BobType; });
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Impl must implement: get() const -> int",
+            requires (Impl const c) { { c.impl(get_c) } -> std::same_as<int>; });
     }
-    using Implements = void;
 } inline constexpr bob{};
 
 struct Charlie : arc::Trait
@@ -60,14 +59,13 @@ struct Charlie : arc::Trait
 
     ARC_METHODS(Charlie)
 
-    template<class Self, class T, class Types>
-    requires requires (T const c)
+    template<class Self, class Impl, class Types>
+    friend consteval void assertImplements(arc::AdlTag<Charlie>)
     {
-        typename Types::CharlieType;
-        { c.impl(trait::Charlie::get_c) } -> std::same_as<int>;
-        // c.getCharlies();
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Types must declare CharlieType", requires { typename Types::CharlieType; });
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Impl must implement: get() const -> int",
+            requires (Impl const c) { { c.impl(get_c) } -> std::same_as<int>; });
     }
-    using Implements = void;
 } inline constexpr charlie{};
 
 struct Ellie : arc::Trait
@@ -77,12 +75,12 @@ struct Ellie : arc::Trait
 
     ARC_METHODS(Ellie)
 
-    template<class Self, class T, class Types>
-    requires requires (T const c)
+    template<class Self, class Impl, class Types>
+    friend consteval void assertImplements(arc::AdlTag<Ellie>)
     {
-        { c.impl(trait::Ellie::get_c) } -> std::same_as<int>;
+        ARC_ASSERT_IMPLEMENTS(Self, Impl, Types, "Impl must implement: get() const -> int",
+            requires (Impl const c) { { c.impl(get_c) } -> std::same_as<int>; });
     }
-    using Implements = void;
 } inline constexpr ellie{};
 
 struct Visitable : arc::Trait
@@ -91,9 +89,6 @@ struct Visitable : arc::Trait
         TAG(count) \
 
     ARC_METHODS(Visitable)
-
-    template<class Self, class T, class Types>
-    using Implements = void;
 } inline constexpr visitable{};
 
 using Alice = arc::JoinedTrait<AliceRead, AliceWrite>;

@@ -180,9 +180,9 @@ private:
     static constexpr void assertImplements()
     {
         if constexpr (not std::is_const_v<typename ImplAlias::Interface>)
-            detail::assertImplements<typename ImplAlias::Interface, Types, Trait>();
+            arc::assertImplements<typename ImplAlias::Interface, Types, Trait>();
         if constexpr (not std::is_const_v<typename ImplAlias::Impl>)
-            detail::assertImplements<TraitView, Types, Trait>();
+            arc::assertImplements<TraitView, Types, Trait>();
     }
 
     template<class Method>
