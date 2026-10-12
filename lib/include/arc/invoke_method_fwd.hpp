@@ -227,6 +227,60 @@ ARC_MODULE_EXPORT
 template<class T, class ReturnConstraint, class Types>
 concept MatchesReturnConstraint = requires { ReturnConstraint::template Return<T, Types>(); };
 
+// A trait method's requirement on its implementation, one concept for each way the trait constrains the return type.
+// Receiver is the implementation, const for a const method. Return is the constraint, unused for any return type.
+ARC_MODULE_EXPORT
+template<class Receiver, class Method, class Return, class... Params>
+concept ImplementsMethodAnyReturn = requires (Receiver& impl, Method const& method, Params&&... params) {
+    impl.impl(method, ARC_FWD(params)...);
+};
+
+ARC_MODULE_EXPORT
+template<class Receiver, class Method, class To, class... Params>
+concept ImplementsMethodConvertibleTo = requires (Receiver& impl, Method const& method, Params&&... params) {
+    { impl.impl(method, ARC_FWD(params)...) } -> InvokeConvertibleTo<To>;
+};
+
+// Return of arc::ImplementsMethodMatching
+ARC_MODULE_EXPORT
+template<class ReturnConstraint, class Types_>
+struct ReturnConstraintOf
+{
+    using Constraint = ReturnConstraint;
+    using Types = Types_;
+};
+
+ARC_MODULE_EXPORT
+template<class Receiver, class Method, class Return, class... Params>
+concept ImplementsMethodMatching = requires (Receiver& impl, Method const& method, Params&&... params) {
+    { impl.impl(method, ARC_FWD(params)...) } -> MatchesReturnConstraint<typename Return::Constraint, typename Return::Types>;
+};
+
+namespace detail {
+    // Type returned by the implementation, or void when there is none
+    template<class Receiver, class Method, class... Params>
+    consteval auto implResult()
+    {
+        if constexpr (ImplementsMethodAnyReturn<Receiver, Method, void, Params...>)
+            return std::type_identity<decltype(ARC_DECLVAL(Receiver&).impl(ARC_DECLVAL(Method const&), ARC_DECLVAL(Params&&)...))>{};
+        else
+            return std::type_identity<void>{};
+    }
+}
+
+// What ARC_ASSERT_IMPLEMENTS_METHOD needs to tell apart why Impl does not implement a trait method: whether it can be
+// called with Params on Impl, or on Impl const if IsConst, and what it returns. Return is as for the requirement.
+ARC_MODULE_EXPORT
+template<class Impl, bool IsConst, class Method, class Return, class... Params>
+struct MethodProbe
+{
+    using Receiver = std::conditional_t<IsConst, Impl const, Impl>;
+    using Result = decltype(detail::implResult<Receiver, Method, Params...>())::type;
+    static constexpr bool callable = ImplementsMethodAnyReturn<Receiver, Method, Return, Params...>;
+    // Implemented, but not const
+    static constexpr bool needsConst = IsConst and not callable and ImplementsMethodAnyReturn<Impl, Method, Return, Params...>;
+};
+
 ARC_MODULE_EXPORT
 template<InvokerParams Params, class Constraints_, class... NormalArgs>
 struct InvokeMethodC : detail::InvokeMethodBase

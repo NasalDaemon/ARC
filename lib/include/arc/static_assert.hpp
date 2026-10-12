@@ -204,6 +204,25 @@ namespace detail {
         }
     }
 
+    // For cluster diagnostics: where the cluster itself is defined in the DSL, file:line:col
+    template<class T>
+    consteval std::string staticAssertClusterLocation()
+    {
+        using C = decltype(staticAssertContext<T>())::type;
+        if constexpr (std::is_void_v<C>)
+            return "<none>";
+        else
+        {
+            using Cluster = decltype(clusterHandleOf<C>())::type;
+            if constexpr (std::is_void_v<Cluster>)
+                return "<unknown>";
+            else if constexpr (requires { { Cluster::SourceLocation } -> std::convertible_to<std::string_view>; })
+                return std::string(arc::typeName<Cluster>).append(" (").append(Cluster::SourceLocation).append(")");
+            else
+                return std::string(arc::typeName<Cluster>);
+        }
+    }
+
     // Comma separated names of the node's unsatisfied dependencies
     template<class Node, bool Transitive>
     consteval std::string missingDependencies()

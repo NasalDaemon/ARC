@@ -18,6 +18,15 @@ _write_src = rule(
 )
 
 
+# Trails each ARC_INSTANTIATE line, so that the compiler's snippet of a failing
+# instantiation names where the node path comes from (e.g. after a node rename)
+def _instantiate_hint(name):
+    return "// node path from arc_graph(name = \"{name}\") nodes in //{pkg}:BUILD: update it if the node was renamed or moved".format(
+        name = name,
+        pkg = native.package_name(),
+    )
+
+
 def _impl_hash(graph_type, node_name):
     """Compute a stable 7-digit hash string from graph_type.
 
@@ -139,8 +148,9 @@ import {graph_module};
 import arc;
 {common_imports}
 
-ARC_INSTANTIATE(({graph_type}), {node_name})
+ARC_INSTANTIATE(({graph_type}), {node_name}) {hint}
 """.format(
+                hint = _instantiate_hint(name),
                 module_name = module_name,
                 impl_partition = impl_partition,
                 graph_module = graph_module,
@@ -197,8 +207,9 @@ def _arc_instantiate_header(name, graph_header, graph_type, nodes, deps, kwargs)
 #include "arc/graph.hpp"
 #include "arc/macros.hpp"
 #include "{tpp_file}"
-ARC_INSTANTIATE(({graph_type}), {node_name})
+ARC_INSTANTIATE(({graph_type}), {node_name}) {hint}
 """.format(
+                hint = _instantiate_hint(name),
                 graph_header = graph_header,
                 tpp_file     = tpp_file,
                 graph_type   = graph_type,

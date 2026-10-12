@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ARC_ENSURE_HPP
 #define INCLUDE_ARC_ENSURE_HPP
 
+#include "arc/cluster_fwd.hpp"
 #include "arc/count.hpp"
 #include "arc/empty_types.hpp"
 #include "arc/link.hpp"
@@ -89,8 +90,21 @@ namespace pred {
         template<class Node, class Trait>
         static consteval void assertTrait(Trait)
         {
-            ARC_STATIC_ASSERT_INLINE(HasTrait<Node, Trait>)("Node does not list a client's Trait in arc::Traits<> or arc::Node::Impl<>",
-                (trait, ::arc::typeName<Trait>)ARC_SA_NODE_CONTEXT(node, Node));
+            if constexpr (IsCluster<Node>)
+            {
+                ARC_STATIC_ASSERT_INLINE(HasTrait<Node, Trait>)(
+                    "Cluster provides no member that supplies a trait its parent requires; check its links",
+                    (trait, ::arc::typeName<Trait>) \
+                    (cluster, ::arc::detail::staticAssertClusterLocation<Node>()) \
+                    (parent, ::arc::detail::staticAssertParentCluster<Node>()));
+            }
+            else
+            {
+                ARC_STATIC_ASSERT_INLINE(HasTrait<Node, Trait>)(
+                    "Node does not list a client's Trait in arc::Traits<> or arc::Node::Impl<>",
+                    (trait, ::arc::typeName<Trait>) \
+                    ARC_SA_NODE_CONTEXT(node, Node));
+            }
         }
     };
 }

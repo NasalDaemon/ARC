@@ -55,31 +55,40 @@ template<
     {%- endfor -%}
 {%- endmacro -%}
 
-{%- macro method_invoke(method) -%}
-    {{ "const_" if method.is_const else "impl_" }}.impl({{ method.name }}_c
-        {%- for type, name in method.params -%}
-        , ARC_FWD({{ name }})
-        {%- endfor -%}
-    )
-{%- endmacro -%}
-
-{# Requirement asserted by Meta::assertImplements for a non-template method without a default implementation #}
-{# index must match the method's index in Meta::Constraints, i.e. its index in trait.methods #}
-{%- macro method_requirement(trait, method, index) -%}
-    requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_
-        {%- for type, name in method.params -%}
-        , {{ type }} {{ name }}
-        {%- endfor -%}
-    ) {
-    {%- if method.is_unconstrained_return %} {{ method_invoke(method) }};
-    {%- elif method.is_auto_return %} { {{ method_invoke(method) }} } -> ::arc::MatchesReturnConstraint<Meta::Constraints::{{ capitalise(method.name) }}{{ index }}, {{ trait.types_name or "void" }}>;
-    {%- else %} { {{ method_invoke(method) }} } -> ::arc::InvokeConvertibleTo<ARC_TYPENAME({{ method.return_type }})>;
-    {%- endif %} }
-{%- endmacro -%}
-
 {%- macro assert_implements(trait, message, requirement) -%}
     ARC_ASSERT_IMPLEMENTS(ARC_This_Trait, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ message | cpp_string }},
                 {{ requirement }});
+{%- endmacro -%}
+
+{# The arc::ImplementsMethod* concept of a method, and its Return argument, by how the trait constrains the return type #}
+{# index must match the method's index in Meta::Constraints, i.e. its index in trait.methods #}
+{%- macro method_requirement(trait, method, index) -%}
+    {%- if method.is_unconstrained_return -%}
+    ::arc::ImplementsMethodAnyReturn
+    {%- elif method.is_auto_return -%}
+    ::arc::ImplementsMethodMatching
+    {%- else -%}
+    ::arc::ImplementsMethodConvertibleTo
+    {%- endif -%}
+{%- endmacro -%}
+{%- macro method_requirement_return(trait, method, index) -%}
+    {%- if method.is_unconstrained_return -%}
+    void
+    {%- elif method.is_auto_return -%}
+    ::arc::ReturnConstraintOf<Meta::Constraints::{{ capitalise(method.name) }}{{ index }}, {{ trait.types_name or "void" }}>
+    {%- else -%}
+    ARC_TYPENAME({{ method.return_type }})
+    {%- endif -%}
+{%- endmacro -%}
+
+{# Asserted by Meta::assertImplements for a non-template method without a default implementation #}
+{%- macro assert_implements_method(trait, method, index) -%}
+    ARC_ASSERT_IMPLEMENTS_METHOD(ARC_This_Trait, {{ method.name }}, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ (method.pos ~ ": " if method.pos else "") | cpp_string }}, {{ method.dsl_signature | cpp_string }},
+                {{ method_requirement(trait, method, index) }}, {{ "true" if method.is_const else "false" }}, {{ method_requirement_return(trait, method, index) }}
+                {%- for type, name in method.params -%}
+                , ARC_TYPENAME({{ type }})
+                {%- endfor -%}
+                );
 {%- endmacro -%}
 
 {%- macro method_template_params(trait, method) -%}
@@ -806,8 +815,7 @@ struct {{ trait.name }} : ::arc::Trait
             {% endfor %}
             {% for method in trait.methods %}
             {% if not method.is_template and not method.optional and method.default_impl is none %}
-            {{ assert_implements(trait, (method.pos ~ ": " if method.pos else "") ~ "Trait method not implemented: " ~ method.dsl_signature,
-                method_requirement(trait, method, loop.index)) }}
+            {{ assert_implements_method(trait, method, loop.index) }}
             {% endif %}
             {% endfor %}
         }

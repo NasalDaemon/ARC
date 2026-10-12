@@ -90,7 +90,9 @@ function(target_generate_arc_src TARGET_NAME)
         list(SORT NODE_DOT_PATHS)
         list(REMOVE_DUPLICATES NODE_DOT_PATHS)
         foreach(NODE_DOT_PATH ${NODE_DOT_PATHS})
-            string(APPEND NODE_INSTANTIATIONS "ARC_INSTANTIATE((${arg_GRAPH_TYPE}), ${NODE_DOT_PATH})\n")
+            # The trailing comment shows in the compiler's snippet of a failing instantiation (e.g. after a node rename)
+            string(APPEND NODE_INSTANTIATIONS "ARC_INSTANTIATE((${arg_GRAPH_TYPE}), ${NODE_DOT_PATH}) "
+                "// node path from target_generate_arc_src(${TARGET_NAME}) NODES: update it if the node was renamed or moved\n")
         endforeach()
 
         # Generate canonical list of module imports/header includes

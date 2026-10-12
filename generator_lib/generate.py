@@ -2,6 +2,8 @@
 
 import argparse
 from bisect import bisect_right
+import difflib
+import sys
 from collections import defaultdict
 from functools import cached_property
 from typing import Optional
@@ -588,6 +590,14 @@ class Cluster:
 
         return name
 
+    def lookup_node(self, nodes: dict, name: str, token: Tree | Token):
+        if name in nodes:
+            return nodes[name]
+        known = [n for n in nodes if not n.startswith('@')]
+        close = difflib.get_close_matches(name, known, n=1)
+        hint = f"; did you mean '{close[0]}'?" if close else f"; its nodes are: {', '.join(known)}"
+        raise SyntaxError(f"{get_pos(token)} Unknown node '{name}' in {self.cluster_class} '{self.full_name}'{hint}")
+
     def walk(self, children):
         aliases: dict[str, str] = {}
         nodes: dict[str, Node] = {}
@@ -626,7 +636,7 @@ class Cluster:
                 if left_trait not in NO_TRAIT and left_trait in self.sink_traits:
                     raise SyntaxError(f"{get_pos(token)} Sink node '{name}' in {self.cluster_class} '{self.full_name}' is using the trait '{left_trait}' "
                                     f"already used by another sink node '{self.sink_traits[left_trait][0][0].name}' here {self.sink_traits[left_trait][0][1]}")
-                node = nodes[name]
+                node = self.lookup_node(nodes, name, token)
                 node.is_sink_node = True
                 self.sink_traits[left_trait].append((node, get_pos(token)))
                 if node.is_global and not is_global_trait(left_trait):
@@ -800,8 +810,8 @@ class Cluster:
                             for i in range(0, len(child.children) - 1, 2):
                                 current_token = child.children[i]
                                 lnames, arrow, rnames = (child.children[i], child.children[i+1], child.children[i+2])
-                                lnodes = [nodes[self.normalise_name(get_value(name))] for name in lnames.children]
-                                rnodes = [nodes[self.normalise_name(get_value(name))] for name in rnames.children]
+                                lnodes = [self.lookup_node(nodes, self.normalise_name(get_value(name)), name) for name in lnames.children]
+                                rnodes = [self.lookup_node(nodes, self.normalise_name(get_value(name)), name) for name in rnames.children]
                                 check_trunk_arrow(arrow)
                                 is_override = self.validate_arrow(arrow)
                                 pos = get_pos(arrow)
@@ -1971,7 +1981,13 @@ template_loader = jinja2.FileSystemLoader(searchpath=dir_path)
 template_env = jinja2.Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
 template_env.filters['cpp_string'] = cpp_string_literal
 jinja_template = template_env.get_template(f"template.{'ixx' if is_module else 'hxx'}.jinja")
-output_text = jinja_template.render(repr=Repr(parsed), export="export " if is_module else "ARC_MODULE_EXPORT\n")
+try:
+    repr_ = Repr(parsed)
+except SyntaxError as e:
+    # Messages lead with the DSL position, so the traceback into the generator adds nothing
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+output_text = jinja_template.render(repr=repr_, export="export " if is_module else "ARC_MODULE_EXPORT\n")
 
 with open(output_file, 'a+') as file:
     file.seek(0)

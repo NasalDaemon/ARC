@@ -249,6 +249,11 @@ export namespace arc {
     using arc::InvokeMethodR;
     using arc::InvokeConvertibleTo;
     using arc::MatchesReturnConstraint;
+    using arc::ImplementsMethodAnyReturn;
+    using arc::ImplementsMethodConvertibleTo;
+    using arc::ReturnConstraintOf;
+    using arc::ImplementsMethodMatching;
+    using arc::MethodProbe;
     using arc::InvokeMethodC;
     using arc::NullSignaturesByTag;
     // key.hpp

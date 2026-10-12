@@ -52,8 +52,10 @@ template<IsNodeBase Node, class... Traits>
 requires (sizeof...(Traits) > 0)
 using Impl = detail::NodeWith<Node, void(), detail::NamedTrait<Traits>...>;
 
+// Each Build is final, so a node deriving from a chain left unfinished fails at its base, where the compiler's
+// note shows the line declaring that Build: the comment on it names the fix.
 template<class Node>
-struct Build<Node> final
+struct Build<Node> final // Unfinished node builder: continue with ::Impl<Traits...> and/or ::Uses<Depends...>
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
@@ -65,7 +67,7 @@ struct Build<Node> final
 };
 
 template<class Node, detail::IsDependsItem... DependTraits>
-struct Build<Node, void(DependTraits...)> final
+struct Build<Node, void(DependTraits...)> final // Unfinished node builder: finish with ::Impl<Traits...>, or ::NoTraits (or use arc::NodeUses<...>)
 {
     template<class... Traits>
     requires (sizeof...(Traits) > 0)
@@ -75,7 +77,7 @@ struct Build<Node, void(DependTraits...)> final
 };
 
 template<class Node, class... Traits>
-struct Build<Node, void(), Traits...> final
+struct Build<Node, void(), Traits...> final // Unfinished node builder: finish with ::Uses<Depends...>, or ::UsesAny (or use arc::NodeImpl<...>)
 {
     template<detail::IsDependsItem... DependTraits>
     requires (sizeof...(DependTraits) > 0)
