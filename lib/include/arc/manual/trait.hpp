@@ -12,6 +12,7 @@
 #include "arc/trait_view_fwd.hpp"
 
 #if !ARC_IMPORT_STD
+#include <string>
 #include <type_traits>
 #endif
 

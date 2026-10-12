@@ -265,6 +265,13 @@ class Repeater:
         self.trait = trait
         self.connections: list['Connection'] = []
         self.context = f'{name[0].upper()}{name[1:]}Repeater{repeater_id}_'
+        # Generated for a fan-out rather than declared in the DSL, so no position to report
+        self.pos: str | None = None
+        self.intermediate_aliases: list[tuple[str, str]] = []
+
+    @property
+    def impl_layouts(self):
+        return [[(self.impl, None)]]
 
     @property
     def node_alias(self):
@@ -326,6 +333,9 @@ class Node:
         self.name: str = name
         self.impl: str = impl
         self.cluster = cluster
+        self.pos: str | None = get_pos(tree) if tree is not None else None
+        # Layout of each intermediate alias's type, then of impl, as (text, DSL pos) lines
+        self.impl_layouts: list[list[tuple[str, str | None]]] = [[(t, None)] for _, t in intermediate_aliases] + [[(impl, None)]]
         self.is_nexus: bool = is_first and isinstance(cluster, Domain)
         self.intermediate_aliases = intermediate_aliases
         self.is_parent = False
@@ -678,6 +688,10 @@ class Cluster:
                     if name in nodes:
                         raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in {self.cluster_class} '{self.full_name}'")
                     impl = reconstruct(child.children[1])
+                    # How to lay out each type, the node's and then each wrapper's applied to it: as (text, DSL pos)
+                    # lines, so that each part sits at its DSL column, the wrapper's own arguments apart from the
+                    # inner type that the DSL leaves out
+                    impl_layouts = [[(impl, get_pos(child.children[1]))]]
                     intermediate_aliases: list[tuple[str, str]] = []
                     if len(child.children) > 2:
                         for wrapper in child.children[2:]:
@@ -685,13 +699,18 @@ class Cluster:
                             cls = wrapper.children[0].value
                             impl_alias = f"{name}_inner{len(intermediate_aliases)}_"
                             intermediate_aliases.append((impl_alias, impl))
-                            args = [impl_alias]
-                            if len(wrapper.children) > 1:
-                                args.extend(reconstruct(arg) for arg in wrapper.children[1].children[1:-1:2])
-                            impl = f"{cls}<{', '.join(args)}>"
+                            arg_trees = wrapper.children[1].children[1:-1:2] if len(wrapper.children) > 1 else []
+                            wrapper_args = [reconstruct(arg) for arg in arg_trees]
+                            impl = f"{cls}<{', '.join([impl_alias] + wrapper_args)}>"
+                            if arg_trees:
+                                impl_layouts.append([(f"{cls}<{impl_alias},", get_pos(wrapper)),
+                                                     (f"{', '.join(wrapper_args)}>", get_pos(arg_trees[0]))])
+                            else:
+                                impl_layouts.append([(impl, get_pos(wrapper))])
 
                     is_first = len(nodes) == 2
                     nodes[name] = Node(name, child, impl, cluster=self, is_first=is_first, intermediate_aliases=intermediate_aliases)
+                    nodes[name].impl_layouts = impl_layouts
                 elif child.data == imported('cluster_ctor'):
                     self.constructors.append(ClusterCtor(child, self, nodes))
                 elif child.data == imported('connection_block'):
@@ -1185,6 +1204,11 @@ class Method:
 
 
 class Trait:
+    def method_pos(self, name: str) -> str | None:
+        """DSL position of the first method declared with the name, for the lines generated per method name."""
+        positions = [m.pos for m in self.methods if m.name == name and m.pos]
+        return min(positions, key=lambda p: int(p.rsplit(":", 2)[1]), default=None)
+
     def __init__(self, name: str):
         self.name: str = name[0].upper() + name[1:]
         self.variable: str = name[0].lower() + name[1:]
@@ -1410,6 +1434,9 @@ class StateGroup:
         self.variants: list[str] = []
         self.transitions: list[StateTransition] = []
         self.is_top_level = is_top_level
+        # Where the group, and each of its variants, is first named in the DSL
+        self.pos: str | None = None
+        self.variant_pos: dict[str, str] = {}
 
     def matching_param_names(self, method_params: list[tuple[CppType, str]]) -> list[str] | None:
         """Return method param names matching this group's param types in order, or None if not all match."""
@@ -1523,6 +1550,7 @@ class VariantInvariant:
 
 class Protocol(Trait):
     def __init__(self, name: str, namespace_name: str = ""):
+        self._state_pos: dict[str, str] = {}  # where each state is first named in the DSL
         super().__init__(name)
         self.is_protocol = True
         self.namespace_name = namespace_name
@@ -1547,10 +1575,16 @@ class Protocol(Trait):
         return "namespace protocol"
 
     def _parse_state_set(self, tree) -> list[str]:
-        return [c.value for c in tree.children if isinstance(c, Token)]
+        tokens = [c for c in tree.children if isinstance(c, Token)]
+        for t in tokens:
+            self._state_pos.setdefault(t.value, get_pos(t, False))
+        return [t.value for t in tokens]
 
     def _add_variants(self, group: StateGroup, names: list[str]):
         for name in names:
+            if group.pos is None:
+                group.pos = self._state_pos.get(name)
+            group.variant_pos.setdefault(name, self._state_pos.get(name))
             if name not in group.variants:
                 if name[0].islower():
                     raise SyntaxError(f"State name '{name}' must start with an uppercase letter")
@@ -1624,6 +1658,7 @@ class Protocol(Trait):
                     raise SyntaxError(f'{get_pos(c)} state group name "{state_name}" must start with an uppercase letter')
                 self._all_state_names.add(state_name)
                 group = StateGroup(state_name, list(inherited_params))
+                group.pos = get_pos(c.children[1], False)
                 self.state_groups.append(group)
                 self._parse_transitions(c.children[2:], group, scope_param_names)
                 for v in group.variants:
@@ -1732,6 +1767,7 @@ class Protocol(Trait):
             group.validate_reachability(f"{self.namespace_name}::protocol::{self.name}")
             method = Method(self)
             method.name = 'proto' + group.name
+            method.pos = group.pos or ""
             method.params = list(group.params)
             method.is_const = True
             method.return_type = CppType(f"Meta::States::{group.name}")
@@ -1739,6 +1775,7 @@ class Protocol(Trait):
             for variant in group.variants:
                 vm = Method(self)
                 vm.name = variant
+                vm.pos = group.variant_pos.get(variant) or method.pos
                 vm.params = list(group.params)
                 vm.is_const = True
                 vm.return_type = CppType("bool")
@@ -1751,6 +1788,7 @@ class Protocol(Trait):
         for pred in self._temp_predicates:
             method = Method(self)
             method.name = pred.name
+            method.pos = pred.pos
             method.params = list(pred.params)
             method.is_const = True
             method.return_type = CppType("bool")
@@ -1980,6 +2018,76 @@ class Repr:
 template_loader = jinja2.FileSystemLoader(searchpath=dir_path)
 template_env = jinja2.Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
 template_env.filters['cpp_string'] = cpp_string_literal
+
+# Line markers: the template brackets output generated from a DSL position with arc_line(pos) ... arc_end(),
+# which map_dsl_lines turns into #line directives, so that the compiler reports those lines at their DSL source
+ARC_LINE_MARKER = "//@arc-line "
+ARC_END_MARKER = "//@arc-end"
+
+def arc_line(pos: str | None, align: bool = False) -> str:
+    """pos is file:line:col; without a line, the region keeps the output's own lines. With align, the region's first
+    line is indented so that its first token sits at the DSL column, for a declaration whose name leads the line."""
+    parts = pos.rsplit(":", 2) if pos else []
+    if len(parts) != 3 or not parts[1].isdigit():
+        return ""
+    return ARC_LINE_MARKER + parts[1] + (" " + parts[2] if align and parts[2].isdigit() else "")
+
+def arc_end() -> str:
+    return ARC_END_MARKER
+
+def impl_layout(layout: list[tuple[str, str | None]]) -> str:
+    """A node's type and its terminating ';', each of its lines at its DSL position, as laid out by the generator."""
+    lines: list[str] = []
+    for text, pos in layout:
+        marker = arc_line(pos, align=True)
+        if marker:
+            lines.append(marker)
+        lines.append(text)
+    return "\n".join(lines) + ";"
+
+template_env.globals['arc_line'] = arc_line
+template_env.globals['arc_end'] = arc_end
+template_env.globals['impl_layout'] = impl_layout
+
+def map_dsl_lines(text: str, dsl_file: str, out_file: str) -> str:
+    """Replaces the line markers with #line directives: a region's first line reports the DSL line (later ones the lines
+    after it, as no directive may sit inside macro arguments), and the end of a run of regions restores the output's
+    own lines."""
+    def quoted(path: str) -> str:
+        return f'R"({path})"'
+    def indent_of(line: str) -> str:
+        return line[:len(line) - len(line.lstrip())]
+
+    out: list[str | None] = []  # None: restore the output's lines here, unless another region follows
+    align_col: int | None = None
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if stripped.startswith(ARC_LINE_MARKER):
+            dsl_line, _, col = stripped[len(ARC_LINE_MARKER):].partition(" ")
+            align_col = int(col) if col else None
+            out.append(f"{indent_of(line)}#line {dsl_line} {quoted(dsl_file)}")
+        elif stripped == ARC_END_MARKER:
+            out.append(None)
+        else:
+            if align_col is not None and stripped:
+                line = " " * (align_col - 1) + stripped
+                align_col = None
+            out.append(line)
+
+    lines: list[str] = []
+    for i, line in enumerate(out):
+        if line is None:
+            following = next((l for l in out[i + 1:] if l is None or l.strip()), "")
+            if following is not None and following.lstrip().startswith("#line ") and following.rstrip().endswith('"'):
+                continue  # the next region's directive takes over
+            # The line after the directive is the output's next line
+            line = f"#line {len(lines) + 2} {quoted(out_file)}"
+        lines.append(line)
+    result = '\n'.join(lines)
+    # A marker sharing a line with other output would silently become a comment, its line left unmapped
+    if ARC_LINE_MARKER in result or ARC_END_MARKER in result:
+        raise RuntimeError("ARC generator template emitted a line marker that does not start its own line")
+    return result
 jinja_template = template_env.get_template(f"template.{'ixx' if is_module else 'hxx'}.jinja")
 try:
     repr_ = Repr(parsed)
@@ -1987,7 +2095,8 @@ except SyntaxError as e:
     # Messages lead with the DSL position, so the traceback into the generator adds nothing
     print(f"ERROR: {e}", file=sys.stderr)
     sys.exit(1)
-output_text = jinja_template.render(repr=repr_, export="export " if is_module else "ARC_MODULE_EXPORT\n")
+output_text = map_dsl_lines(jinja_template.render(repr=repr_, export="export " if is_module else "ARC_MODULE_EXPORT\n"),
+                            input_file, output_file)
 
 with open(output_file, 'a+') as file:
     file.seek(0)

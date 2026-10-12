@@ -6,6 +6,7 @@
 #include <concepts>
 #include <cstdio>
 #include <utility>
+#include <string>
 #endif
 
 import arc;

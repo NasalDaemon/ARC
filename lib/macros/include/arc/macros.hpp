@@ -276,10 +276,18 @@
     }
 
 #define ARC_SIGNATURE_METHOD(method) \
+    ARC_SIGNATURE_METHOD_HEAD(method) method ARC_SIGNATURE_METHOD_TAIL(method)
+
+// ARC_SIGNATURE_METHOD in two, around the method's name, so that generated code can put the name where its diagnostics
+// should point (its declaration in the DSL): ARC_SIGNATURE_METHOD_HEAD(method) method ARC_SIGNATURE_METHOD_TAIL(method)
+#define ARC_SIGNATURE_METHOD_HEAD(method) \
     ARC_AS_FUNCTOR_METHOD(method) \
     template<class Self, class... Args> \
+    ARC_INLINE constexpr decltype(auto)
+
+#define ARC_SIGNATURE_METHOD_TAIL(method) \
+    (this Self&& self, Args&&... args) \
     requires ::arc::CanInvokeMethod<Self, ARC_This_Trait::method, Args...> \
-    ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
     { \
         ARC_SIGNATURE_METHOD_BODY(method, static_cast<Args&&>(args)...) \
     }

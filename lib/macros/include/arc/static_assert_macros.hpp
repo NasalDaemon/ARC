@@ -125,7 +125,7 @@
         ARC_SA_NODE_CONTEXT(node, Impl) kvs)
 
 // Asserts that Impl implements a trait method, telling apart a method that is missing from one that is not const or
-// returns the wrong type. Requirement is the arc::ImplementsMethod* concept asserted, as
+// returns the wrong type. Requirement names the arc::ImplementsMethod* concept asserted (unqualified), as
 // Requirement<Receiver, Method, Return, Params...>, so that a failure also gets the compiler's concept diagnostics.
 // The generic lambda names the types it deduces from the probe, so diagnostics print the requirement by those names
 // rather than as spelled at the call (where dependent types are wrapped in ARC_TYPENAME).
@@ -139,14 +139,14 @@
         using ARC_Receiver = ARC_Probe::Receiver; \
         if constexpr (ARC_Probe::needsConst) \
             ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method must be const: " signature, \
-                Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+                ::arc::Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
         else if constexpr (ARC_Probe::callable) \
             ARC_ASSERT_IMPLEMENTS_KV(Trait, Impl, Types, pos "Trait method return type does not match the trait's: " signature, \
                 (actual_return, ::arc::typeName<typename ARC_Probe::Result>), \
-                Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+                ::arc::Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
         else \
             ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method not implemented: " signature, \
-                Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+                ::arc::Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
     }(::arc::MethodProbe<Impl, IsConst, Trait::methodName, __VA_ARGS__>{})
 
 #endif // INCLUDE_ARC_STATIC_ASSERT_MACROS_HPP
