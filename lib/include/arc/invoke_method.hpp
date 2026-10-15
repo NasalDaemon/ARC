@@ -37,11 +37,24 @@ namespace detail {
         }
     };
 
+    template<class Node, class Method, class... Args>
+    consteval void reportCannotInvokeMethod()
+    {
+        if constexpr (std::is_const_v<Node> and CanInvokeMethod<std::remove_const_t<Node>, Method, Args...>)
+            ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)(
+                "Method is not const, but the node is reached read-only: a policy grants the caller read access only "
+                "(`->` rather than `=>`), or the call is made through a const view",
+                ARC_SA_NODE_CONTEXT(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+        else
+            ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)("Method cannot be invoked on node with the given arguments",
+                ARC_SA_NODE(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+    }
+
     template<class Context, class View, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethodWithSpy(std::nullptr_t/* spy */, View&& view, Node& node, Method method, Args&&... args)
     {
-        ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)("Method cannot be invoked on node with the given arguments",
-            ARC_SA_NODE(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+        if constexpr (not CanInvokeMethod<Node, Method, Args...>)
+            reportCannotInvokeMethod<Node, Method, Args...>();
         ARC_STATIC_ASSERT_INLINE(HasMethods<View>)("View does not expose trait methods",
             (view, arc::typeName<View>));
         if constexpr (ImplementsMethod<Node, Method, Args...>)
@@ -53,8 +66,8 @@ namespace detail {
     template<class Context, class SpyTraitView, class View, class Node, class Method, class... Args>
     ARC_INLINE constexpr decltype(auto) invokeMethodWithSpy(SpyTraitView spy, View&& view, Node& node, Method method, Args&&... args)
     {
-        ARC_STATIC_ASSERT_INLINE(CanInvokeMethod<Node, Method, Args...>)("Method cannot be invoked on node with the given arguments",
-            ARC_SA_NODE(node, Node)(method, arc::typeName<Method>)(args, arc::typeName<void(Args...)>));
+        if constexpr (not CanInvokeMethod<Node, Method, Args...>)
+            reportCannotInvokeMethod<Node, Method, Args...>();
         ARC_STATIC_ASSERT_INLINE(HasMethods<View>)("View does not expose trait methods",
             (view, arc::typeName<View>));
         auto caller = [&](auto&&... spyArgs) -> decltype(auto)

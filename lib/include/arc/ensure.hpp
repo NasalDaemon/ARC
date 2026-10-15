@@ -4,6 +4,7 @@
 #include "arc/cluster_fwd.hpp"
 #include "arc/count.hpp"
 #include "arc/empty_types.hpp"
+#include "arc/global_context.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/node_fwd.hpp"
@@ -16,9 +17,19 @@ namespace detail {
     template<class T>
     consteval void assertNodeDependenciesSatisfied()
     {
-        ARC_STATIC_ASSERT_INLINE(NodeDependenciesSatisfied<T>)(
-            "Not all entries in node's arc::Depends<>/Uses<> are satisfied by its cluster",
-            ARC_SA_NODE_CONTEXT(node, T)(missing, missingDependencies<T, false>()));
+        if constexpr (NodeDependenciesSatisfied<T>)
+            return;
+        // A missing global trait, in a cluster without its link to the global node, is that link missing
+        else if constexpr (not ContextHasGlobalConnection<ContextOf<T>>
+                           and missingDependencies<T, false>().find("arc::Global<") != std::string::npos)
+            ARC_STATIC_ASSERT_INLINE(NodeDependenciesSatisfied<T>)(
+                "Node depends on a global trait, but its cluster does not link it to the global node: "
+                "add `[[@global]] @all ==> @global` to the cluster or add a link for this specific trait",
+                ARC_SA_NODE_CONTEXT(node, T)(missing, missingDependencies<T, false>()));
+        else
+            ARC_STATIC_ASSERT_INLINE(NodeDependenciesSatisfied<T>)(
+                "Not all entries in node's arc::Depends<>/Uses<> are satisfied by its cluster",
+                ARC_SA_NODE_CONTEXT(node, T)(missing, missingDependencies<T, false>()));
     }
 }
 

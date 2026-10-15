@@ -69,7 +69,9 @@ struct Node
         if constexpr (IsGlobalTrait<Trait>)
         {
             if constexpr (not ContextHasGlobalConnection<Context> and not detail::ImplicitDependencyAllowed<Context, Trait>)
-                ARC_STATIC_ASSERT_INLINE(detail::HasGlobalLink<Context, Trait>)("Node missing link to a global node dependency",
+                ARC_STATIC_ASSERT_INLINE(detail::HasGlobalLink<Context, Trait>)(
+                    "Node depends on a global trait, but its cluster does not link it to the global node: "
+                    "add `[[@global]] @all ==> @global` to the cluster or add a specific connection for this trait",
                     (trait, arc::typeName<Trait>) ARC_SA_NODE_CONTEXT(node, Context));
         }
         else

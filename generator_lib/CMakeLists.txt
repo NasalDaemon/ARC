@@ -256,7 +256,7 @@ function(target_generate_arc_headers TARGET_NAME)
                 "${ARC_GENERATOR_DIR}/template.jinja"
             COMMAND ${CMAKE_COMMAND} -E copy "${INPUT_FILE}" "${INPUT_CLONE}"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_INCLUDE_PATH}"
-            COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py -q -i ${INPUT_FILE} -o ${OUTPUT_FILE}
+            COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py -q -i "${WORKING_DIR}/${INPUT_FILE}" -o ${OUTPUT_FILE}
             WORKING_DIRECTORY "${WORKING_DIR}"
             COMMENT "${TARGET_NAME}_hxx_arc: ${INPUT_FILE}"
         )
@@ -347,7 +347,7 @@ function(target_generate_arc_modules TARGET_NAME)
                 "${ARC_GENERATOR_DIR}/template.ixx.jinja"
             COMMAND ${CMAKE_COMMAND} -E copy "${INPUT_FILE}" "${INPUT_CLONE}"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_MODULE_PATH}"
-            COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py -q -m -i "${INPUT_FILE}" -o "${OUTPUT_FILE}"
+            COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py -q -m -i "${MODULE_DIR}/${INPUT_FILE}" -o "${OUTPUT_FILE}"
             WORKING_DIRECTORY "${MODULE_DIR}"
             COMMENT "${TARGET_NAME}_ixx_arc: ${INPUT_FILE}"
         )

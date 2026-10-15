@@ -125,11 +125,12 @@
         ARC_SA_NODE_CONTEXT(node, Impl) kvs)
 
 // Asserts that Impl implements a trait method, telling apart a method that is missing from one that is not const or
-// returns the wrong type. Requirement names the arc::ImplementsMethod* concept asserted (unqualified), as
-// Requirement<Receiver, Method, Return, Params...>, so that a failure also gets the compiler's concept diagnostics.
+// returns the wrong type. Requirement completes the name of the arc::ImplementsMethod* concept asserted, as
+// ImplementsMethod##Requirement<Receiver, Method, Return, Params...>, so that a failure also gets the compiler's
+// concept diagnostics: AnyReturn, ConvertibleTo or Matching. Pasted on in the macro body, so that compilers report
+// the failed condition where the macro is invoked (GCC would otherwise point at the argument).
 // The generic lambda names the types it deduces from the probe, so diagnostics print the requirement by those names
 // rather than as spelled at the call (where dependent types are wrapped in ARC_TYPENAME).
-// methodName is the method as named in the trait, whose tag is methodName##_c.
 // ARC_ASSERT_IMPLEMENTS_METHOD(Trait, methodName, Impl, Types, "file:line:col: ", "signature", Requirement, IsConst, Return, Params...)
 #define ARC_ASSERT_IMPLEMENTS_METHOD(Trait, methodName, Impl, Types, pos, signature, Requirement, IsConst, ...) \
     []<class ARC_Impl, bool ARC_IsConst, class ARC_Method, class ARC_Return, class... ARC_Params>( \
@@ -137,16 +138,19 @@
     { \
         using ARC_Probe = decltype(ARC_probe); \
         using ARC_Receiver = ARC_Probe::Receiver; \
-        if constexpr (ARC_Probe::needsConst) \
-            ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method must be const: " signature, \
-                ::arc::Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
-        else if constexpr (ARC_Probe::callable) \
-            ARC_ASSERT_IMPLEMENTS_KV(Trait, Impl, Types, pos "Trait method return type does not match the trait's: " signature, \
-                (actual_return, ::arc::typeName<typename ARC_Probe::Result>), \
-                ::arc::Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
-        else \
-            ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method not implemented: " signature, \
-                ::arc::Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+        if constexpr (not ::arc::ImplementsMethod##Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>) \
+        { \
+            if constexpr (ARC_Probe::needsConst()) \
+                ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method must be const: " signature, \
+                    ::arc::ImplementsMethod##Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+            else if constexpr (ARC_Probe::callable()) \
+                ARC_ASSERT_IMPLEMENTS_KV(Trait, Impl, Types, pos "Trait method return type does not match the trait's: " signature, \
+                    (actual_return, ::arc::typeName<typename ARC_Probe::Result>), \
+                    ::arc::ImplementsMethod##Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+            else \
+                ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method not implemented: " signature, \
+                    ::arc::ImplementsMethod##Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
+        } \
     }(::arc::MethodProbe<Impl, IsConst, Trait::methodName, __VA_ARGS__>{})
 
 #endif // INCLUDE_ARC_STATIC_ASSERT_MACROS_HPP

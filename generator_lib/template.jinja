@@ -63,11 +63,11 @@ template<
 {# index must match the method's index in Meta::Constraints, i.e. its index in trait.methods #}
 {%- macro method_requirement(trait, method, index) -%}
     {%- if method.is_unconstrained_return -%}
-    ImplementsMethodAnyReturn
+    AnyReturn
     {%- elif method.is_auto_return -%}
-    ImplementsMethodMatching
+    Matching
     {%- else -%}
-    ImplementsMethodConvertibleTo
+    ConvertibleTo
     {%- endif -%}
 {%- endmacro -%}
 {%- macro method_requirement_return(trait, method, index) -%}
@@ -166,9 +166,7 @@ struct policy::{{ policy.name }}::{{ classification.name }} : ::arc::Group
 struct {{ trait.name }} : ::arc::Trait
 {
     {% for method_name in trait.method_names %}
-    {{ arc_line(trait.method_pos(method_name)) }}
-    ARC_METHOD_TAG({{ method_name }})
-    {{ arc_end() }}
+    {{ method_macro("ARC_METHOD_TAG", method_name, trait.method_pos(method_name)) }}
     {% endfor %}
 
     template<::arc::IsMethodOf<{{ trait.name }}> Tag>
@@ -184,18 +182,14 @@ struct {{ trait.name }} : ::arc::Trait
         struct MethodTags
         {
             {% for method_name in trait.method_names %}
-            {{ arc_line(trait.method_pos(method_name)) }}
-            ARC_METHOD_TAG_ALIAS({{ method_name }})
-            {{ arc_end() }}
+            {{ method_macro("ARC_METHOD_TAG_ALIAS", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
         // Queryable list of methods applicable to this trait
         struct Applicable
         {
             {% for method_name in trait.method_names %}
-            {{ arc_line(trait.method_pos(method_name)) }}
-            ARC_METHOD_TAG_APPLICABLE({{ method_name }})
-            {{ arc_end() }}
+            {{ method_macro("ARC_METHOD_TAG_APPLICABLE", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
         {% if trait.is_protocol %}
@@ -426,17 +420,15 @@ struct {{ trait.name }} : ::arc::Trait
                     ARC_This_Trait::Meta::RecordingView proto(self, log);
                     {% endif %}
                     {% for pos, expr in method.proto_pre_exprs %}
-                    {{ arc_line(pos) }}
-                    _arc_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
-                    {{ arc_end() }}
+                    {{ contract_assert("_arc_assert_", method.proto_pre_srcs[loop.index0], expr, pos) }}
                     {% endfor %}
                     {% for pos, name, cond, then in method.proto_if_exprs %}
-                    {{ arc_line(pos) }}
-                    bool if_{{ loop.index0 }} = static_cast<bool>({{ cond }});
-                    {{ arc_end() }}
+                    {{ mapped_expr("bool if_" ~ loop.index0 ~ " = static_cast<bool>(", method.proto_if_srcs[loop.index0][0], cond, ");", pos) }}
                     {% endfor %}
-                    {% for call in method.proto_snap_calls(False) %}
+                    {% for pos, call in method.proto_snap_calls(False) %}
+                    {{ arc_line(pos) }}
                     (void)({{ call }});
+                    {{ arc_end() }}
                     {% endfor %}
                     ::arc::StateTransitionLog<ARC_This_Trait>::checkInvariants(_arc_assert_, self, proto, log);
                     return {std::make_tuple({%- for type, name in method.params -%}{{ name }}{{ type.pack }}{{ ", " if not loop.last else "" }}{%- endfor -%}), {
@@ -458,22 +450,20 @@ struct {{ trait.name }} : ::arc::Trait
                     [[maybe_unused]] ARC_This_Trait::Meta::PostRecordingView proto(self, _arc_snap_.log);
                     {% endif %}
                     {% if method.implies %}
-                    {{ arc_line(method.pos) }}
                     {% if method.implies.kind == 'iff' %}
-                    _arc_assert_(self, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}", _arc_post_return_contract_value_ == static_cast<bool>({{ method.implies.expr }})));
+                    {{ contract_assert("_arc_assert_", method.implies_src, method.implies.expr, method.pos, method.implies.assert_msg,
+                        before="_arc_post_return_contract_value_ == static_cast<bool>(", after=")") }}
                     {% else %}
-                    _arc_assert_(self, ARC_ASSERT_ARGS("{{ method.implies.assert_msg }}", !_arc_post_return_contract_value_ || static_cast<bool>({{ method.implies.expr }})));
+                    {{ contract_assert("_arc_assert_", method.implies_src, method.implies.expr, method.pos, method.implies.assert_msg,
+                        before="!_arc_post_return_contract_value_ || static_cast<bool>(", after=")") }}
                     {% endif %}
-                    {{ arc_end() }}
                     {% endif %}
                     {% for pos, name, expr in method.proto_post_exprs %}
                     {
                         {% if name != "_" %}
                         [[maybe_unused]] auto const& {{ name }} = _arc_post_return_contract_value_;
                         {% endif %}
-                        {{ arc_line(pos) }}
-                        _arc_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
-                        {{ arc_end() }}
+                        {{ contract_assert("_arc_assert_", method.proto_post_srcs[loop.index0], expr, pos) }}
                     }
                     {% endfor %}
                     {% for pos, name, cond, then in method.proto_if_exprs %}
@@ -481,9 +471,8 @@ struct {{ trait.name }} : ::arc::Trait
                         {% if name != "_" %}
                         [[maybe_unused]] auto const& {{ name }} = _arc_post_return_contract_value_;
                         {% endif %}
-                        {{ arc_line(pos) }}
-                        _arc_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", !_arc_snap_.ifs[{{ loop.index0 }}] || ({{ then }})));
-                        {{ arc_end() }}
+                        {{ contract_assert("_arc_assert_", method.proto_if_srcs[loop.index0][1], then, pos,
+                            before="!_arc_snap_.ifs[" ~ loop.index0 ~ "] || (", after=")") }}
                     }
                     {% endfor %}
                     {% if trait.has_protocol %}
@@ -509,9 +498,7 @@ struct {{ trait.name }} : ::arc::Trait
                     {%- endfor -%}
                     ));
                     {% for pos, pre in method.pre_exprs %}
-                    {{ arc_line(pos) }}
-                    _arc_contract_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ pre }}));
-                    {{ arc_end() }}
+                    {{ contract_assert("_arc_contract_assert_", method.pre_srcs[loop.index0], pre, pos) }}
                     {% endfor %}
                 }
                 {% endif %}
@@ -525,9 +512,7 @@ struct {{ trait.name }} : ::arc::Trait
                         {% if name != "_" %}
                         auto const& {{ name }} = _arc_post_return_contract_value_;
                         {% endif %}
-                        {{ arc_line(pos) }}
-                        _arc_contract_assert_(self, ARC_ASSERT_ARGS("{{ pos }}", {{ expr }}));
-                        {{ arc_end() }}
+                        {{ contract_assert("_arc_contract_assert_", method.post_srcs[loop.index0], expr, pos) }}
                     }
                     {% endfor %}
                 }
@@ -572,9 +557,7 @@ struct {{ trait.name }} : ::arc::Trait
         struct SignaturesByTag
         {
             {% for method_name in trait.method_names %}
-            {{ arc_line(trait.method_pos(method_name)) }}
-            ARC_SIGNATURE_METHOD_TAG({{ method_name }})
-            {{ arc_end() }}
+            {{ method_macro("ARC_SIGNATURE_METHOD_TAG", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
         // Provides interface to TraitView, enforcing Meta::Signatures and Meta::Constraints
@@ -589,9 +572,7 @@ struct {{ trait.name }} : ::arc::Trait
                 {{ method_name }} ARC_SIGNATURE_METHOD_TAIL({{ method_name }})
                 {{ arc_end() }}
                 {% else %}
-                {{ arc_line(trait.method_pos(method_name)) }}
-                ARC_AS_FUNCTOR_METHOD({{ method_name }})
-                {{ arc_end() }}
+                {{ method_macro("ARC_AS_FUNCTOR_METHOD", method_name, trait.method_pos(method_name)) }}
                 {% for method in trait.methods if method.name == method_name %}
                 {{ method_template_params(trait, method) }}
                 ARC_INLINE constexpr decltype(auto)
@@ -625,9 +606,7 @@ struct {{ trait.name }} : ::arc::Trait
             struct {{ trait.name }} : ::arc::MethodsBase
             {
                 {% for method_name in trait.method_names %}
-                {{ arc_line(trait.method_pos(method_name)) }}
-                ARC_DUCK_METHOD({{ method_name }})
-                {{ arc_end() }}
+                {{ method_macro("ARC_DUCK_METHOD", method_name, trait.method_pos(method_name)) }}
                 {% endfor %}
             };
         };
@@ -636,9 +615,7 @@ struct {{ trait.name }} : ::arc::Trait
         struct DisableImpl
         {
             {% for method_name in trait.method_names %}
-            {{ arc_line(trait.method_pos(method_name)) }}
-            ARC_NAMED_METHOD_IMPL_DISABLE({{ method_name }})
-            {{ arc_end() }}
+            {{ method_macro("ARC_NAMED_METHOD_IMPL_DISABLE", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
         struct NoDisable{};
@@ -676,7 +653,13 @@ struct {{ trait.name }} : ::arc::Trait
                     , {{ name }}{{ type.pack }}
                     {%- endfor -%}
                 ));
+                {% if method.default_impl_src %}
+                {{ arc_line(method.default_impl_pos, align=True) }}
+{{ method.default_impl_src }}
+                {{ arc_end() }}
+                {% else %}
                 {{ method.default_impl | indent(16) }}
+                {% endif %}
             }
             {% endfor %}
         };
@@ -690,9 +673,7 @@ struct {{ trait.name }} : ::arc::Trait
                 using Disable = DisableImpl;
             };
             {% for method_name in trait.method_names %}
-            {{ arc_line(trait.method_pos(method_name)) }}
-            ARC_NAMED_METHOD_IMPL({{ method_name }})
-            {{ arc_end() }}
+            {{ method_macro("ARC_NAMED_METHOD_IMPL", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
         // Provides internal node redirection `node.method(...)` --> `node.impl(method, ...)`
@@ -897,7 +878,7 @@ inline constexpr {{ trait.name }} {{ trait.variable }}{};
 {{ export }}inline namespace trait {
 
 {% if alias | count == 2 %}
-struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
+{{ trait_alias_head(namespace, alias) }}
 {
     struct Meta : AltTrait::Meta
     {
@@ -930,7 +911,7 @@ struct {{ alias[0] }} : ::arc::AltTrait<{{ alias[1] }}, {{ alias[0] }}>
     };
 };
 {% else %}
-struct {{ alias[0] }} : ::arc::JoinedTrait<{{ alias[1:] | join(", ") }}>
+{{ trait_alias_head(namespace, alias) }}
 {
     struct Meta : JoinedTrait::Meta
     {
@@ -1082,10 +1063,13 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
     {% if cluster.constructors %}
 
     {% for ctor in cluster.constructors %}
+    {{ arc_line(ctor.pos) }}
     constexpr Node({{ ctor.params_str }})
     {% for member, init in ctor.inits %}
+    {{ arc_line(ctor.init_positions[loop.index0], lead=2) }}
         {{ ":" if loop.first else "," }} {{ member }}{{ init }}
     {% endfor %}
+    {{ arc_end() }}
     {}
     {% endfor %}
     {% endif %}

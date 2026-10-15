@@ -3,6 +3,7 @@
 import argparse
 from bisect import bisect_right
 import difflib
+import os
 import sys
 from collections import defaultdict
 from functools import cached_property
@@ -90,9 +91,25 @@ with open(input_file, 'r') as file:
             text = text[end_pos + len(end):]
         text = "".join(sections)
 
+    def expected_tokens(e: UnexpectedInput) -> str:
+        """What the parser would have accepted, spelled as written in the DSL where the terminal is a fixed string."""
+        names = getattr(e, 'accepts', None) or getattr(e, 'expected', None) or set()
+        spelled = set()
+        for name in names:
+            try:
+                pattern = arc_parser.get_terminal(name).pattern
+                spelled.add(f"'{pattern.value}'" if pattern.type == 'str' else name)
+            except KeyError:
+                spelled.add(name)
+        if not spelled:
+            return ""
+        listed = sorted(spelled)
+        more = f", ... ({len(listed) - 12} more)" if len(listed) > 12 else ""
+        return f"expected one of: {', '.join(listed[:12])}{more}\n"
+
     def on_parse_error(e: UnexpectedInput) -> bool:
         line, col = get_line(e.line, e.column)
-        print(f"{input_file}:{line}:{col} parse error:\n{e.get_context(text)}")
+        print(f"{input_file}:{line}:{col} parse error:\n{e.get_context(text)}{expected_tokens(e)}")
         return False
 
     parsed = arc_parser.parse(text, on_error=on_parse_error)
@@ -112,6 +129,14 @@ def get_pos(t: Tree | Token | None, full_path: bool = True) -> str:
         return get_pos(t.children[0], full_path=full_path)
     else:
         raise TypeError(f"Expected Tree or Token, got {type(t)}")
+
+
+def full_pos(pos: str | None) -> str:
+    """A position recorded as file-name:line:col (as in the messages of generated asserts), with the file's full path,
+    as other generator errors give it."""
+    if not pos:
+        return str(input_path)
+    return str(input_path.parent / pos)
 
 
 def get_tree_pos(t: Tree) -> str:
@@ -162,6 +187,62 @@ def _expand_clause_body(tree) -> str:
         args = reconstruct(tree.children[1]).strip()
         return f"proto.{name}({args})"
     return f"proto.{name}()"
+
+
+class ExprSrc:
+    """A C++ expression or body from the DSL, as generated code spells it, with the DSL position that its first DSL
+    character maps to: `lead` generated characters (e.g. `proto.`) come before that character."""
+    def __init__(self, text: str, pos: str, lead: int = 0):
+        self.text = text
+        self.pos = pos
+        self.lead = lead
+
+
+def source_from(start: int, end: int, strip_binding: bool = False) -> ExprSrc | None:
+    """The DSL text in [start, end) as written, from its first token (past a `name:` binding with strip_binding), so
+    that under #line each of its lines and columns is the DSL's own."""
+    source = text[start:end]
+    skip = len(source) - len(source.lstrip())
+    if strip_binding and (m := re.match(r'[A-Za-z_]\w*\s*:(?!:)\s*', source[skip:])):
+        skip += m.end()
+    start += skip
+    if start >= end:
+        return None
+    line = text.count('\n', 0, start) + 1
+    col = start - (text.rfind('\n', 0, start) + 1) + 1
+    line, col = get_line(line, col)
+    return ExprSrc(text[start:end].replace('`', '').rstrip(), f"{input_path.name}:{line}:{col}")
+
+
+def tree_source(tree, strip_binding: bool = False) -> ExprSrc | None:
+    if isinstance(tree, Token):
+        return source_from(tree.start_pos, tree.end_pos, strip_binding)
+    if not tree.children:
+        return None
+    return source_from(tree.meta.start_pos, tree.meta.end_pos, strip_binding)
+
+
+def clause_source(tree, strip_binding: bool = False) -> ExprSrc | None:
+    """The source of a protocol clause body: its C++ expression as written, or for a bare reference, the generated
+    `proto.Name(args)` call positioned so that Name sits at the DSL's."""
+    if tree.data == imported('proto_clause_body'):
+        tree = tree.children[0]
+    if tree.data in (imported('clause_paren'), imported('invariant_expr')):
+        return tree_source(tree.children[0], strip_binding)
+    if tree.data == imported('invariant_bare_ref'):
+        tree = tree.children[0]
+    name = tree.children[0]
+    args = reconstruct(tree.children[1]).strip() if len(tree.children) > 1 else ""
+    return ExprSrc(f"proto.{name}({args})", get_pos(name, False), lead=len("proto."))
+
+
+def _clause_bare_ref(tree) -> Token | None:
+    """The state or predicate a clause body names bare ('is Init', 'to Dead(name)'), if it is not a C++ expression."""
+    if tree.data == imported('proto_clause_body'):
+        tree = tree.children[0]
+    if tree.data == imported('clause_paren'):
+        return None
+    return tree.children[0]
 
 
 _PROTO_CALL_RE = re.compile(r'\bproto\.(\w+)\s*\(')
@@ -475,6 +556,7 @@ class ClusterCtor:
             self.params.append((type_, p.children[1].value))
 
         self.inits: list[tuple[str, str]] = []  # [(member, initialiser-with-brackets)]
+        self.init_positions: list[str] = []  # DSL position of each init's member
         self.delegates: bool = False
         init_trees = tree.children[2:]
         for init in init_trees:
@@ -490,6 +572,7 @@ class ClusterCtor:
                 self.delegates = True
                 member = "Node"  # the generated class name
             self.inits.append((member, args))
+            self.init_positions.append(get_pos(init))
 
     @property
     def params_str(self) -> str:
@@ -951,7 +1034,7 @@ class Cluster:
             parent_traits = {c.trait for c in self.parent_node.connections}
             for trait in self.trunk_traits:
                 if trait not in parent_traits:
-                    raise SyntaxError(f"{self.cluster_class} '{self.full_name}' trunk annotation lists trait '{trait}' "
+                    raise SyntaxError(f"{full_pos(self.pos)} {self.cluster_class} '{self.full_name}' trunk annotation lists trait '{trait}' "
                                       f"but there is no '[{trait}] .. --> node' parent connection")
 
     def finalise(self):
@@ -1070,9 +1153,19 @@ class Method:
         self.normal: bool = False
         self.pre_exprs: list[tuple[str, str]] = []
         self.post_exprs: list[tuple[str, str, str]] = []
+        # The source of each contract's expression, in step with the lists of them, for its #line mapping
+        self.pre_srcs: list[ExprSrc | None] = []
+        self.post_srcs: list[ExprSrc | None] = []
+        self.proto_pre_srcs: list[ExprSrc | None] = []
+        self.proto_post_srcs: list[ExprSrc | None] = []
+        self.proto_if_srcs: list[tuple[ExprSrc | None, ExprSrc | None]] = []  # (cond, then)
+        self.implies_src: ExprSrc | None = None
         self.default_impl: str | None = None
+        self.default_impl_pos: str | None = None  # where the body of a DSL default implementation starts
+        self.default_impl_src: str | None = None  # and that body as written
         # Protocol clauses — use the preProto/postProto path with entry snapshotting
         self.proto_pre_exprs: list[tuple[str, str]] = []           # (pos, expr)  — `is (P)`
+        self.proto_bare_refs: list[Token] = []                     # states/predicates the clauses name bare
         self.proto_post_exprs: list[tuple[str, str, str]] = []     # (pos, name, expr) — `is (P) then (Q)` / `to (Q)`
         self.proto_if_exprs: list[tuple[str, str, str, str]] = []  # (pos, name, cond, then) — `if (P) then (Q)`
         self.implies: ImpliesData | None = None
@@ -1085,20 +1178,21 @@ class Method:
     def has_contracts(self) -> bool:
         return bool(self.pre_exprs or self.post_exprs or self.has_proto_contracts)
 
-    def proto_snap_calls(self, include_nullary: bool) -> list[str]:
-        """Unique proto.method(...) calls to invoke in preProto for entry snapping."""
+    def proto_snap_calls(self, include_nullary: bool) -> list[tuple[str, str]]:
+        """Unique proto.method(...) calls to invoke in preProto for entry snapping, as (pos, call), pos that of the
+        first clause making the call."""
         seen: set[str] = set()
-        result: list[str] = []
-        for expr in (
-            [e for _, _, e in self.proto_post_exprs]
-            + [t for _, _, _, t in self.proto_if_exprs]
+        result: list[tuple[str, str]] = []
+        for pos, expr in (
+            [(p, e) for p, _, e in self.proto_post_exprs]
+            + [(p, t) for p, _, _, t in self.proto_if_exprs]
         ):
             for call in extract_proto_calls(expr):
                 if call not in seen:
                     if not include_nullary and call.endswith("()"):
                         continue
                     seen.add(call)
-                    result.append(call)
+                    result.append((pos, call))
         return result
 
     def add_template(self, children):
@@ -1143,6 +1237,8 @@ class Method:
 
     def walk(self, children):
         for c in children:
+            if c.data in (imported('is_clause'), imported('if_clause'), imported('to_clause')):
+                self.proto_bare_refs.extend(ref for body in c.children if (ref := _clause_bare_ref(body)) is not None)
             if c.data == imported('template_params'):
                 self.add_template(c.children)
             elif c.data == imported('cpp_type'):
@@ -1171,34 +1267,43 @@ class Method:
                 if len(self.params) == 0:
                     raise SyntaxError(f"{get_pos(c)} Pre-contracts cannot be specified on methods with no parameters")
                 self.pre_exprs.append((get_pos(c, False), reconstruct(c.children[0])))
+                self.pre_srcs.append(tree_source(c.children[0]))
             elif c.data == imported('post_contract'):
                 name, expr = _parse_named_expr(reconstruct(c.children[0]).strip())
                 if self.return_type.str == "void" and name != "_":
                     raise SyntaxError(f"{get_pos(c)} Post-contracts cannot bind void to a name, use '_' instead")
                 self.post_exprs.append((get_pos(c, False), name, expr))
+                self.post_srcs.append(tree_source(c.children[0], strip_binding=True))
             elif c.data == imported('is_clause'):
                 if not self.trait.has_protocol:
                     raise SyntaxError(f"{get_pos(c)} 'is' contracts can only be used in traits with a protocol annotation")
                 pre_expr = _expand_clause_body(c.children[0])
                 self.proto_pre_exprs.append((get_pos(c, False), pre_expr))
+                self.proto_pre_srcs.append(clause_source(c.children[0]))
                 if len(c.children) > 1:
                     post_name, post_expr = _parse_named_expr(_expand_clause_body(c.children[1]))
                     self.proto_post_exprs.append((get_pos(c, False), post_name, post_expr))
+                    self.proto_post_srcs.append(clause_source(c.children[1], strip_binding=True))
             elif c.data == imported('if_clause'):
                 if not self.trait.has_protocol:
                     raise SyntaxError(f"{get_pos(c)} 'if' contracts can only be used in traits with a protocol annotation")
                 cond_expr = _expand_clause_body(c.children[0])
                 then_name, then_expr = _parse_named_expr(_expand_clause_body(c.children[1]))
                 self.proto_if_exprs.append((get_pos(c, False), then_name, cond_expr, then_expr))
+                self.proto_if_srcs.append((clause_source(c.children[0]), clause_source(c.children[1], strip_binding=True)))
             elif c.data == imported('to_clause'):
                 if not self.trait.has_protocol:
                     raise SyntaxError(f"{get_pos(c)} 'to' contracts can only be used in traits with a protocol annotation")
                 post_name, post_expr = _parse_named_expr(_expand_clause_body(c.children[0]))
                 self.proto_post_exprs.append((get_pos(c, False), post_name, post_expr))
+                self.proto_post_srcs.append(clause_source(c.children[0], strip_binding=True))
             elif c.data == imported('method_default_impl'):
                 import textwrap
 
                 self.default_impl = textwrap.dedent(reconstruct(c.children[0])).strip()
+                if source := tree_source(c.children[0]):
+                    self.default_impl_pos = source.pos
+                    self.default_impl_src = source.text
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown method entity: {c.data}')
 
@@ -1307,7 +1412,7 @@ class Trait:
             for method in self.methods:
                 if not method.is_const:
                     raise SyntaxError(
-                        f"{method.pos} Method '{method.name}' in trait '{self.name}' must be const, "
+                        f"{full_pos(method.pos)} Method '{method.name}' in trait '{self.name}' must be const, "
                         f"as the trait is annotated [Const]")
         self.methods.sort(key=lambda v: (v.name, v.params))
         self.method_names = sorted(set(method.name for method in self.methods))
@@ -1497,6 +1602,7 @@ class StatePred:
         self.name = name
         self.params = params
         self.implies_expr: str | None = None
+        self.implies_src: ExprSrc | None = None
         self.kind: str = 'implies'
         self.pos = pos
 
@@ -1602,6 +1708,12 @@ class Protocol(Trait):
         self._add_variants(group, froms + tos)
         group.transitions.append(StateTransition(froms, tos, bi))
 
+    def _target_source(self, tree) -> ExprSrc | None:
+        """The source of an invariant target, unless a bare name with no arguments, resolved after the walk."""
+        if tree.data == imported('invariant_bare_ref') and len(tree.children[0].children) == 1:
+            return None
+        return clause_source(tree)
+
     def _parse_invariant_target(self, host, tree, pos: str, scope_param_names: list[str]) -> str:
         """Parse an invariant_target tree. Bracketed returns reconstructed text.
         Bare names are registered for post-walk resolution; a placeholder is stored
@@ -1675,6 +1787,7 @@ class Protocol(Trait):
                 kind = str(c.children[1])
                 pred = StatePred(pred_name, list(inherited_params), get_pos(c, False))
                 pred.kind = kind
+                pred.implies_src = self._target_source(c.children[2])
                 pred.implies_expr = self._parse_invariant_target(pred, c.children[2], get_pos(c, False), scope_param_names)
                 self._temp_predicates.append(pred)
             elif c.data == imported('proto_pred_with_params'):
@@ -1685,6 +1798,7 @@ class Protocol(Trait):
                           for p in params_tree.children]
                 pred = StatePred(pred_name, inherited_params + params, get_pos(c, False))
                 pred.kind = kind
+                pred.implies_src = self._target_source(c.children[3])
                 pred_scope = scope_param_names + [n for _, n in params]
                 pred.implies_expr = self._parse_invariant_target(pred, c.children[3], get_pos(c, False), pred_scope)
                 self._temp_predicates.append(pred)
@@ -1764,7 +1878,7 @@ class Protocol(Trait):
                         inv.target_group_ref = tg
 
         for group in self.state_groups:
-            group.validate_reachability(f"{self.namespace_name}::protocol::{self.name}")
+            group.validate_reachability(f"{full_pos(group.pos)} {self.namespace_name}::protocol::{self.name}")
             method = Method(self)
             method.name = 'proto' + group.name
             method.pos = group.pos or ""
@@ -1793,6 +1907,7 @@ class Protocol(Trait):
             method.is_const = True
             method.return_type = CppType("bool")
             if pred.implies_expr:
+                method.implies_src = pred.implies_src
                 method.implies = ImpliesData(
                     assert_msg=f"{pred.pos} {self.name}::{pred.name} {pred.kind}",
                     expr=pred.implies_expr,
@@ -1813,6 +1928,7 @@ class Namespace:
         self.trait_names: set[str] = set()
         self.traits: list[Trait] = []
         self.trait_aliases: list[list[str]] = []
+        self.trait_alias_positions: dict[str, list[str]] = {}  # alias name: DSL positions of the name, then of each trait
         self.cluster_names: set[str] = set()
         self.clusters: list[Cluster] = []
         self.policies: list[Policy] = []
@@ -1976,6 +2092,7 @@ class Repr:
         for rhs in tree.children[1:]:
             names.append(reconstruct(rhs))
         namespace.add_trait_alias(names, tree)
+        namespace.trait_alias_positions[names[0]] = [get_pos(tree.children[0])] + [get_pos(rhs) for rhs in tree.children[1:]]
 
     def visit_protocol(self, source_ns: str, tree: Tree):
         # tree is protocol node with [PROTOCOL token, protocol_scope] children
@@ -2013,6 +2130,27 @@ class Repr:
         self.has_cluster = any(len(namespace.clusters) != 0 for namespace in self.namespaces)
         self.has_trait = any(len(namespace.traits) != 0 for namespace in self.namespaces)
         self.has_protocol = any(len(namespace.protocols) != 0 for namespace in self.namespaces)
+        self.check_protocol_refs()
+
+    def check_protocol_refs(self):
+        """Each state or predicate a protocol clause names bare must be one of its protocol's, when the protocol is
+        defined in this file (else the C++ compiler checks it)."""
+        protocols = {p.name: p for n in self.namespaces for p in n.protocols}
+        for namespace in self.namespaces:
+            for trait in namespace.traits:
+                if not trait.has_protocol or not trait.protocol_name:
+                    continue
+                protocol = protocols.get(trait.protocol_name.rsplit("::", 1)[-1])
+                if protocol is None:
+                    continue
+                known = set(protocol.method_names)
+                for method in trait.methods:
+                    for ref in method.proto_bare_refs:
+                        if ref.value not in known:
+                            close = difflib.get_close_matches(ref.value, sorted(known), n=1)
+                            hint = f"; did you mean '{close[0]}'?" if close else ""
+                            raise SyntaxError(f"{get_pos(ref)} '{ref.value}' is not a state or predicate of protocol "
+                                              f"'{protocol.name}' in clause of '{trait.name}::{method.name}'{hint}")
 
 
 template_loader = jinja2.FileSystemLoader(searchpath=dir_path)
@@ -2024,13 +2162,15 @@ template_env.filters['cpp_string'] = cpp_string_literal
 ARC_LINE_MARKER = "//@arc-line "
 ARC_END_MARKER = "//@arc-end"
 
-def arc_line(pos: str | None, align: bool = False) -> str:
+def arc_line(pos: str | None, align: bool = False, lead: int = 0) -> str:
     """pos is file:line:col; without a line, the region keeps the output's own lines. With align, the region's first
-    line is indented so that its first token sits at the DSL column, for a declaration whose name leads the line."""
+    line is indented so that its first token sits at the DSL column, for a declaration whose name leads the line, or
+    with lead, so that the token after the first `lead` characters does."""
     parts = pos.rsplit(":", 2) if pos else []
     if len(parts) != 3 or not parts[1].isdigit():
         return ""
-    return ARC_LINE_MARKER + parts[1] + (" " + parts[2] if align and parts[2].isdigit() else "")
+    col = int(parts[2]) - lead if (align or lead) and parts[2].isdigit() else None
+    return ARC_LINE_MARKER + parts[1] + (f" {max(col, 1)}" if col is not None else "")
 
 def arc_end() -> str:
     return ARC_END_MARKER
@@ -2045,16 +2185,65 @@ def impl_layout(layout: list[tuple[str, str | None]]) -> str:
         lines.append(text)
     return "\n".join(lines) + ";"
 
+def method_macro(macro: str, name: str, pos: str | None) -> str:
+    """`macro(name)` with name at its DSL position. When `macro(` is too long to fit before the DSL column, it goes
+    on the line before, as no #line may sit inside macro arguments."""
+    head = f"{macro}("
+    parts = pos.rsplit(":", 2) if pos else []
+    if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():
+        return head + name + ")"
+    line, col = int(parts[1]), int(parts[2])
+    if col > len(head) or line == 1:
+        return "\n".join([arc_line(pos, lead=len(head)), head + name + ")", arc_end()])
+    return "\n".join([ARC_LINE_MARKER + str(line - 1), head, " " * (col - 1) + name + ")", arc_end()])
+
 template_env.globals['arc_line'] = arc_line
+template_env.globals['method_macro'] = method_macro
 template_env.globals['arc_end'] = arc_end
 template_env.globals['impl_layout'] = impl_layout
+
+def trait_alias_head(namespace, alias: list[str]) -> str:
+    """The struct head of a trait alias (`A = B`) or join (`A = B + C`), each trait at its DSL column."""
+    positions = namespace.trait_alias_positions.get(alias[0], [])
+    pos_of = lambda i: positions[i] if i < len(positions) else None
+    lines = [arc_line(pos_of(0))]
+    if len(alias) == 2:
+        lines += [f"struct {alias[0]} : ::arc::AltTrait<", arc_line(pos_of(1), align=True), f"{alias[1]}, {alias[0]}>"]
+    else:
+        lines.append(f"struct {alias[0]} : ::arc::JoinedTrait<")
+        for i, trait in enumerate(alias[1:], start=1):
+            lines += [arc_line(pos_of(i), align=True), trait + (">" if i == len(alias) - 1 else ",")]
+    lines.append(arc_end())
+    return "\n".join(line for line in lines if line)
+
+template_env.globals['trait_alias_head'] = trait_alias_head
+
+def mapped_expr(head: str, src: ExprSrc | None, expr: str, tail: str, pos: str | None = None) -> str:
+    """head + expr + tail, with the expression on a line of its own at its DSL position when its source is known: the
+    line where diagnostics of the DSL's C++ point, and one outside macro arguments, where no #line may go. Otherwise
+    on one line, mapped to pos."""
+    marker = arc_line(src.pos, align=not src.lead, lead=src.lead) if src else ""
+    if marker:
+        return "\n".join([head, marker, src.text, arc_end(), tail])
+    line = head + expr + tail
+    return "\n".join([arc_line(pos), line, arc_end()]) if arc_line(pos) else line
+
+def contract_assert(fn: str, src: ExprSrc | None, expr: str, pos: str, message_pos: str | None = None,
+                    before: str = "", after: str = "") -> str:
+    """`fn(self, ARC_ASSERT_ARGS(message_pos, before expr after))`, spelled out by mapped_expr."""
+    # On one line, as the preprocessor stringises it in ARC_ASSERT_ARGS
+    message = cpp_string_literal(' '.join(f"ARC trait contract failure: {before}{expr}{after} ({message_pos or pos})".split()))
+    return mapped_expr(f"{fn}(self, static_cast<bool>({before}", src, expr, f"{after}), {message});", pos)
+
+template_env.globals['mapped_expr'] = mapped_expr
+template_env.globals['contract_assert'] = contract_assert
 
 def map_dsl_lines(text: str, dsl_file: str, out_file: str) -> str:
     """Replaces the line markers with #line directives: a region's first line reports the DSL line (later ones the lines
     after it, as no directive may sit inside macro arguments), and the end of a run of regions restores the output's
     own lines."""
     def quoted(path: str) -> str:
-        return f'R"({path})"'
+        return f'R"({os.path.normpath(path)})"'
     def indent_of(line: str) -> str:
         return line[:len(line) - len(line.lstrip())]
 

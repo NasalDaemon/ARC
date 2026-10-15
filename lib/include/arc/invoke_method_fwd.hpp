@@ -276,9 +276,9 @@ struct MethodProbe
 {
     using Receiver = std::conditional_t<IsConst, Impl const, Impl>;
     using Result = decltype(detail::implResult<Receiver, Method, Params...>())::type;
-    static constexpr bool callable = ImplementsMethodAnyReturn<Receiver, Method, Return, Params...>;
+    static constexpr bool callable() { return ImplementsMethodAnyReturn<Receiver, Method, Return, Params...>; }
     // Implemented, but not const
-    static constexpr bool needsConst = IsConst and not callable and ImplementsMethodAnyReturn<Impl, Method, Return, Params...>;
+    static constexpr bool needsConst() { return IsConst and not callable() and ImplementsMethodAnyReturn<Impl, Method, Return, Params...>; }
 };
 
 ARC_MODULE_EXPORT

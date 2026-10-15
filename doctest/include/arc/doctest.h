@@ -18,6 +18,8 @@
 #endif
 #endif
 
+extern "C++" {
 #include "doctest/doctest.h"
+}
 
 #endif // ARC_TESTS_DOCTEST_H
