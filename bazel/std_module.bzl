@@ -22,7 +22,7 @@ def _std_module_impl(ctx):
     )
 
     # Hand-assembled compile actions, given the same flags as every other module
-    # (toolchain, detected, --cxxopt, in that order). The std BMI must agree with
+    # (toolchain, detected, --copt, --cxxopt, in that order). The std BMI must agree with
     # its importers on everything that shapes it: a library configuration macro
     # (_LIBCPP_HARDENING_MODE, _GLIBCXX_ASSERTIONS) missing here is silently
     # ignored by every `import std;`, since the importer's definition cannot
@@ -37,7 +37,7 @@ def _std_module_impl(ctx):
     # is simply built without fortification.
     cxxopts = [
         opt
-        for opt in toolchain_cxxopts(cc_toolchain, feature_configuration) + CXXOPTS + ctx.fragments.cpp.cxxopts
+        for opt in toolchain_cxxopts(cc_toolchain, feature_configuration) + CXXOPTS + ctx.fragments.cpp.copts + ctx.fragments.cpp.cxxopts
         if not opt.startswith("-D_FORTIFY_SOURCE")
     ]
 

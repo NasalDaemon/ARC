@@ -411,6 +411,55 @@ TEST_CASE("arc::test::Mock::implReturnsN")
     }
 }
 
+TEST_CASE("arc::test::Mock::setReturnsDefault")
+{
+    MockTestGraph g;
+    g.mocks->setThrowIfMissing();
+    g.mocks->enableCallCounting();
+
+    SUBCASE("methodReturnsDefault defaults only the listed methods")
+    {
+        g.mocks->methodReturnsDefault<trait::Trait::takesInt, trait::Trait::returnsOptional>();
+        CHECK(0 == g.node->testInt(5));
+        CHECK(not g.node->testOptional().has_value());
+        CHECK(2 == g.mocks->traitCallCount<trait::Trait>());
+        CHECK_THROWS(g.node->testValue());
+    }
+
+    SUBCASE("implReturnsDefault defaults only the listed impls")
+    {
+        g.mocks->implReturnsDefault<trait::Trait::takesInt(int), trait::Trait::returnsValue()>();
+        CHECK(0 == g.node->testInt(5));
+        CHECK(0 == g.node->testValue());
+        CHECK(1 == g.mocks->implCallCount<trait::Trait::takesInt, int>());
+        CHECK_THROWS(g.node->testOptional());
+    }
+
+    SUBCASE("setReturnsDefault accepts methods and impl signatures together")
+    {
+        g.mocks->setReturnsDefault<trait::Trait::takesInt(int), trait::Trait::returnsMoveOnly>();
+        CHECK(0 == g.node->testInt(5));
+        CHECK(nullptr == g.node->testMoveOnly());
+        CHECK_THROWS(g.node->testValue());
+    }
+
+    SUBCASE("overwrites previous define and methodReturns")
+    {
+        g.mocks->define([](trait::Trait::takesInt, int i) { return i * 2; });
+        g.mocks->methodReturns<trait::Trait::returnsValue>(7);
+        g.mocks->setReturnsDefault<trait::Trait::takesInt(int), trait::Trait::returnsValue>();
+        CHECK(0 == g.node->testInt(8));
+        CHECK(0 == g.node->testValue());
+    }
+
+    SUBCASE("is overwritten by a later define")
+    {
+        g.mocks->implReturnsDefault<trait::Trait::takesInt(int)>();
+        g.mocks->define([](trait::Trait::takesInt, int i) { return i * 2; });
+        CHECK(16 == g.node->testInt(8));
+    }
+}
+
 // Exercises every combination of {value stored, reference stored} against every
 // kind of method return type {value, T&, T const&, std::optional<T>, move-only}.
 // The conversion must be unambiguous and behave identically on every compiler:

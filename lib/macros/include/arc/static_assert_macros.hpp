@@ -133,7 +133,7 @@
 // rather than as spelled at the call (where dependent types are wrapped in ARC_TYPENAME).
 // ARC_ASSERT_IMPLEMENTS_METHOD(Trait, methodName, Impl, Types, "file:line:col: ", "signature", Requirement, IsConst, Return, Params...)
 #define ARC_ASSERT_IMPLEMENTS_METHOD(Trait, methodName, Impl, Types, pos, signature, Requirement, IsConst, ...) \
-    []<class ARC_Impl, bool ARC_IsConst, class ARC_Method, class ARC_Return, class... ARC_Params>( \
+    static_assert(([]<class ARC_Impl, bool ARC_IsConst, class ARC_Method, class ARC_Return, class... ARC_Params>( \
         ::arc::MethodProbe<ARC_Impl, ARC_IsConst, ARC_Method, ARC_Return, ARC_Params...> ARC_probe) \
     { \
         using ARC_Probe = decltype(ARC_probe); \
@@ -151,6 +151,6 @@
                 ARC_ASSERT_IMPLEMENTS(Trait, Impl, Types, pos "Trait method not implemented: " signature, \
                     ::arc::ImplementsMethod##Requirement<ARC_Receiver, ARC_Method, ARC_Return, ARC_Params...>); \
         } \
-    }(::arc::MethodProbe<Impl, IsConst, Trait::methodName, __VA_ARGS__>{})
+    }(::arc::MethodProbe<Impl, IsConst, Trait::methodName, __VA_ARGS__>{}), true))
 
 #endif // INCLUDE_ARC_STATIC_ASSERT_MACROS_HPP

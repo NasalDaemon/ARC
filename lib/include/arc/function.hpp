@@ -124,7 +124,7 @@ private:
         constexpr explicit Callable(auto&& f)
             : CallableBase{
                 .destroy{
-                    [](CallableBase* base) -> void {
+                    []([[maybe_unused]] CallableBase* base) -> void {
                         if constexpr (not std::is_empty_v<F>)
                             delete static_cast<Callable*>(base);
                     }

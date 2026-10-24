@@ -103,8 +103,9 @@ def _get_compiler_and_toolchain(ctx):
     return compiler, cc_toolchain, feature_configuration, is_gcc
 
 def _user_cxxopts(ctx):
-    # The detected compiler's flags first, so --cxxopt can still override them.
-    return CXXOPTS + ctx.fragments.cpp.cxxopts
+    # The detected compiler's flags first, so --copt and --cxxopt can still
+    # override them. Both apply, in that order, as for a plain cc_library's C++.
+    return CXXOPTS + ctx.fragments.cpp.copts + ctx.fragments.cpp.cxxopts
 
 def _toolchain_cxxopts(cc_toolchain, feature_configuration):
     """The flags a plain cc_library's CppCompile would get from the toolchain.

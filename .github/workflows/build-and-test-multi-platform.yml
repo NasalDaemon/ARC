@@ -23,7 +23,7 @@ jobs:
         compiler:
           - name: gcc
             version: 14
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - name: gcc
             version: 15
             os: ubuntu-latest
@@ -45,11 +45,11 @@ jobs:
 
           - name: clang
             version: 20
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - name: clang
             version: 20
             std_module: std-module
-            os: ubuntu-latest
+            os: ubuntu-24.04
 
           - name: cl
             header_only: header-only

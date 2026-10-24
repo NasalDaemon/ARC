@@ -56,7 +56,7 @@ template<
 {%- endmacro -%}
 
 {%- macro assert_implements(trait, message, requirement) -%}
-    ARC_ASSERT_IMPLEMENTS(ARC_This_Trait, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ message | cpp_string }}, {{ requirement }});
+    ARC_ASSERT_IMPLEMENTS({{ trait.name }}, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ message | cpp_string }}, {{ requirement }});
 {%- endmacro -%}
 
 {# The arc::ImplementsMethod* concept of a method, and its Return argument, by how the trait constrains the return type #}
@@ -82,7 +82,7 @@ template<
 
 {# Asserted by Meta::assertImplements for a non-template method without a default implementation #}
 {%- macro assert_implements_method(trait, method, index) -%}
-    ARC_ASSERT_IMPLEMENTS_METHOD(ARC_This_Trait, {{ method.name }}, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ (method.pos ~ ": " if method.pos else "") | cpp_string }}, {{ method.dsl_signature | cpp_string }}, {{ method_requirement(trait, method, index) }}, {{ "true" if method.is_const else "false" }}, {{ method_requirement_return(trait, method, index) }}
+    ARC_ASSERT_IMPLEMENTS_METHOD({{ trait.name }}, {{ method.name }}, {{ trait.impl_name }}, {{ trait.types_name or "ARC_Types_" }}, {{ (method.pos ~ ": " if method.pos else "") | cpp_string }}, {{ (trait.name ~ "::" ~ method.dsl_signature) | cpp_string }}, {{ method_requirement(trait, method, index) }}, {{ "true" if method.is_const else "false" }}, {{ method_requirement_return(trait, method, index) }}
                 {%- for type, name in method.params -%}
                 , ARC_TYPENAME({{ type }})
                 {%- endfor -%}

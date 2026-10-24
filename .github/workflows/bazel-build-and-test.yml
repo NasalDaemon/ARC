@@ -33,7 +33,7 @@ jobs:
 
           - name: clang
             version: 20
-            os: ubuntu-latest
+            os: ubuntu-24.04
             config: clang
             cc: clang-20
             cxx: clang++-20

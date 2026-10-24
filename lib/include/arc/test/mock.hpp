@@ -588,6 +588,32 @@ namespace detail {
                 };
         }
 
+        // Each listed method/impl returns a value-initialised result (or does
+        // nothing, for a void return), as setReturnDefault would, but only for
+        // these: every other missing definition still throws.
+        template<class... Methods>
+        requires (... and not IsFunctionSignature<Methods>)
+        void methodReturnsDefault()
+        {
+            (storeReturnsDefault(methodType<Methods>()), ...);
+        }
+        template<IsFunctionSignature... ImplSigs>
+        void implReturnsDefault()
+        {
+            (storeReturnsDefault(implType<ImplSigs>()), ...);
+        }
+        template<class... MethodOrImplSigs>
+        void setReturnsDefault()
+        {
+            ([this]<class M>()
+            {
+                if constexpr (IsFunctionSignature<M>)
+                    this->implReturnsDefault<M>();
+                else
+                    this->methodReturnsDefault<M>();
+            }.template operator()<MethodOrImplSigs>(), ...);
+        }
+
         template<class Method, class... Args, std::invocable<std::remove_cvref_t<Args> const&...> F = ArgsTuple>
         auto visitCallLogs(F&& visitor = {})
         {
@@ -794,6 +820,14 @@ namespace detail {
         static consteval TypeId implType()
         {
             return implType(static_cast<Sig*>(nullptr));
+        }
+
+        void storeReturnsDefault(TypeId type)
+        {
+            returnsMap.erase(type);
+            auto& impl = impls[type];
+            impl.mut.reset();
+            impl.con = [](void* result, void**) { static_cast<MockReturn*>(result)->setReturnDefault(); };
         }
 
         template<class Self>
