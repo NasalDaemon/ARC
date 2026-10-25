@@ -826,6 +826,22 @@ struct {{ trait.name }} : ::arc::Trait
         {
             {{ trait_converter(trait.name) }}
         };
+        // Whether Impl/Types meet every `type`, `root`, `info` and `requires` of the trait, without asserting
+        template<class {{ trait.impl_name }}, class {{ trait.types_name or "ARC_Types_" }}
+            {%- if trait.root_name -%}
+            , class {{ trait.root_name }} = ::arc::ResolveRoot<::arc::ContextOf<{{ trait.impl_name }}>>
+            {%- endif -%}
+            {%- if trait.info_name -%}
+            , class {{ trait.info_name }} = ::arc::ResolveInfo<::arc::ContextOf<{{ trait.impl_name }}>>
+            {%- endif -%}
+        >
+        static constexpr bool satisfiesRequirements = true
+            {% for require in trait.requires %}
+            {{ arc_line(require.pos) }}
+            && requires ({{ trait.impl_name }} impl_, {{ trait.impl_name }} const const_) { {{ require.cpp }} }
+            {{ arc_end() }}
+            {% endfor %}
+            ;
         // Asserts that Impl/Types meet each requirement of the trait independently, so that a failure names the requirement
         // as written in the DSL. Self is the trait being implemented, which may be a trait joining or renaming this one.
         template<class Self, class {{ trait.impl_name }}, class {{ trait.types_name or "ARC_Types_" }}

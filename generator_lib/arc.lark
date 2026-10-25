@@ -116,16 +116,11 @@ trait_type: "type" NAMESPACE
 trait_root: "root" NAMESPACE
 trait_info: "info" NAMESPACE
 
-trait_requires: trait_requires_inline
-              | trait_requires_block
-
-trait_requires_inline: "requires" cpp_requires_statement
-
-# TODO: Multiple statements (parser fails with ambiguity atm)
-trait_requires_block: "requires" [cpp_func_params] "{" cpp_requires_statement "}"
-
-!cpp_requires_statement: cpp_expr [SEMICOLON]
-                       | "{" cpp_expr "}" ["->" cpp_type] [SEMICOLON]
+# `requires <constraint>` checks that the constraint holds; `requires requires [(params)] { body }` checks that the
+# body's requirements are valid, as the C++ requires-expression it is emitted as.
+trait_requires: "requires" cpp_expr                -> trait_requires_constraint
+              | "requires" "(" bracket_content ")" -> trait_requires_constraint
+              | "requires" "requires" ["(" bracket_content ")"] "{" bracket_content "}" -> trait_requires_expression
 
 trait_method: NAME "(...)" [method_qualifier] -> trait_method_elipsis
             | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] method_contract* [method_default_impl] -> trait_method_signature
@@ -150,12 +145,14 @@ proto_bare_ref: NAME ["(" bracket_content ")"]
 # Angle brackets are not tracked: they are indistinguishable from comparison
 # operators and template delimiters in a context-free grammar. The C++ compiler
 # validates the expression text once it is embedded in the generated code.
+# String and character literals are matched whole and comments are not part of an
+# atom, so brackets inside either are not counted.
 bracket_content: bracket_item*
 !bracket_item: BRACKET_ATOM
              | "(" bracket_content ")"
              | "[" bracket_content "]"
              | "{" bracket_content "}"
-BRACKET_ATOM: /[^()\[\]{}`]+/ | /`[^`]*`/
+BRACKET_ATOM: /(?:"(?:[^"\\\n]|\\.)*"|(?<=\w)'(?=\w)|'(?:[^'\\\n]|\\.)*'|[^()\[\]{}`\/"']|\/(?![\/*]))+/ | /`[^`]*`/
 
 # Full bracket-symmetric content including angle brackets.
 # Used in positions where < and > are unambiguously template delimiters
@@ -169,7 +166,7 @@ full_bracket_content: full_bracket_item*
              | "[" full_bracket_content "]"
              | "{" full_bracket_content "}"
              | "<" full_bracket_content ">"
-FULL_BRACKET_ATOM: /[^()\[\]{}<>`]+/ | /`[^`]*`/
+FULL_BRACKET_ATOM: /(?:"(?:[^"\\\n]|\\.)*"|(?<=\w)'(?=\w)|'(?:[^'\\\n]|\\.)*'|[^()\[\]{}<>`\/"']|\/(?![\/*]))+/ | /`[^`]*`/
 
 !full_templ_args: "<" full_bracket_content ">"
 
@@ -283,7 +280,6 @@ CPP_BINARY_OP: "+" | "-" | "/" | "*" | "%" | "|" | "&" | "||" | "&&" | "or" | "a
 
 TYPENAME: "typename"
 TEMPLATE: "template"
-SEMICOLON: ";"
 
 CPP_LITERALS: SIGNED_NUMBER | STRING | CHAR
 CHAR: "'" /\\?./ "'"

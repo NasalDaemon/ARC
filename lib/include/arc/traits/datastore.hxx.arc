@@ -6,7 +6,7 @@ namespace arc {
 template<class SharedData>
 trait DataStore [Types]
 {
-    requires typename SharedData::Id
+    requires requires { typename SharedData::Id; }
 
     // PrivateData is defined by the calling node if it is a DataListener.
     // When calling from a non-listener, PrivateData = void.
@@ -63,7 +63,7 @@ trait DataStore [Types]
 template<class SharedData>
 trait DataListener [Types]
 {
-    requires typename SharedData::Id
+    requires requires { typename SharedData::Id; }
 
     // PrivateData for this listener.
     // Set to arc::NoPrivateData if no private data is needed.

@@ -10,7 +10,6 @@ from functools import cached_property
 from typing import Optional
 import jinja2
 from lark import Lark, Tree, Token, UnexpectedInput
-from lark.visitors import Visitor_Recursive
 from lark.reconstruct import Reconstructor
 from pathlib import Path
 import re
@@ -109,7 +108,14 @@ with open(input_file, 'r') as file:
 
     def on_parse_error(e: UnexpectedInput) -> bool:
         line, col = get_line(e.line, e.column)
-        print(f"{input_file}:{line}:{col} parse error:\n{e.get_context(text)}{expected_tokens(e)}")
+        hint = ""
+        if text.startswith('{', e.pos_in_stream):
+            before = text[:e.pos_in_stream]
+            if re.search(r'\brequires\s*$', before):
+                hint = "hint: a validity check is written 'requires requires { ...; }'\n"
+            elif re.search(r'\brequires\s*\([^{};]*\)\s*$', before):
+                hint = "hint: a validity check with parameters is written 'requires requires (params) { ...; }'\n"
+        print(f"{input_file}:{line}:{col} parse error:\n{e.get_context(text)}{expected_tokens(e)}{hint}")
         return False
 
     parsed = arc_parser.parse(text, on_error=on_parse_error)
@@ -265,13 +271,6 @@ def extract_proto_calls(expr: str) -> list[str]:
         pos = i
     return calls
 
-
-class AddColonToRequiresStatements(Visitor_Recursive):
-    def arc__cpp_requires_statement(self, tree):
-        if not isinstance(tree.children[-1], Token) or tree.children[-1].type != imported('SEMICOLON'):
-            tree.children.append(Token(imported('SEMICOLON'), ';'))
-
-add_colon_to_requires_statements = AddColonToRequiresStatements()
 
 def get_value(t: Tree | Token) -> str:
     """Get the string value from either a Token or a Tree containing a Token"""
@@ -1396,16 +1395,18 @@ class Trait:
                         method.is_const = True
                     method.set_dsl(c)
                     self.methods.append(method)
-                elif c.data == imported('trait_requires'):
+                elif c.data in (imported('trait_requires_constraint'), imported('trait_requires_expression')):
                     dsl = dsl_text(c.meta.start_pos, c.meta.end_pos)
-                    if c.children[0].data == imported('trait_requires_block'):
-                        add_colon_to_requires_statements.visit(c.children[0])
-                        requires = "requires " + reconstruct(c.children[0])
-                    else:
-                        requires = reconstruct(c.children[0].children[0])
-                    if not requires.endswith(';'):
-                        requires += ';'
-                    self.requires.append(Requirement(requires, dsl, get_tree_pos(c)))
+                    if c.data == imported('trait_requires_constraint') and (m := re.match(r'requires\s+(typename|impl_|const_)\b', dsl)):
+                        misuse = "names a type" if m.group(1) == "typename" else f"evaluates {m.group(1)}"
+                        raise SyntaxError(f"{full_pos(get_tree_pos(c))} '{dsl}' {misuse}, so it is not a constraint: "
+                                          f"for a validity check write 'requires requires {{ {dsl.removeprefix('requires').strip()}; }}'")
+                    if c.data == imported('trait_requires_expression') and re.search(r'\{\s*\}$', dsl):
+                        raise SyntaxError(f"{full_pos(get_tree_pos(c))} '{dsl}' has no requirements")
+                    # Copied as written into a nested requirement: a constraint must then hold, and a
+                    # requires-expression keeps the DSL's lines
+                    self.requires.append(Requirement(source_from(c.meta.start_pos, c.meta.end_pos).text + ';',
+                                                     dsl, get_tree_pos(c)))
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown trait entity: {c.data}')
         if self.const_trait:

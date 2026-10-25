@@ -95,6 +95,7 @@ arc_module(
         "test_domain/domain.ixx.arc",
         "test_repeater/traits.ixx.arc",
         "test_repeater/cluster.ixx.arc",
+        "test_trait_requires/literals.ixx.arc",
     ],
     mods = [
         "test_repeater/test_node.ixx",
@@ -118,6 +119,7 @@ arc_module(
         "test_datastore/test_single_listener.cpp",
         "test_protocol.cpp",
         "test_tracer_spy.cpp",
+        "test_trait_requires.cpp",
     ],
     deps = ["//doctest:doctest"],
     testonly = True,

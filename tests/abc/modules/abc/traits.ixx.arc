@@ -6,23 +6,21 @@ trait AliceRead [Types]
 {
     get() const -> int
 
-    requires { const_.impl(get_c) } -> std::same_as<int>
-    requires typename Types::AliceType
+    requires requires { { const_.impl(get_c) } -> std::same_as<int>; }
+    requires requires { typename Types::AliceType; }
 }
 
 trait AliceWrite [Types, R = Root]
 {
     set(int value)
 
-    //requires typename R::AliceType;
-    //requires { const_.asdasd() }
     type AliceType
 
-    requires impl_.impl(set_c, std::declval<int>())
-    requires { impl_.impl(set_c, std::declval<int>()) } -> std::same_as<void>
+    requires requires { impl_.impl(set_c, std::declval<int>()); }
+    requires std::same_as<decltype(impl_.impl(set_c, std::declval<int>())), void>
 
-    requires (int i) {
-        { impl_.impl(set_c, i) } -> std::same_as<void>
+    requires requires (int i) {
+        { impl_.impl(set_c, i) } -> std::same_as<void>;
     }
 }
 
@@ -30,7 +28,7 @@ trait Alice = AliceRead + AliceWrite
 
 trait Bob [Types]
 {
-    requires typename Types::BobType
+    requires requires { typename Types::BobType; }
 
     template<class... Ts>
     get(Ts const&&... i) const -> Types::BobType

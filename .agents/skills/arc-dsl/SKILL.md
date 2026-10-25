@@ -119,14 +119,24 @@ trait Complex [T = Types, R = Root]
     type Token
     root PassHash
 
-    // Can add concept constraints
+    // Constraint check: must hold
     requires std::integral<typename T::Token>
+    requires (sizeof(typename T::Token) <= 8)
 
-    // Constrain mutable/const implementations
-    requires (std::string s) { impl_.mutableMethod(s) }
-    requires const_.constMethod(0)
+    // Validity check: a C++ requires-expression, parameter list optional,
+    // `impl_` (mutable) and `const_` (const) name the implementation
+    requires requires (std::string s) { impl_.mutableMethod(s); }
+    requires requires {
+        const_.constMethod(0);
+        { const_.size() } -> std::convertible_to<std::size_t>;
+    }
 }
 ```
+
+**Trait `requires`** — each is asserted by `arc::assertImplements` and reported by its DSL text; `Meta::satisfiesRequirements<Impl, Types>` tests every `type`, `root`, `info` and `requires` of the trait without asserting.
+- `requires <constraint>` checks the constraint is *true*. Parenthesise the whole constraint when the bare form doesn't parse, e.g. comparisons with `<`/`>`, or a leading `!(` or `not`. In a constraint, `impl_`/`const_` may appear only unevaluated (`decltype`, `sizeof`, `requires`); a constraint starting with `impl_`, `const_` or `typename` is rejected.
+- `requires requires [(params)] { body }` checks every requirement in the body is *valid*. Parameters and body are copied as written, so they are C++: each requirement ends in `;`, and the body may hold compound requirements `{ e } -> C;`, type requirements `typename T::X;` and nested `requires`. Their `()`, `[]` and `{}` must balance; brackets inside comments and string or character literals are not counted.
+- A type's existence is a validity check: `requires requires { typename T::X; }`. `type X`/`root X` already require their type.
 
 ### Trait Aliases and Composition
 

@@ -65,7 +65,7 @@ trait Trait2 [T = Types]
 {
     type Int
     // does not need the annotation - equivalent to:
-    // requires typename T::Int
+    // requires requires { typename T::Int; }
 
     // Can add extra constraint to Int (using name specified in annotation)
     requires std::integral<typename T::Int>
@@ -76,7 +76,7 @@ trait Trait3 [R = Root]
 {
     root Int
     // does not need the annotation - equivalent to:
-    // requires typename R::Int
+    // requires requires { typename R::Int; }
 
     // Can add extra constraint to Int (using name specified in annotation)
     requires std::integral<typename R::Int>
@@ -85,21 +85,32 @@ trait Trait3 [R = Root]
 // It is not necessary to give Types or Root alternative names in the annotation
 trait Trait4 [Types, Root]
 {
+    // Each requirement is asserted by arc::assertImplements<Impl, Types, Trait4>(), and
+    // Meta::satisfiesRequirements<Impl, Types> tests every `type`, `root`, `info` and `requires`
+    // of the trait without asserting.
+    // `impl_` names the mutable implementation, `const_` the const implementation.
+
+    // `requires <constraint>` checks that the constraint is true.
+    // Parenthesise the whole constraint when the bare form doesn't parse, e.g. comparisons
+    // with `<`/`>`, or a leading `!(` or `not`.
+    // In a constraint, `impl_`/`const_` may appear only unevaluated (decltype, sizeof, requires).
     requires std::integral<typename Types::Int>
-    requires std::integral<typename Root::Int>
+    requires !std::is_same_v<typename Root::Int, bool>
+    requires (sizeof(typename Types::Int) <= sizeof(typename Root::Int))
 
-    // Can add arbitrary concept constraints, including:
-    // `impl_` for mutable implementation, `const_` for const implementation
-
-    // Asserted by arc::assertImplements<Impl, Types, Trait4>():
-    // mutable implementation have have mutableMethod(std::string)
-    requires (std::string s) {
-        impl_.mutableMethod(s)
+    // `requires requires [(params)] { body }` checks that each requirement in the body is valid.
+    // Parameters and body are C++, copied as written: each requirement ends in `;`.
+    // Their (), [] and {} must balance; brackets inside comments and string or character
+    // literals are not counted.
+    // mutable implementation has mutableMethod(std::string)
+    requires requires (std::string s) { impl_.mutableMethod(s); }
+    // const implementation has constMethod(int), and size() convertible to std::size_t
+    requires requires {
+        const_.constMethod(0);
+        { const_.size() } -> std::convertible_to<std::size_t>;
     }
-
-    // Asserted by arc::assertImplements<Impl, Types, Trait4>():
-    // const implementation have have constMethod(int)
-    requires const_.constMethod(0)
+    // a type exists (`requires typename Types::Extra` is rejected: it is not a constraint)
+    requires requires { typename Types::Extra; }
 }
 
 // The [Const] annotation ensures no non-const methods are provided by the trait.
