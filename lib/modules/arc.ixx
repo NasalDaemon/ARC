@@ -72,6 +72,7 @@ export namespace arc {
     using arc::autoId;
     using arc::VectorStorage;
     using arc::IndexStorage;
+    using arc::MapStorage;
     using arc::CollectionPolicy;
     // nodes/collection.hpp
     namespace key {
@@ -84,11 +85,15 @@ export namespace arc {
     using arc::Collection;
     using arc::DynamicMap;
     using arc::StaticMap;
+    using arc::DynamicLinearMap;
+    using arc::StaticLinearMap;
     using arc::DynamicIndex;
     using arc::StaticIndex;
     namespace node {
         using node::DynamicMap;
         using node::StaticMap;
+        using node::DynamicLinearMap;
+        using node::StaticLinearMap;
         using node::DynamicIndex;
         using node::StaticIndex;
     }

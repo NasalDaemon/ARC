@@ -190,8 +190,12 @@ cluster MyCluster
     onAnyThread = Node3 : arc::OnAnyThread : arc::StaticMap<int>
     // Equivalent to:
     // onAnyThread = arc::StaticMap<arc::OnAnyThread<Node3>, int>
+    ordered = Node4 : arc::DynamicMap<int, std::map>
+    // Equivalent to:
+    // ordered = arc::DynamicMap<Node4, int, std::map>
 }
 ```
+The collection wrappers and their map templates are described in [the `arc-node-builtins` skill](../.agents/skills/arc-node-builtins/SKILL.md#collections).
 
 ## No-Trait Connections [`@notrait`]
 

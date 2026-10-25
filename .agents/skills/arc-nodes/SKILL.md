@@ -188,4 +188,4 @@ struct PearImpl : FruitBasket
 
 ## Built-in Node Types
 
-For higher-order wrappers (`arc::Union`, `arc::Virtual`, collections (`arc::StaticMap`/`arc::DynamicMap`/`arc::StaticIndex`/`arc::DynamicIndex`), `arc::DataStore`, threading, access control, `arc::Spy`, and keys), load the `/arc-node-builtins` skill.
+For higher-order wrappers, load the `/arc-node-builtins` skill: `arc::Union`, `arc::Virtual`, the collections (`arc::StaticMap`/`arc::DynamicMap`, `arc::StaticLinearMap`/`arc::DynamicLinearMap`, `arc::StaticIndex`/`arc::DynamicIndex`), `arc::DataStore`, threading, access control, `arc::Spy`, and keys.

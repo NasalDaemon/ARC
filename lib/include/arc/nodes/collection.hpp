@@ -90,7 +90,8 @@ namespace key {
 } // namespace key
 
 // Collection of identically-typed nodes; Policy selects element lifetime and storage
-// layout (see arc::CollectionPolicy). Prefer the Dynamic/Static[Map|Index] aliases below.
+// layout (see arc::CollectionPolicy). Prefer the Dynamic/Static[Map|LinearMap|Index]
+// aliases below.
 ARC_MODULE_EXPORT
 template<IsNodeHandle NodeHandle, class ID_, class Policy>
 struct Collection
@@ -583,14 +584,25 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::ControlView : Node, ar
     }
 };
 
-// Collection of nodes keyed by caller-chosen ids
+// Collection of nodes keyed by caller-chosen ids. Iteration order is MapTmpl's order:
+// arbitrary for hashed maps, key order for ordered maps.
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, class ID, template<class Key, class Value, class...> class MapTmpl = std::unordered_map>
+using DynamicMap = Collection<NodeHandle, ID, DynamicMapPolicy<MapTmpl>>;
+
+ARC_MODULE_EXPORT
+template<IsNodeHandle NodeHandle, class ID, template<class Key, class Value, class...> class MapTmpl = std::unordered_map>
+using StaticMap = Collection<NodeHandle, ID, StaticMapPolicy<MapTmpl>>;
+
+// Collection of nodes keyed by caller-chosen ids, with linear id lookup. Iteration is in
+// insertion order until a removal swaps the last element into the gap.
 ARC_MODULE_EXPORT
 template<IsNodeHandle NodeHandle, class ID>
-using DynamicMap = Collection<NodeHandle, ID, DynamicMapPolicy>;
+using DynamicLinearMap = Collection<NodeHandle, ID, DynamicLinearMapPolicy>;
 
 ARC_MODULE_EXPORT
 template<IsNodeHandle NodeHandle, class ID>
-using StaticMap = Collection<NodeHandle, ID, StaticMapPolicy>;
+using StaticLinearMap = Collection<NodeHandle, ID, StaticLinearMapPolicy>;
 
 // Collection of nodes keyed by storage-assigned indices; insertion takes arc::autoId
 ARC_MODULE_EXPORT
@@ -606,6 +618,10 @@ namespace node {
     using arc::DynamicMap;
     ARC_MODULE_EXPORT
     using arc::StaticMap;
+    ARC_MODULE_EXPORT
+    using arc::DynamicLinearMap;
+    ARC_MODULE_EXPORT
+    using arc::StaticLinearMap;
     ARC_MODULE_EXPORT
     using arc::DynamicIndex;
     ARC_MODULE_EXPORT

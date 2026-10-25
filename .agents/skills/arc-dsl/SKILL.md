@@ -396,6 +396,10 @@ cluster MyCluster
     // Multiple wrappers chain left to right
     collected = node::Node3 : arc::AnyThread : arc::StaticMap<int>
     // Equivalent to: arc::StaticMap<arc::AnyThread<node::Node3>, int>
+
+    // Further template arguments follow the wrapped node, e.g. a map template
+    ordered = node::Node4 : arc::DynamicMap<int, std::map>
+    // Equivalent to: arc::DynamicMap<node::Node4, int, std::map>
 }
 ```
 

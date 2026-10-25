@@ -45,7 +45,16 @@ cluster Inner [R = Root]
     .. <------------ node2
 }
 
-cluster CollectionCluster [R = Root]
+cluster LinearMapCollectionCluster [R = Root]
+{
+    collection = cluster::Inner : arc::OnDynThread : arc::StaticLinearMap<int>
+    outer = R::Outer : arc::OnDynThread
+
+    [trait::Inner <-> trait::Outer]
+    collection <-> outer
+}
+
+cluster MapCollectionCluster [R = Root]
 {
     collection = cluster::Inner : arc::OnDynThread : arc::StaticMap<int>
     outer = R::Outer : arc::OnDynThread
@@ -137,15 +146,16 @@ struct OuterNode : arc::Node
     int i;
 };
 
-TEST_CASE("arc::Collection using threads")
+struct CollectionRoot
 {
-    struct Root
-    {
-        using Inner = InnerNode;
-        using Outer = OuterNode;
-    };
+    using Inner = InnerNode;
+    using Outer = OuterNode;
+};
 
-    arc::GraphWithGlobal<cluster::CollectionCluster, GlobalScheduler, Root> graph{
+template<class Cluster>
+void checkCollectionUsingThreads()
+{
+    arc::GraphWithGlobal<Cluster, GlobalScheduler, CollectionRoot> graph{
         .global{
             [](auto& scheduler)
             {
@@ -214,6 +224,18 @@ TEST_CASE("arc::Collection using threads")
 
     CHECK(scheduler.postTask(0, mainTask));
     scheduler.run();
+}
+
+TEST_CASE("arc::Collection using threads")
+{
+    SUBCASE("arc::StaticLinearMap")
+    {
+        checkCollectionUsingThreads<cluster::LinearMapCollectionCluster>();
+    }
+    SUBCASE("arc::StaticMap")
+    {
+        checkCollectionUsingThreads<cluster::MapCollectionCluster>();
+    }
 }
 
 } // namespace arc::tests::thread
