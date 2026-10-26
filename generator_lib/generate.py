@@ -538,7 +538,7 @@ class Node:
 
 
 class ClusterCtor:
-    """A user-declared cluster constructor: `C(int arg) : node1(arg)`
+    """A user-declared cluster constructor: `C(int arg) .node1{arg}`
 
     May instead delegate to another constructor of the same cluster: `C(int arg) : C(arg, 0.0)`
     """
@@ -557,21 +557,40 @@ class ClusterCtor:
         self.inits: list[tuple[str, str]] = []  # [(member, initialiser-with-brackets)]
         self.init_positions: list[str] = []  # DSL position of each init's member
         self.delegates: bool = False
-        init_trees = tree.children[2:]
-        for init in init_trees:
-            member = init.children[0].value
-            args = "".join(c.value if isinstance(c, Token) else reconstruct(c) for c in init.children[1:])
+        init = next((c for c in tree.children[2:] if isinstance(c, Tree)), None)
+        if init is None:
+            return
+
+        if init.data == imported('ctor_delegated'):
+            member_token = init.children[1]
+            member = member_token.value
+            if member != cluster.name:
+                raise SyntaxError(f"{get_pos(member_token)} Constructor of {cluster.cluster_class} '{cluster.full_name}' "
+                                  f"cannot delegate to '{member}'")
+            self.delegates = True
+            self.inits.append(("Node", reconstruct(init.children[2])))
+            self.init_positions.append(get_pos(member_token))
+            return
+
+        if init.data != imported('ctor_designated'):
+            raise SyntaxError(f"{get_pos(init)} Unknown constructor initialiser: {init.data}")
+
+        children = init.children
+        index = 0
+        while index < len(children):
+            member_token = children[index + 1]
+            member = member_token.value
             if member not in nodes:
-                if member != cluster.name:
-                    raise SyntaxError(f"{get_pos(init)} Constructor of {cluster.cluster_class} '{cluster.full_name}' "
-                                      f"initialises unknown node '{member}'")
-                if len(init_trees) > 1:
-                    raise SyntaxError(f"{get_pos(init)} Delegating constructor of {cluster.cluster_class} '{cluster.full_name}' "
-                                      f"cannot initialise any nodes alongside the delegation to '{member}'")
-                self.delegates = True
-                member = "Node"  # the generated class name
+                raise SyntaxError(f"{get_pos(member_token)} Constructor of {cluster.cluster_class} '{cluster.full_name}' "
+                                  f"initialises unknown node '{member}'")
+            index += 3  # '.', member, '{'
+            args = "{}"
+            if isinstance(children[index], Tree):
+                args = "{" + reconstruct(children[index]) + "}"
+                index += 1
+            index += 1  # '}'
             self.inits.append((member, args))
-            self.init_positions.append(get_pos(init))
+            self.init_positions.append(get_pos(member_token))
 
     @property
     def params_str(self) -> str:

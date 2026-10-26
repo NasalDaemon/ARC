@@ -159,6 +159,32 @@ cluster FruitSalad [Context, Root] // Optional type annotations
 }
 ```
 
+### Custom Constructors (optional)
+
+By default, a cluster is an aggregate and can be aggregate-initialised. Declaring one or more constructors makes it non-aggregate and gives it explicit construction. Constructors use C++ parameter and delegation syntax, with designated node initialisers and no body. They must appear directly after the node list, before any connection blocks, and be named after the cluster.
+
+```arc
+cluster C
+{
+    node1 = node::Node1
+    node2 = node::Node2
+
+    C(int arg, double d)
+        .node1{arg}
+        .node2{d, 1}
+
+    // Delegating constructor
+    C(int arg) : C(arg, 1.0)
+
+    [Trt] node1 --> node2
+}
+```
+
+- Omit constructors to retain aggregate initialisation.
+- Node initialisers use `.node{args...}` and may only name declared nodes.
+- Nodes omitted from the initialiser list are value-initialised.
+- A constructor may delegate to another constructor of the same cluster using `: C(args...)`. Delegation cannot be combined with node initialisers.
+
 ### Namespace and Type Annotations
 
 **Inline Namespaces:**

@@ -301,9 +301,10 @@ cluster <Name>
 ### Custom Constructors (optional)
 
 By default a cluster is an aggregate (aggregate-initialised). Declaring one or more
-constructors makes it non-aggregate and gives explicit construction. Syntax is identical
-to C++ minus the body; constructors must appear directly after the node list, before any
-connection blocks, and be named after the cluster.
+constructors makes it non-aggregate and gives explicit construction. Constructors use
+C++ parameter and delegation syntax, with designated node initialisers and no body. They
+must appear directly after the node list, before any connection blocks, and be named after
+the cluster.
 
 ```arc
 cluster C
@@ -311,7 +312,9 @@ cluster C
     node1 = node::Node1
     node2 = node::Node2
 
-    C(int arg, double d) : node1(arg), node2{d, 1}
+    C(int arg, double d)
+        .node1{arg}
+        .node2{d, 1}
     // delegating constructor
     C(int arg) : C(arg, 1.0)
 
@@ -320,7 +323,7 @@ cluster C
 ```
 
 - Zero or more constructors; omit them for current aggregate behaviour.
-- Member initialisers accept `(...)` or `{...}`, and may only name declared nodes.
+- Node initialisers use `.node{args...}` and may only name declared nodes.
 - Nodes not in the initialiser list are value-initialised.
 - A constructor may delegate to another by naming the cluster: `C(int arg) : C(arg, 1.0)`.
   As in C++, a delegation must be the only entry in the initialiser list.

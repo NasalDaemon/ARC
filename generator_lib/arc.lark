@@ -186,11 +186,11 @@ TPARAM_TYPE: (TYPENAME | "class") ["..."]
 node: NAME "=" node_type (":" node_type_wrapper)*
 
 # Optional custom cluster constructors, declared directly after the node list.
-# Identical to C++ constructor syntax, without a body.
-cluster_ctor: NAME cpp_func_params [":" ctor_init ("," ctor_init)*]
+# C++ parameter and delegation syntax, with designated node initialisers and no body.
+cluster_ctor: NAME cpp_func_params [ctor_init]
 
-!ctor_init: NAME cpp_func_args
-          | NAME "{" [full_bracket_content] "}"
+!ctor_init: ":" NAME cpp_func_args                      -> ctor_delegated
+          | ("." NAME ("{"|"(") [full_bracket_content] (")"|"}"))+  -> ctor_designated
 
 node_type: [TYPENAME] node_type_wrapper
 node_type_wrapper: NAMESPACE [cpp_templ_args]
