@@ -15,15 +15,20 @@ trait CollectionControl [Types]
     getId(Types::StrongHandle const& handle) const -> Types::ID
         pre (handle)
 
-    // Get TraitView
-    fromId(Types::ID const& id) // + const
-    fromHandle(Types::StrongHandle const& handle) // + const
+    // Get TraitView, const through a const view
+    fromId(Types::ID const& id)
+    fromId(Types::ID const& id) const
+    fromHandle(Types::StrongHandle const& handle)
+        pre (handle)
+    fromHandle(Types::StrongHandle const& handle) const
         pre (handle)
 
     // f: (ID, StrongHandle, TraitView) -> void
-    forEach(auto&& f) -> void // + const
-    // f: (ID, StrongHandle, TraitView) -> void
-    findIf(auto&& f) -> Types::StrongHandle // + const
+    forEach(auto&& f) -> void
+    forEach(auto&& f) const -> void
+    // f: (ID, StrongHandle, TraitView) -> bool
+    findIf(auto&& f) -> Types::StrongHandle
+    findIf(auto&& f) const -> Types::StrongHandle
 }
 
 trait DynamicCollectionControlExt [Types]

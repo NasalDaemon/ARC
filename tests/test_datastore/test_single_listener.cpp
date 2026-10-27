@@ -18,9 +18,13 @@ namespace arc::tests::datastore::single {
 cluster Cluster [R = Root] {
     store = R::SharedData : arc::node::DataStore
     listener = R::Listener
+    viewer = R::Viewer
 
     [arc::DataStore<typename R::SharedData> <-> arc::DataListener<typename R::SharedData>]
     store <-> listener
+
+    [arc::DataStore<typename R::SharedData>]
+    viewer --> store
 }
 
 }
@@ -50,7 +54,7 @@ struct Root
                     int value = 42;
                 };
             };
-            void init(auto const&, auto&, auto constructor)
+            void init(auto const&, auto const&, auto&, auto constructor)
             {
                 constructor();
             }
@@ -61,7 +65,21 @@ struct Root
                 CHECK(event.get() == "test");
                 CHECK(item.id == item.sharedData.id);
                 CHECK(item.privateData.value == 42);
+                ++events;
             }
+
+            int events = 0;
+        };
+    };
+
+    struct Viewer
+    {
+        template<class Context>
+        struct Node : arc::NodeUses<arc::trait::DataStore<SharedData>>
+        {
+            int read(int id) const { return getDataStore().get(id)->id; }
+
+            void ping(int id) { getDataStore().notify("test"sv, getDataStore().get(id)); }
         };
     };
 };
@@ -69,13 +87,18 @@ struct Root
 
 TEST_CASE("arc::DataStore single listener") {
     arc::Graph<cluster::Cluster, Root> graph;
-    graph.store->add(1, 1);
-    auto [pShared, pPrivate] = graph.store->get(1);
-    REQUIRE(pShared != nullptr);
-    REQUIRE(pPrivate == nullptr);
-    CHECK(pShared->id == 1);
+    REQUIRE(graph.store->add(1, 1).inserted);
+    auto ref = graph.store->get(1);
+    REQUIRE(ref);
+    CHECK(ref->id == 1);
 
     graph.store->notify("test"sv, 1);
+
+    CHECK(graph.listener->events == 1);
+
+    CHECK(graph.viewer->read(1) == 1);
+    graph.viewer->ping(1);
+    CHECK(graph.listener->events == 2);
 }
 
 } // namespace arc::tests::datastore::single

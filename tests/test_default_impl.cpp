@@ -23,9 +23,10 @@ trait Counter
     increment()
     decrement()
     reset() {}
+    audit() const {}
     count() const -> int
     {
-        self.reset();
+        self.audit();
         return 0;
     }
     add(int n) {}
@@ -113,6 +114,8 @@ struct CounterSpy : arc::NodeImpl<arc::Spy>
         ++self.totalCount;
         if constexpr (std::is_same_v<Method, Counter::reset>)
             ++self.resetCount;
+        else if constexpr (std::is_same_v<Method, Counter::audit>)
+            ++self.auditCount;
         else if constexpr (std::is_same_v<Method, Counter::count>)
             ++self.countCount;
         else if constexpr (std::is_same_v<Method, Counter::add>)
@@ -128,6 +131,7 @@ struct CounterSpy : arc::NodeImpl<arc::Spy>
 
     mutable int totalCount = 0;
     mutable int resetCount = 0;
+    mutable int auditCount = 0;
     mutable int countCount = 0;
     mutable int addCount = 0;
     mutable int subCount = 0;
@@ -338,15 +342,15 @@ SCENARIO(R"(Counter default impls: arc::trait::Spy intercepts default method cal
             }
         }
 
-        WHEN(R"(count() is called, whose default body calls self.reset())")
+        WHEN(R"(count() is called, whose default body calls self.audit())")
         {
             auto value = counter.count();
 
-            THEN(R"(spy intercepts both the outer count() and the inner self.reset())")
+            THEN(R"(spy intercepts both the outer count() and the inner self.audit())")
             {
                 CHECK(value == 0);
                 CHECK(graph.global->countCount == 1);
-                CHECK(graph.global->resetCount == 1);
+                CHECK(graph.global->auditCount == 1);
                 CHECK(graph.global->totalCount == 2);
             }
         }

@@ -100,14 +100,14 @@ struct Root
             }
         }
 
-        int doSomethingCount = 0;
-        int doSomethingElseCount = 0;
+        mutable int doSomethingCount = 0;
+        mutable int doSomethingElseCount = 0;
     };
 };
 
 struct Root::Spy::Something : Root::Spy
 {
-    auto impl(arc::trait::Spy::intercept, trait::Something::doSomething, auto f, int x, int y) -> decltype(auto)
+    auto impl(arc::trait::Spy::intercept, trait::Something::doSomething, auto f, int x, int y) const -> decltype(auto)
     {
         ++doSomethingCount;
         if (x == y)

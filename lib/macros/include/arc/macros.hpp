@@ -134,6 +134,23 @@
 #   define ARC_INDETERMINATE
 #endif
 
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(clang::lifetimebound)
+#   define ARC_LIFETIMEBOUND [[clang::lifetimebound]]
+#else
+#   define ARC_LIFETIMEBOUND
+#endif
+
+#if defined(__SANITIZE_ADDRESS__)
+#   define ARC_ASAN_ENABLED 1
+#elif defined(__has_feature)
+#   if __has_feature(address_sanitizer)
+#       define ARC_ASAN_ENABLED 1
+#   endif
+#endif
+#ifndef ARC_ASAN_ENABLED
+#   define ARC_ASAN_ENABLED 0
+#endif
+
 #define ARC_NO_UNIQUE_ADDRESS [[ARC_IF_MSVC(msvc::)no_unique_address]]
 
 #define ARC_DECLVAL(...) static_cast<auto(*)() -> __VA_ARGS__>(nullptr)()
@@ -266,7 +283,7 @@
 #define ARC_SIGNATURE_METHOD_BODY(method, ...) \
     if constexpr (::arc::IsTraitView<Self>) \
     { \
-        using Invoker = decltype(ARC_This_Trait::Meta::Signatures::method(self, ## __VA_ARGS__)); \
+        using Invoker = decltype(ARC_This_Trait::Meta::Signatures::method(::arc::signatureView(self), ## __VA_ARGS__)); \
         return Invoker{}.invoke(self, method ## _c, ## __VA_ARGS__); \
     } \
     else \

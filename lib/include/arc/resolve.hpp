@@ -44,24 +44,69 @@ namespace detail {
         using type = ResolveTraitT<typename T::Info::GlobalNode, Trait>::type;
     };
 
-    // T is a context with a link to a sibling node's context
+    // The context and trait a link from T arrives at, past the clusters passing it up. Next is where resolution goes on
+    // from: the node of that context, or the context itself when a cluster passes the trait up to its global node.
+    // Node types are only named here, never completed.
+    template<class T, class Trait_>
+    struct LinkTarget : ResolveLink<T, Trait_>
+    {
+        using Next = ContextToNode<typename ResolveLink<T, Trait_>::Context>;
+    };
+
+    template<class T, IsGlobalTrait Trait_>
+    requires ContextHasGlobal<T>
+    struct LinkTarget<T, Trait_>
+    {
+        using Context = T;
+        using Trait = Trait_;
+        using Next = T;
+    };
+
+    template<class T, class Trait_>
+    requires LinksToParent<T, Trait_>
+    struct LinkTarget<T, Trait_> : LinkTarget<ResolveLinkContext<T, Trait_>, ResolveLinkTrait<T, Trait_>>
+    {};
+
+    enum class LinkReach { No, Yes, ThroughElement };
+
+    // Whether Trait's calls arriving at context Target reach the node of context C: C is Target, or C's wrapper or
+    // cluster is reached and hosts C or passes Trait on to it. A collection's elements are never reached:
+    // ThroughElement when they would otherwise be.
+    template<class C, class Target, class Trait>
+    consteval LinkReach linkReach()
+    {
+        using Ctx = Decompress<C>;
+        if constexpr (IsSameContext<Ctx, Target>)
+        {
+            return LinkReach::Yes;
+        }
+        else if constexpr (requires { typename Ctx::NodePath::Context; })
+        {
+            constexpr LinkReach hostReach = linkReach<typename Ctx::NodePath::Context, Target, Trait>();
+            return Ctx::NodePath::IsElement and hostReach != LinkReach::No ? LinkReach::ThroughElement : hostReach;
+        }
+        else if constexpr (requires { typename Ctx::Parent; } and HasExplicitLink<typename Ctx::Parent, Trait>)
+        {
+            if constexpr (IsSameContext<ResolveLinkContext<typename Ctx::Parent, Trait>, Ctx>)
+                return linkReach<ContextOf<typename Ctx::Parent>, Target, Trait>();
+            else
+                return LinkReach::No;
+        }
+        else
+        {
+            return LinkReach::No;
+        }
+    }
+
+    // T is a context with a link to a node's context
     template<class T, class Trait>
     requires LocallyResolvable<T, Trait>
     struct ResolveTraitT<T, Trait>
     {
         ARC_STATIC_ASSERT(not IsGlobalTrait<Trait> or test::IsTestContext<T>)("Global traits may only be resolved locally in a test context",
             ARC_SA_NODE_CONTEXT(node, T)(trait, arc::typeName<Trait>));
-        using Target = ResolveLink<T, Trait>;
-        using type = ResolveTraitT<ContextToNode<typename Target::Context>, typename Target::Trait>::type;
-    };
-
-    // T links to parent context
-    template<class T, class Trait>
-    requires LinksToParent<T, Trait>
-    struct ResolveTraitT<T, Trait>
-    {
-        using Target = ResolveLink<T, Trait>;
-        using type = ResolveTraitT<typename Target::Context, typename Target::Trait>::type;
+        using Target = LinkTarget<T, Trait>;
+        using type = ResolveTraitT<typename Target::Next, typename Target::Trait>::type;
     };
 
     template<class Node, class Trait, class... Keys>

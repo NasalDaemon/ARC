@@ -28,6 +28,12 @@ namespace detail {
         template<class T>
         explicit(false) constexpr operator T&();
     };
+
+    // The trait's declared signature is viable for a call through the view: a const view reaches only const methods
+    template<class View, class Method, class... Args>
+    concept MatchesSignature = requires(std::remove_reference_t<View>& view, Args&&... args) {
+        TraitOf<Method>::Meta::SignaturesByTag::impl(signatureView(view), Method{}, ARC_FWD(args)...);
+    };
 }
 
 struct AutoCompleteTraitNodeView
@@ -154,7 +160,7 @@ struct TraitView final : Trait::Meta::Methods
     using InterfaceOf = detail::ConstLike<std::remove_reference_t<Self>, typename ImplAlias::Interface>;
 
     template<class Self, IsMethodOf<Trait> Method, class... Args>
-    requires CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
+    requires detail::MatchesSignature<Self, Method, Args...> and CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
     ARC_INLINE constexpr decltype(auto) impl(this Self&& self, Method method, Args&&... args)
     {
         return detail::invokeMethodWithSpy<ContextOf<Node>>(
@@ -168,7 +174,7 @@ struct TraitView final : Trait::Meta::Methods
     template<class Self, IsMethodOf<Trait> Method>
     ARC_INLINE constexpr auto impl(this Self&& self, Method, arc::AsFunctor)
     {
-        return MethodFunctor<Method>(self.alias);
+        return MethodFunctor<Method, std::is_const_v<std::remove_reference_t<Self>>>{self};
     }
 
     ARC_INLINE auto operator->(this auto&& self)
@@ -185,20 +191,30 @@ private:
             arc::assertImplements<TraitView, Types, Trait>();
     }
 
-    template<class Method>
+    // Calls through a copy of the view it was taken from, const if that was: the functor's own constness is irrelevant
+    template<class Method, bool Const>
     struct MethodFunctor
     {
-        ImplAlias alias;
+        using View = std::conditional_t<Const, TraitView const, TraitView>;
 
-        ARC_INLINE constexpr decltype(auto) operator()(this auto&& self, auto&&... args)
+        template<class... Args>
+        requires detail::MatchesSignature<View, Method, Args...>
+        ARC_INLINE constexpr decltype(auto) operator()(Args&&... args) const
         {
+            View called = view;
             return detail::invokeMethodWithSpy<ContextOf<Node>>(
-                detail::getSpy<ContextOf<Node>, Trait>(self.alias.getImpl()),
-                TraitView({}, self.alias, {}),
-                self.alias.get(),
+                detail::getSpy<ContextOf<Node>, Trait>(called.alias.getImpl()),
+                called,
+                called.alias.get(),
                 Method{},
                 ARC_FWD(args)...);
         }
+
+    private:
+        friend struct TraitView;
+
+        explicit constexpr MethodFunctor(TraitView view) : view(view) {}
+        TraitView view;
     };
 
     ImplAlias alias;

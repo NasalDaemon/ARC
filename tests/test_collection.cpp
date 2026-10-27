@@ -3,6 +3,13 @@
 
 #include <version>
 
+// GCC 15 ICEs (cp_emit_debug_info_for_using) instantiating std::flat_map across modules
+#if __cpp_lib_flat_map and not ARC_COMPILER_LT(GCC, 16)
+#define ARC_TEST_FLAT_MAP 1
+#else
+#define ARC_TEST_FLAT_MAP 0
+#endif
+
 // TODO: Why do we need to include ranges again with GCC?
 #if !ARC_IMPORT_STD or ARC_COMPILER_GCC
 #include <algorithm>
@@ -16,7 +23,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#if __cpp_lib_flat_map
+#if ARC_TEST_FLAT_MAP
 #include <flat_map>
 #endif
 #endif
@@ -29,7 +36,8 @@ import arc.tests.collection;
 namespace arc::tests::collection {
 
 /* arc-begin
-
+module;
+#include <map>
 export module arc.tests.collection;
 
 namespace arc::tests::collection {
@@ -202,6 +210,21 @@ struct OutsideNode
         auto control()
         {
             return getNode(trait::element, key::collection);
+        }
+
+        // Through the control view's const methods
+        std::vector<int> elementValues() const
+        {
+            auto const control = getNode(trait::element, key::collection);
+            std::vector<int> values;
+            control.forEach([&](int, auto const&, auto const& element) { values.push_back(element.get()); });
+            return values;
+        }
+        int elementTwice(int id) const
+        {
+            auto const control = getNode(trait::element, key::collection);
+            auto const found = control.findIf([&](int found, auto const&, auto const&) { return found == id; });
+            return control.fromId(id).get() + control.fromHandle(found).get();
         }
 
         int i;
@@ -403,7 +426,7 @@ TEST_CASE("arc::StaticMap")
         using VectorMap = RootWith<arc::StaticMap<cluster::Element, int, VecMap>>;
         checkStaticMapSuite<cluster::RootCollection, VectorMap>();
     }
-#if __cpp_lib_flat_map
+#if ARC_TEST_FLAT_MAP
     SUBCASE("std::flat_map")
     {
         using FlatMap = RootWith<arc::StaticMap<cluster::Element, int, std::flat_map>>;
@@ -510,7 +533,7 @@ TEST_CASE("arc::DynamicMap")
     {
         checkDynamicMap<RootWith<arc::DynamicMap<cluster::Element, int, VecMap>>>();
     }
-#if __cpp_lib_flat_map
+#if ARC_TEST_FLAT_MAP
     SUBCASE("std::flat_map")
     {
         checkDynamicMap<RootWith<arc::DynamicMap<cluster::Element, int, std::flat_map>>>();
@@ -543,6 +566,9 @@ TEST_CASE("arc::DynamicMap over std::map iterates in key order")
     ids.clear();
     g->outside->control().forEach([&](int id, auto const&, auto const&) { ids.push_back(id); });
     CHECK(ids == std::vector{1, 2, 3, 4, 5});
+
+    CHECK(g->outside->elementValues() == std::vector{11, 12, 13, 14, 15});
+    CHECK(g->outside->elementTwice(4) == 28);
 }
 
 TEST_CASE("arc::StaticIndex")

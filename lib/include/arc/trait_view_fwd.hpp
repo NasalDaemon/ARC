@@ -9,6 +9,7 @@
 
 #if !ARC_IMPORT_STD
 #include <type_traits>
+#include <utility>
 #endif
 
 namespace arc {
@@ -35,6 +36,17 @@ concept IsTraitViewOrNode = IsTraitView<T> or IsNode<T>;
 ARC_MODULE_EXPORT
 template<class T, class Trait, class Key = key::Default>
 concept IsTraitViewOf = IsTraitView<T> and IsTrait<Trait> and std::derived_from<T, typename key::Trait<Key, Trait>::Meta::Methods>;
+
+// The view a trait's signatures are selected by: const when the view or the implementation it reaches is const
+ARC_MODULE_EXPORT
+template<IsTraitView View>
+ARC_INLINE constexpr auto& signatureView(View& view)
+{
+    if constexpr (requires { requires std::is_const_v<typename View::Impl>; })
+        return std::as_const(view);
+    else
+        return view;
+}
 
 ARC_MODULE_EXPORT
 struct AsFunctor{} inline constexpr asFunctor;

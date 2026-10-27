@@ -20,7 +20,11 @@ add_executable(arc_tests_module
     test_node_count.cpp
     test_null_trait.cpp
     test_datastore/test_datastore.cpp
+    test_datastore/test_layout.cpp
+    test_datastore/test_lifetime.cpp
+    test_datastore/test_refs.cpp
     test_datastore/test_single_listener.cpp
+    test_datastore/test_topology.cpp
     test_protocol.cpp
     test_spy.cpp
     test_tracer_spy.cpp
@@ -85,7 +89,11 @@ target_generate_arc_modules(arc_tests_module
         test_trait_requires
     EMBED
         test_datastore/test_datastore.cpp
+        test_datastore/test_layout.cpp
+        test_datastore/test_lifetime.cpp
+        test_datastore/test_refs.cpp
         test_datastore/test_single_listener.cpp
+        test_datastore/test_topology.cpp
         test_collection.cpp
         test_contracts.cpp
         test_const_trait.cpp

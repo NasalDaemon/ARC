@@ -75,17 +75,24 @@ trait <Name>
     template<std::size_t I, class T>
     complex(T t, auto a) -> std::same_as<double> auto
 
+    // Optional: not asserted as implemented
+    ? cancel(int id) -> bool
+
     // Default implementation: used when a node does not define its own.
     // `self` is a trait view, so `self.x()` dispatches through the trait
     // (spies/overrides apply). Const methods get a `const&` self.
     reset() {}
-    summary() const -> int { self.reset(); return 0; }
+    summary() const -> int { return 0; }
 }
 
 } // namespace <project>
 ```
 
-Non-template, non-defaulted methods are asserted by `arc::assertImplements<Impl, Types, Trait>()` at `getNode`/`asTrait` time, each failure naming the method as written in the DSL. Template methods are only checked when actually called.
+Non-template, non-defaulted, non-optional methods are asserted by `arc::assertImplements<Impl, Types, Trait>()` at `getNode`/`asTrait` time, each failure naming the method as written in the DSL. Template and optional methods are only checked when actually called.
+
+A const view, or a view over a const node, reaches only the trait's const methods. A trait written with the method macros declares no signatures, so this does not constrain it.
+
+A method returning a non-movable type cannot have `post` contracts or belong to a trait with a protocol.
 
 **`[Const]` annotation** — `trait ReadOnly [Const]` enforces that every method declared in the trait is `const` (including template and `...` methods). The generator rejects any non-const method at generation time.
 

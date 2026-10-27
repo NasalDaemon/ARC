@@ -89,6 +89,13 @@ template<
                 );
 {%- endmacro -%}
 
+{#- A non-const method is never reached from a const Self -#}
+{%- macro mutable_requires(method) -%}
+{%- if not method.is_const -%}
+requires (not std::is_const_v<Self>)
+{%- endif -%}
+{%- endmacro -%}
+
 {%- macro method_template_params(trait, method) -%}
 template<class Self
     {%- if trait.types_name -%}
@@ -362,6 +369,7 @@ struct {{ trait.name }} : ::arc::Trait
             {% if trait.has_protocol and trait.methods | selectattr("has_contracts", "eq", False) | list %}
             struct ProtoOnly : ::arc::NoConstraints
             {
+                static constexpr bool HasPost = true;
                 using ProtoSnap = ::arc::ProtoSnap<ARC_This_Trait, 0>;
                 static constexpr auto preProto(auto& _arc_assert_, auto self, auto const&...) -> ProtoSnap
                 {
@@ -390,6 +398,9 @@ struct {{ trait.name }} : ::arc::Trait
                 template<class T, class {{ trait.types_name or "" }}>
                 static consteval {{ method.return_type.str }} Return() { return ARC_DECLVAL(T); }
                 static constexpr bool DecltypeAuto = {{ cppbool(method.return_type.str.endswith("decltype(auto)")) }};
+                {% endif %}
+                {% if trait.has_protocol or method.has_proto_contracts or method.post_exprs %}
+                static constexpr bool HasPost = true;
                 {% endif %}
                 {% if trait.has_protocol or method.has_proto_contracts %}
                 {% if trait.has_protocol %}
@@ -530,6 +541,7 @@ struct {{ trait.name }} : ::arc::Trait
         {
             {% for method in trait.methods %}
             {{ method_template_params(trait, method) }}
+            {{ mutable_requires(method) }}
             static auto
             {% if method.pos %}
             {{ arc_line(method.pos, align=True) }}
@@ -640,6 +652,7 @@ struct {{ trait.name }} : ::arc::Trait
                 , {{ prefix }}{{ prefix.pack }} {{ name }}
                 {%- endfor -%}
             >
+            {{ mutable_requires(method) }}
             {{ arc_line(method.pos) }}
             ARC_INLINE static constexpr decltype(auto) defaultImpl([[maybe_unused]] Self{{ " const" if method.is_const else "" }}& self, ARC_This_Trait::{{ method.name }}
                 {%- for type, name in method.params -%}

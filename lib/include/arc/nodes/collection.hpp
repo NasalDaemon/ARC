@@ -2,6 +2,7 @@
 #define INCLUDE_ARC_NODES_COLLECTION_HPP
 
 #include "arc/nodes/adapt.hpp"
+#include "arc/nodes/collection_fwd.hpp"
 #include "arc/nodes/collection_storage.hpp"
 #include "arc/detail/as_ref.hpp"
 #include "arc/detail/cast.hpp"

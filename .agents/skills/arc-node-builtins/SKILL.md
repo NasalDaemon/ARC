@@ -90,32 +90,61 @@ using IColouredAnimal = arc::INodeOf<IAnimal, IColour>;
 
 **SharedData** must define an `Id` type (used as the map key).
 
-**Cluster wiring** — the store connects bidirectionally to its listeners via a repeater:
+**Cluster wiring** — listeners connect bidirectionally; other nodes connect with `DataStore` alone:
 ```arc
-using DataStore = arc::DataStore<MySharedData>
-using DataListener = arc::DataListener<MySharedData>
-
 cluster MyCluster [Root]
 {
     store = arc::node::DataStore<MySharedData, std::map>
     listenerA = node::ListenerA
     listenerB = Root::ListenerB
+    viewer = node::Viewer
+
+    using DataStore = arc::DataStore<MySharedData>
+    using DataListener = arc::DataListener<MySharedData>
 
     [DataStore <-> DataListener]
     store <-> {listenerA, listenerB}
+
+    [DataStore]
+    viewer --> store
 }
 ```
 
-**DataStore trait API** (called by listeners via `getDataStore()`):
-- `add(id, args...)` — emplace SharedData; listeners' `init` is called, only stored if at least one subscribes. Returns `{SharedData*, wasNewlySubscribed}`.
-- `get(id)` / `get(sharedDataPtr)` — lookup by ID or pointer. Returns `{SharedData*, PrivateData*}` (PrivateData is per-listener).
-- `modify(id, fn)` — call `fn(SharedData*, PrivateData*)` which returns an event (or `void`/`arc::noEvent` for no notification). Other listeners receive `onEvent`. Caller is skipped.
-- `forEach(fn)` — iterate all entries. `fn(id, SharedData*, PrivateData*)` may return an event to notify.
-- `notify(event, id)` / `notifyAll(event)` — push an event to listeners without modifying data.
+A listener is whatever node the `DataListener` link resolves to, through subclusters and wrappers (`arc::Lazy`, `arc::Union`). At most 64; a collection cannot be one.
+
+**Refs and handles** — lookups return a `Types::PrivateRef` (`Types::ConstPrivateRef` through a const view), never a raw pointer:
+- `Types::Ref` pins its entry: while the Ref is alive, the entry is neither destroyed nor moved. A Ref cannot be copied, moved or allocated with `new`; `ref.clone()` returns another Ref pinning the same entry, e.g. to return one from a function holding a lookup. It is the same type for every node, so trait methods between nodes take `Types::Ref const&`, and the receiver's `store.resolve(ref)` gives its own PrivateRef without a lookup.
+- `Types::PrivateRef` is `{Ref ref; PrivateData* privateData;}`: `auto [ref, privateData] = store.get(id);`. `privateData` is the caller's own PrivateData as it was at the lookup, null if the ref is empty or the caller was not subscribed. After a `release`, it still points at the released PrivateData, which the pin keeps alive but nothing reads again. For a non-listener it is a `void*` that is always null.
+- A PrivateRef reads like its Ref: `*entry` and `entry->field` read `SharedData const`, `explicit operator bool` tests for emptiness, and `id()`, `handle()` and `clone()` forward to `entry.ref`. `auto const& x = *store.get(id);` does not compile, as it would outlive the pin.
+- Using a Ref with a store it did not come from asserts. A store may not be moved while a ref pins it.
+- `Types::Handle` (`arc::DataHandle<SharedData>`) is the only persistable reference; `resolve(handle)` is empty once its entry is released. A handle does not know its store.
+- Name the types with `arc::ResolveTypes<Node, arc::DataStore<T>>::Ref` etc., also in a class body — except inside a subcluster that the `DataListener` link enters (see [docs/resolving-into-an-instantiating-cluster.md](../../../docs/resolving-into-an-instantiating-cluster.md)). A listener's `PrivateData` cannot hold the store's types, which are made from it.
+- Copying a store keeps its slots and generations, so handles resolve in the copy; refs stay with the store they came from.
+
+```cpp
+// Listener: one lookup, then the entry travels as a Ref
+auto entry = getDataStore().get(id);
+entry.privateData->owned = true;
+getScheduler().begin(entry.ref);
+
+// Scheduler, another listener
+bool begin(Types::Ref const& ref)
+{
+    return static_cast<bool>(getDataStore().subscribe(ref, 1));
+}
+```
+
+**DataStore trait API** — `modify`, `notify`, `subscribe` and `release` take either an id or a ref (a `Ref` or the caller's own PrivateRef); the ref skips the lookup:
+- `add(id, args...)` → `auto [ref, privateData, inserted]` — constructs the SharedData and offers it to the `init` of each unsubscribed listener; the entry is kept only if a listener subscribes. Called from an `init` for the id being offered, it returns the entry with `inserted == false`.
+- `get(id)`, `resolve(handle)` → `PrivateRef`, empty if the entry is absent or released. `resolve(ref)` → the caller's `PrivateRef` to the entry the Ref reads, empty only if the Ref is: a released entry is still read, with a null `privateData`.
+- `modify(id, fn)` — `fn(SharedData*, PrivateData*)` returns an event for the other listeners (`void`/`arc::noEvent`: none).
+- `forEach(fn)` — `fn(id, SharedData*, PrivateData*)`, may return an event. With `notifyAll`, visits only the entries present when the loop began, each pinned while visited: an entry added during the loop is skipped, even one reusing a slot not yet reached, and one released during it is skipped unless already visited.
+- `notify(event, id)` / `notifyAll(event)`.
+- `subscribe(id, args...)` / `release(id)` (listeners) — subscribe without `init`; the id is removed when its last listener releases. Subscribing to the id your own `init` is being offered asserts. Released data is destroyed with its last ref, so its destructors must not call into the graph; until then, `add` does not offer the entry to that listener, and re-subscribing it asserts.
 
 **DataListener trait** — implemented by listener nodes:
-- `init(id, SharedData&, constructor)` — called when data is added. Call `constructor(args...)` to subscribe (creates PrivateData). Return `PrivateData` directly to unconditionally subscribe to all IDs.
-- `onEvent(Event<T>, EventItem<SharedData, PrivateData>)` — called on notification. Return `false` to stop propagation.
+- `init(id, handle, SharedData&, constructor)` — call `constructor(args...)` to subscribe, or return `PrivateData` to subscribe to every id.
+- `onEvent(Event<T>, EventItem<SharedData const, PrivateData>)` — return `false` to stop propagation.
 - `skipEvent(event, item)` — optional; return `true` to skip this event. Useful: `return not event.isLatest();`
 
 **Event types:**
@@ -124,6 +153,8 @@ cluster MyCluster [Root]
 - `std::optional<Event>` — notify only if has value
 - `Event::isLatest()` — check if this event is still the most recent for this ID
 - `arc::NoPrivateData` — use as `PrivateData` type when listener needs no per-entry state
+
+**Choosing the map** — the map holds only `Id -> slot index`, so any `MapTmpl` works, flat maps included: it needs `find`, `end`, `emplace(key, value)` and `erase(iterator)`.
 
 ---
 
@@ -256,12 +287,12 @@ struct MySpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args) const
     {
         ++callCount;
         return impl_fn(std::forward<Args>(args)...);
     }
-    int callCount = 0;
+    mutable int callCount = 0;
 };
 ```
 

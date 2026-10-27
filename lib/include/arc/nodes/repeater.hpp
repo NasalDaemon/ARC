@@ -127,6 +127,14 @@ namespace node {
     using arc::Repeater;
 }
 
+namespace detail {
+    // How many nodes a node handle repeats a trait to: 0 unless it is an arc::Repeater
+    template<class NodeHandle>
+    inline constexpr std::size_t repeaterCount = 0;
+    template<class Trait, std::size_t Count>
+    inline constexpr std::size_t repeaterCount<Repeater<Trait, Count>> = Count;
+}
+
 } // namespace arc
 
 

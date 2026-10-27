@@ -155,7 +155,15 @@ export namespace arc {
     // traits/datastore.hpp
     using arc::EventId;
     using arc::Event;
+    using arc::DataHandle;
     using arc::EventItem;
+    using arc::IsDataHandle;
+    using arc::IsDataPointerLike;
+    using arc::IsDataPin;
+    using arc::IsDataRef;
+    using arc::IsDataPrivateRef;
+    using arc::IsDataRefFor;
+    using arc::IsDataAdded;
     inline namespace trait {
         using trait::DataStore;
         using trait::dataStore;
@@ -434,6 +442,7 @@ export namespace arc {
     using arc::IsTraitView;
     using arc::IsTraitViewOrNode;
     using arc::IsTraitViewOf;
+    using arc::signatureView;
     using arc::AsFunctor;
     using arc::asFunctor;
     using arc::AutoCompleteTraitView;

@@ -260,12 +260,12 @@ SCENARIO("App cluster end-to-end with mock logger")
 struct IntegrationSpy : arc::NodeImpl<arc::trait::Spy>
 {
     template<class Method, class... Args>
-    decltype(auto) intercept(Method, auto impl_fn, Args&&... args)
+    decltype(auto) intercept(Method, auto impl_fn, Args&&... args) const
     {
         ++callCount;
         return impl_fn(std::forward<Args>(args)...);
     }
-    int callCount = 0;
+    mutable int callCount = 0;
 };
 
 SCENARIO("App cluster end-to-end with spying")

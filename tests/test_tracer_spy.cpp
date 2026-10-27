@@ -3,10 +3,13 @@
 #if !ARC_IMPORT_STD
 #include <exception>
 #include <chrono>
+#include <concepts>
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <vector>
 #endif
 
 import arc.tests.test_tracer_spy;
@@ -36,6 +39,11 @@ trait Mirror
     bounce(int const* p) -> int
 }
 
+trait Pinner
+{
+    pin(int value)
+}
+
 cluster Main [Root]
 {
     adder = Root::Adder
@@ -46,8 +54,22 @@ cluster Main [Root]
     doubler --> adder
 }
 
+cluster Pinning [Root]
+{
+    pinner = Root::Pinner
+}
+
 } // namespace arc::tests::test_tracer_spy
 arc-end */
+
+struct Pinned
+{
+    explicit Pinned(int value) : value(value) {}
+    Pinned(Pinned const&) = delete;
+    Pinned& operator=(Pinned const&) = delete;
+
+    int value;
+};
 
 struct Root
 {
@@ -69,6 +91,16 @@ struct Root
     struct Mirror : arc::NodeImpl<trait::Mirror>
     {
         int bounce(int const* p) const { return p ? *p : -1; }
+    };
+
+    struct Pinner : arc::NodeImpl<trait::Pinner>
+    {
+        Pinned pin(int value) const
+        {
+            if (value < 0)
+                throw std::runtime_error("negative");
+            return Pinned(value);
+        }
     };
 };
 
@@ -246,6 +278,55 @@ SCENARIO(R"(TracerSpy captures exceptions thrown across the trait boundary)")
                 CHECK(out.find("\"evt\":\"throw\"") != std::string::npos);
                 CHECK(out.find("boom") != std::string::npos);
                 CHECK(out.find("\"exc\":1") != std::string::npos);
+            }
+        }
+    }
+}
+
+SCENARIO(R"(TracerSpy records calls returning a non-copyable, non-movable value)")
+{
+    static_assert(not std::move_constructible<Pinned>);
+
+    GIVEN(R"(a Pinner node whose trait returns Pinned)")
+    {
+        arc::GraphWithGlobal<cluster::Pinning, arc::TracerSpy, Root> graph{
+            .global{{.recording = true}},
+            .main{}
+        };
+        auto pinner = graph->pinner->asTrait(trait::pinner);
+
+        WHEN(R"(pin returns)")
+        {
+            auto const pinned = pinner.pin(7);
+            std::vector<arc::TracerSpy::Event> const events(graph.global->getEvents().begin(), graph.global->getEvents().end());
+
+            THEN(R"(the value reaches the caller, and enter and exit are recorded with the type name and no value)")
+            {
+                CHECK(pinned.value == 7);
+                REQUIRE(events.size() == 2);
+                CHECK(events[0].kind == arc::TracerSpy::Event::Kind::Enter);
+                CHECK(events[1].kind == arc::TracerSpy::Event::Kind::Exit);
+                CHECK(events[1].id == events[0].id);
+                CHECK(events[1].retType == arc::typeName<Pinned>);
+                CHECK_FALSE(events[1].retHasValue);
+                CHECK(events[1].retValue.empty());
+            }
+        }
+
+        WHEN(R"(pin throws)")
+        {
+            CHECK_THROWS_AS((void)pinner.pin(-1), std::runtime_error);
+            std::vector<arc::TracerSpy::Event> const events(graph.global->getEvents().begin(), graph.global->getEvents().end());
+
+            THEN(R"(a throw is recorded and no exit, and the stats count the exception)")
+            {
+                REQUIRE(events.size() == 2);
+                CHECK(events[0].kind == arc::TracerSpy::Event::Kind::Enter);
+                CHECK(events[1].kind == arc::TracerSpy::Event::Kind::Throw);
+                CHECK(events[1].what == "negative");
+                auto const& stat = graph.global->getStats().at(arc::typeName<trait::Pinner::pin>);
+                CHECK(stat.calls == 1);
+                CHECK(stat.exceptions == 1);
             }
         }
     }

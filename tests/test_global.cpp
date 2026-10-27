@@ -33,6 +33,9 @@ cluster MainCluster [R = Root]
 
     [trait::Log]
     node --> ^
+
+    [arc::Global<trait::Log>]
+    cluster --> @global
 }
 
 cluster InnerCluster [R = Root]
@@ -124,6 +127,10 @@ TEST_CASE("arc::Global hosted locally")
     // Redirected global resolution via *
     graph->cluster.node.getNode(trait::log).log("Hello, Global from InnerCluster!");
     CHECK(graph.global->count == 3);
+
+    // Types resolve through the same redirection, from each cluster
+    static_assert(requires { typename arc::ResolveTypes<decltype(graph->node), trait::Log>; });
+    static_assert(requires { typename arc::ResolveTypes<decltype(graph->cluster.node), trait::Log>; });
 }
 
 // TODO: Support arc::Box?

@@ -19,6 +19,7 @@ namespace arc {
 ARC_MODULE_EXPORT
 struct NoConstraints
 {
+    static constexpr bool HasPost = false;
     ARC_INLINE static constexpr void pre(auto const&, auto, auto&&...) {}
     ARC_INLINE static constexpr void post(auto const&, auto, auto&&) {}
     struct NoProtoSnap {};
@@ -143,6 +144,13 @@ namespace detail {
                     Self::Constraints::post(Context::Info::ContractAssert, tvNarrow, nullptr);
                     Self::Constraints::postProto(Context::Info::ContractAssert, tvNarrow, nullptr, snap);
                 }
+                else if constexpr (not std::is_reference_v<T> and not std::move_constructible<T>)
+                {
+                    // Returned by guaranteed elision, so never materialised here for a postcondition to inspect
+                    ARC_STATIC_ASSERT_INLINE(not Self::Constraints::HasPost)("Trait method returning a non-movable type cannot have postconditions",
+                        (method, arc::typeName<decltype(method)>)(return_type, arc::typeName<T>));
+                    return self.invokeImpl(traitView, method, ARC_FWD(args)...);
+                }
                 else
                 {
                     decltype(auto) value = self.invokeImpl(traitView, method, ARC_FWD(args)...);
@@ -156,17 +164,7 @@ namespace detail {
             }
             else
             {
-                using T = decltype(self.invokeImpl(traitView, method, ARC_FWD(args)...));
-                if constexpr (std::is_void_v<T>)
-                    self.invokeImpl(traitView, method, ARC_FWD(args)...);
-                else
-                {
-                    decltype(auto) value = self.invokeImpl(traitView, method, ARC_FWD(args)...);
-                    if constexpr (std::is_rvalue_reference_v<T>)
-                        return std::move(value);
-                    else
-                        return value;
-                }
+                return self.invokeImpl(traitView, method, ARC_FWD(args)...);
             }
         }
     };
@@ -208,20 +206,21 @@ private:
         {
             arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
         }
+        else if constexpr (std::is_same_v<decltype(arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...)), ReturnType>
+            and not std::is_rvalue_reference_v<ReturnType>)
+        {
+            return arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
+        }
         else
         {
-            decltype(auto) value = arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...);
-            if constexpr (std::is_same_v<decltype(value), ReturnType> and not std::is_rvalue_reference_v<ReturnType>)
-                return value;
-            else
-                return convertTo<ReturnType>(ARC_FWD(value));
+            return convertTo<ReturnType>(arc::invokeMethod(detail::asConst<Params.isConst>(traitView), method, ARC_FWD(args)...));
         }
     }
 };
 
 ARC_MODULE_EXPORT
 template<typename From, typename To>
-concept InvokeConvertibleTo = std::convertible_to<From, To> or std::same_as<From, test::detail::MockReturn>;
+concept InvokeConvertibleTo = std::convertible_to<From, To> or std::same_as<From, To> or std::same_as<From, test::detail::MockReturn>;
 
 ARC_MODULE_EXPORT
 template<class T, class ReturnConstraint, class Types>

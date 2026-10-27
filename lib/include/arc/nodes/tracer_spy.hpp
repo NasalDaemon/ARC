@@ -9,6 +9,7 @@
 #if !ARC_IMPORT_STD
 #include <bit>
 #include <chrono>
+#include <concepts>
 #include <cstddef>
 #include <exception>
 #include <format>
@@ -181,6 +182,35 @@ struct TracerSpy : arc::Node
                 impl_fn(std::forward<Args>(args)...);
                 auto dt = recordElapsed(stat, t0);
                 if (recordThis) recordExit(id, d, name, nodeName, dt, "void", {}, false);
+            }
+            else if constexpr (not std::is_reference_v<R> and not std::move_constructible<R>)
+            {
+                // Returned by guaranteed elision, so the exit is recorded without its value
+                struct Exit
+                {
+                    TracerSpy const& spy;
+                    Stats& stat;
+                    std::chrono::steady_clock::time_point t0;
+                    std::size_t id, d;
+                    std::string_view name, nodeName;
+                    bool recordThis;
+                    int exceptions = std::uncaught_exceptions();
+                    // A destructor must not throw, so an exit that cannot be recorded is dropped
+                    ~Exit()
+                    {
+                        if (std::uncaught_exceptions() > exceptions)
+                            return;
+                        auto dt = spy.recordElapsed(stat, t0);
+                        try
+                        {
+                            if (recordThis) spy.recordExit(id, d, name, nodeName, dt, arc::typeName<std::remove_cvref_t<R>>, {}, false);
+                        }
+                        catch (...)
+                        {
+                        }
+                    }
+                } exit{*this, stat, t0, id, d, name, nodeName, recordThis};
+                return impl_fn(std::forward<Args>(args)...);
             }
             else
             {

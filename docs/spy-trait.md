@@ -57,6 +57,8 @@ When a spy exists in the context, trait calls are routed through `getGlobal(trai
 
 The call operator on `ImplFn` simply forwards to the original implementation, so spies that ignore the type info continue to work unchanged.
 
+`intercept` is const, as calls are intercepted from const contexts too: keep recorded state `mutable`.
+
 The spy has complete control over execution:
 - **Before**: Inspect/modify arguments, validate, log
 - **During**: Wrap with timing, error handling, etc.
@@ -75,7 +77,7 @@ struct GlobalSpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args) const
     {
         // Called for every trait method invocation
         // `method` is the trait method tag (e.g., trait::Storage::get)
@@ -92,7 +94,7 @@ struct GlobalSpy : arc::Node
         return impl_fn(std::forward<Args>(args)...);
     }
 
-    int callCount = 0;
+    mutable int callCount = 0;
 };
 ```
 
@@ -108,7 +110,7 @@ struct StorageSpy : arc::Node
     >;
 
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args) const
     {
         // Only called for trait::Storage methods
         // More type-safe: Method is guaranteed to be a trait::Storage method
@@ -142,7 +144,7 @@ struct MultiSpy : arc::Node
 
 struct MultiSpy::StorageSpyImpl : MultiSpy
 {
-    decltype(auto) impl(arc::trait::Spy::intercept, auto method, auto impl_fn, auto&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, auto method, auto impl_fn, auto&&... args) const
     {
         // Handles only trait::Storage methods
         return impl_fn(std::forward<decltype(args)>(args)...);
@@ -151,7 +153,7 @@ struct MultiSpy::StorageSpyImpl : MultiSpy
 
 struct MultiSpy::FilesystemSpyImpl : MultiSpy
 {
-    decltype(auto) impl(arc::trait::Spy::intercept, auto method, auto impl_fn, auto&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, auto method, auto impl_fn, auto&&... args) const
     {
         // Handles only trait::Filesystem methods
         return impl_fn(std::forward<decltype(args)>(args)...);
