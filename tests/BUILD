@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load("//bazel:cpp_module.bzl", "cpp_module")
+load("//bazel:cpp_module.bzl", "cpp_module_test")
 load("//bazel:arc_gen.bzl", "arc_header_library", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -140,8 +140,8 @@ arc_module(
 # arc_tests_module test binary
 ###########################################################################
 
-cpp_module(
-    name = "module_test_srcs",
+cpp_module_test(
+    name = "arc_tests_module",
     srcs = ["test_repeater/main.cpp"] + glob(
         ["test_*.cpp", "test_datastore/*.cpp"],
         exclude = [
@@ -160,23 +160,14 @@ cpp_module(
         ":test_lib",
     ],
     deps = ["//doctest:doctest"],
-    testonly = True,
-)
-
-cc_test(
-    name = "arc_tests_module",
-    deps = [
-        ":module_test_srcs",
-        "//doctest:doctest",
-    ],
 )
 
 ###########################################################################
 # arc_tests_mock test binary
 ###########################################################################
 
-cpp_module(
-    name = "mock_test_srcs",
+cpp_module_test(
+    name = "arc_tests_mock",
     srcs = [
         "test_combine.cpp",
         "test_lazy.cpp",
@@ -184,15 +175,6 @@ cpp_module(
     ],
     module_deps = [":mock_mod"],
     deps = ["//doctest:doctest"],
-    testonly = True,
-)
-
-cc_test(
-    name = "arc_tests_mock",
-    deps = [
-        ":mock_test_srcs",
-        "//doctest:doctest",
-    ],
 )
 
 ###########################################################################
@@ -212,18 +194,9 @@ arc_module(
     testonly = True,
 )
 
-cpp_module(
-    name = "thread_test_srcs",
+cpp_module_test(
+    name = "arc_tests_thread",
     srcs = glob(["test_thread/test_*.cpp"]),
     module_deps = [":thread_lib"],
     deps = ["//doctest:doctest"],
-    testonly = True,
-)
-
-cc_test(
-    name = "arc_tests_thread",
-    deps = [
-        ":thread_test_srcs",
-        "//doctest:doctest",
-    ],
 )

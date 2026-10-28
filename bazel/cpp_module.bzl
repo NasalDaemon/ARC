@@ -6,6 +6,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_cc//cc:action_names.bzl", "CPP_LINK_STATIC_LIBRARY_ACTION_NAME")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "CC_TOOLCHAIN_ATTRS", "use_cc_toolchain")
+load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@arc_module_deps//:module_deps.bzl", "FILE_DIRECT_DEPS", "MODULE_DIRECT_DEPS", "MODULE_SOURCES")
 load("@arc_cc_info//:cc_info.bzl", "CXXOPTS")
 
@@ -397,7 +398,7 @@ def _make_cc_info(ctx, cc_toolchain, feature_configuration, all_objs, all_hdrs,
             feature_configuration = feature_configuration,
             cc_toolchain          = cc_toolchain,
             static_library        = static_lib,
-            alwayslink            = True,
+            alwayslink            = False,
         )]),
     )
     linking_context = cc_common.create_linking_context(
@@ -618,7 +619,14 @@ def _cpp_module_impl(ctx):
                 transitive_defines  = all_defines,
                 transitive_link_cc_infos = final_cc_info,
             ),
-            DefaultInfo(files = depset(all_objs + [static_lib])),
+            # The objects alone: a binary listing this target in `srcs` links
+            # each of them, as it would its own sources -- what a test needs,
+            # since nothing references its self-registering TEST_CASEs. Through
+            # `deps` the archive above links instead, and only the objects a
+            # binary references come out of it, so an edit to one it never
+            # reaches leaves that binary byte-identical.
+            DefaultInfo(files = depset(all_objs)),
+            OutputGroupInfo(archive = depset([static_lib])),
         ]
 
     return [
@@ -664,3 +672,36 @@ cpp_module = rule(
     toolchains = use_cc_toolchain(),
     fragments  = ["cpp"],
 )
+
+def cpp_module_test(name, srcs, module_deps = [], deps = [], **kwargs):
+    """A cc_test whose sources are compiled against C++ modules.
+
+    The sources become a cpp_module, `<name>_srcs`, which the test lists twice:
+    in srcs, so each of its objects links as the test's own and no
+    self-registering test case (doctest's TEST_CASE) is dropped; and in deps,
+    for the libraries those objects link against, which srcs does not carry.
+    Written out by hand, a test listing it in deps alone links none of its test
+    cases; @arc//doctest's main then fails it for registering none.
+
+    Args:
+        name:        Target name of the test.
+        srcs:        .cpp test sources.
+        module_deps: CppModuleInfo targets the sources import.
+        deps:        CcInfo targets, the test framework among them.
+        **kwargs:    Forwarded to the cc_test (e.g. size, tags, args).
+    """
+    srcs_name = name + "_srcs"
+    cpp_module(
+        name = srcs_name,
+        srcs = srcs,
+        module_deps = module_deps,
+        deps = deps,
+        testonly = True,
+        tags = kwargs.get("tags", []),
+    )
+    cc_test(
+        name = name,
+        srcs = [":" + srcs_name],
+        deps = [":" + srcs_name] + deps,
+        **kwargs
+    )

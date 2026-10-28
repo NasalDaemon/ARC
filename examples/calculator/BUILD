@@ -1,5 +1,5 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-load("//bazel:cpp_module.bzl", "cpp_module")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//bazel:cpp_module.bzl", "cpp_module", "cpp_module_test")
 load("//bazel:arc_gen.bzl", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -96,8 +96,8 @@ arc_graph(
     nodes = GRAPH_NODES,
 )
 
-cpp_module(
-    name = "calc_test_srcs",
+cpp_module_test(
+    name = "arc_example_calculator_tests",
     srcs = glob(["tests/test_*.cpp"]),
     module_deps = [
         ":calc_lib",
@@ -111,12 +111,4 @@ cpp_module(
         ":integration_graph",
     ],
     deps = ["//doctest:doctest"],
-)
-
-cc_test(
-    name = "arc_example_calculator_tests",
-    deps = [
-        ":calc_test_srcs",
-        "//doctest:doctest",
-    ],
 )

@@ -579,7 +579,7 @@ struct {{ trait.name }} : ::arc::Trait
             {
                 {% for method_name in trait.method_names %}
                 {% if trait.all_normal(method_name) %}
-                ARC_SIGNATURE_METHOD_HEAD({{ method_name }})
+                {{ method_macro("ARC_SIGNATURE_METHOD_HEAD", method_name, trait.method_pos(method_name)) }}
                 {{ arc_line(trait.method_pos(method_name), align=True) }}
                 {{ method_name }} ARC_SIGNATURE_METHOD_TAIL({{ method_name }})
                 {{ arc_end() }}

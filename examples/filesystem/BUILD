@@ -1,5 +1,5 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-load("//bazel:cpp_module.bzl", "cpp_module")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//bazel:cpp_module.bzl", "cpp_module", "cpp_module_test")
 load("//bazel:arc_gen.bzl", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
 
@@ -107,8 +107,8 @@ arc_graph(
     },
 )
 
-cpp_module(
-    name = "fs_test_srcs",
+cpp_module_test(
+    name = "arc_example_filesystem_tests",
     srcs = glob(["tests/test_*.cpp"]),
     module_deps = [
         ":fs_lib",
@@ -120,12 +120,4 @@ cpp_module(
         ":test_repl_graph",
     ],
     deps = ["//doctest:doctest"],
-)
-
-cc_test(
-    name = "arc_example_filesystem_tests",
-    deps = [
-        ":fs_test_srcs",
-        "//doctest:doctest",
-    ],
 )
