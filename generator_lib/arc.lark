@@ -123,7 +123,7 @@ trait_requires: "requires" cpp_expr                -> trait_requires_constraint
               | "requires" "requires" ["(" bracket_content ")"] "{" bracket_content "}" -> trait_requires_expression
 
 trait_method: NAME "(...)" [method_qualifier] -> trait_method_elipsis
-            | [template_params] method_name cpp_func_params [method_qualifier] ["->" cpp_type] method_contract* [method_default_impl] -> trait_method_signature
+            | [template_params] [NODISCARD] method_name cpp_func_params [method_qualifier] ["->" cpp_type] method_contract* [method_default_impl] -> trait_method_signature
 
 method_default_impl: "{" bracket_content "}"
 
@@ -175,6 +175,7 @@ method_qualifier: "const"
 
 OPTIONAL_METHOD: "?"
 NORMAL_METHOD: "!"
+NODISCARD.2: /\[\[\s*nodiscard\s*\]\]/
 
 template_params: "template" "<" template_param ("," template_param)* ">"
 

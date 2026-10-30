@@ -2,6 +2,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//bazel:cpp_module.bzl", "cpp_module_test")
 load("//bazel:arc_gen.bzl", "arc_header_library", "arc_module")
 load("//bazel:arc_instantiate.bzl", "arc_graph")
+load("//bazel:compile_fail.bzl", "compile_fail_test")
 
 ###########################################################################
 # ABC Headers-based tests
@@ -9,7 +10,10 @@ load("//bazel:arc_instantiate.bzl", "arc_graph")
 
 arc_header_library(
     name = "arc_tests_headers_lib",
-    embed_arcs = {"test_embedded_headers.cpp": "arc/tests/test_embedded_headers.hxx"},
+    embed_arcs = {
+        "test_embedded_headers.cpp": "arc/tests/test_embedded_headers.hxx",
+        "test_nodiscard.cpp": "arc/tests/test_nodiscard.hxx",
+    },
     visibility = ["//visibility:public"],
     testonly = True,
 )
@@ -56,6 +60,7 @@ cc_test(
         "test_abc_headers.cpp",
         "test_embedded_headers.cpp",
         "test_mem_ptr.cpp",
+        "test_nodiscard.cpp",
     ],
     deps = [
         "//doctest:doctest",
@@ -63,6 +68,31 @@ cc_test(
         ":abc_src_lib",
         ":arc_tests_headers_lib",
     ],
+)
+
+# Discarding a [[nodiscard]] trait method's result fails the compile on each call surface
+compile_fail_test(
+    name = "nodiscard_discards",
+    src = "test_nodiscard.cpp",
+    deps = [
+        "//doctest:doctest",
+        ":arc_tests_headers_lib",
+    ],
+    cases = [
+        "ARC_DISCARD_NAMED",
+        "ARC_DISCARD_OVERLOAD",
+        "ARC_DISCARD_EXPLICIT",
+        "ARC_DISCARD_DEFAULT",
+        "ARC_DISCARD_TAG",
+        "ARC_DISCARD_FUNCTOR",
+        "ARC_DISCARD_KEYED",
+        "ARC_DISCARD_DUCK",
+        "ARC_DISCARD_FANOUT",
+        "ARC_DISCARD_REPEATER",
+        "ARC_DISCARD_SELF",
+    ],
+    expect = "ignoring return value|call answers nothing here",
+    copts = ["-Werror=unused-result"],
 )
 
 ###########################################################################
@@ -149,6 +179,7 @@ cpp_module_test(
             "test_abc_headers.cpp",  # arc_tests_headers
             "test_embedded_headers.cpp",
             "test_mem_ptr.cpp",
+            "test_nodiscard.cpp",
             "test_combine.cpp",      # arc_tests_mock
             "test_lazy.cpp",
             "test_mock.cpp",

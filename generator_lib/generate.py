@@ -3,15 +3,19 @@
 import argparse
 from bisect import bisect_right
 import difflib
+import hashlib
 import os
+import stat
 import sys
 from collections import defaultdict
 from functools import cached_property
 from typing import Optional
 import jinja2
+import lark
 from lark import Lark, Tree, Token, UnexpectedInput
 from lark.reconstruct import Reconstructor
 from pathlib import Path
+import tempfile
 import re
 
 
@@ -36,7 +40,45 @@ is_embedded: bool = input_path.suffixes[-1] != '.arc'
 quiet: bool = args.quiet
 
 grammar_file = dir_path.joinpath(dir_path, 'arc_module.lark' if is_module else 'arc_header.lark')
-arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', cache=True, propagate_positions=True)
+def grammar_files_digest() -> str:
+    digest = hashlib.sha256()
+    for path in sorted(dir_path.glob('*.lark')):
+        content = path.read_bytes()
+        digest.update(path.name.encode() + b'\0' + str(len(content)).encode() + b'\0' + content)
+    return digest.hexdigest()
+
+def grammar_cache() -> str | bool:
+    """Where the parser is cached, or False for no cache.
+
+    Lark unpickles a cache file before checking it, so the file must be one only this user could have written: it
+    lives in a directory this user owns and nobody else can write, and is itself a regular file this user owns. Its
+    name holds every grammar file's content, since Lark's own key covers the top grammar alone and checks imported
+    files only at the paths its writer recorded, and the Lark and Python versions, so two toolchains do not keep
+    overwriting one file.
+    """
+    if not hasattr(os, 'getuid'):
+        return False
+    uid = os.getuid()
+    directory = Path(tempfile.gettempdir()) / f'arc-generator-{uid}'
+    path = directory / (f'{grammar_file.stem}_{grammar_files_digest()[:32]}'
+                        f'_{lark.__version__}_{sys.version_info[0]}_{sys.version_info[1]}.lark-cache')
+    try:
+        directory.mkdir(mode=0o700, exist_ok=True)
+        owned = os.lstat(directory)
+        if not stat.S_ISDIR(owned.st_mode) or owned.st_uid != uid or owned.st_mode & 0o077:
+            return False
+        try:
+            cached = os.lstat(path)
+        except FileNotFoundError:
+            return str(path)
+        if not stat.S_ISREG(cached.st_mode) or cached.st_uid != uid or cached.st_mode & 0o022:
+            return False
+        return str(path)
+    except OSError:
+        return False
+
+arc_parser = Lark.open(grammar_file, maybe_placeholders=False, parser='lalr', propagate_positions=True,
+                       cache=grammar_cache())
 
 reconstructor = Reconstructor(arc_parser)
 
@@ -1169,6 +1211,7 @@ class Method:
         self.is_const: bool = False
         self.optional: bool = False
         self.normal: bool = False
+        self.nodiscard: bool = False
         self.pre_exprs: list[tuple[str, str]] = []
         self.post_exprs: list[tuple[str, str, str]] = []
         # The source of each contract's expression, in step with the lists of them, for its #line mapping
@@ -1243,7 +1286,7 @@ class Method:
                                                    imported('if_clause'), imported('to_clause'), imported('method_default_impl')):
                 signature_end = c.meta.start_pos
                 break
-        self.dsl = dsl_text(tree.meta.start_pos, signature_end)
+        self.dsl = re.sub(r'\[\[\s*nodiscard\s*\]\]\s*', '', dsl_text(tree.meta.start_pos, signature_end))
 
     @cached_property
     def is_unconstrained_return(self):
@@ -1255,6 +1298,11 @@ class Method:
 
     def walk(self, children):
         for c in children:
+            if isinstance(c, Token):
+                if c.type != imported('NODISCARD'):
+                    raise SyntaxError(f'{get_pos(c)} Unknown method token: {c.value}')
+                self.nodiscard = True
+                continue
             if c.data in (imported('is_clause'), imported('if_clause'), imported('to_clause')):
                 self.proto_bare_refs.extend(ref for body in c.children if (ref := _clause_bare_ref(body)) is not None)
             if c.data == imported('template_params'):
@@ -1362,6 +1410,9 @@ class Trait:
     def all_normal(self, method_name: str) -> bool:
         return not any(method.normal and method.name == method_name for method in self.methods)
 
+    def nodiscard(self, method_name: str) -> bool:
+        return any(method.nodiscard and method.name == method_name for method in self.methods)
+
     def walk(self, children):
         for c in children:
             if c.data == imported('trait_annotations'):
@@ -1404,6 +1455,10 @@ class Trait:
                     method = Method(self)
                     method.walk(c.children)
                     method.set_dsl(c)
+                    if method.nodiscard and method.is_unconstrained_return:
+                        raise SyntaxError(
+                            f"{full_pos(method.pos)} [[nodiscard]] method '{method.name}' must declare a non-void "
+                            f"return type with '->': '{method.return_type}' may be void")
                     self.methods.append(method)
                 elif c.data == imported('trait_method_elipsis'):
                     method = Method(self)
@@ -1436,6 +1491,13 @@ class Trait:
                         f"as the trait is annotated [Const]")
         self.methods.sort(key=lambda v: (v.name, v.params))
         self.method_names = sorted(set(method.name for method in self.methods))
+        for method_name in self.method_names:
+            overloads = [method for method in self.methods if method.name == method_name]
+            if len({method.nodiscard for method in overloads}) > 1:
+                plain = next(method for method in overloads if not method.nodiscard)
+                raise SyntaxError(
+                    f"{full_pos(plain.pos)} Method '{method_name}' in trait '{self.name}' must be [[nodiscard]] on "
+                    f"every overload or on none: its call surfaces are shared by name")
         self.has_const_requires = next((method.is_const for method in self.methods if method.is_const and not method.is_template), False)
         self.has_mutable_requires = next((not method.is_const for method in self.methods if not method.is_const and not method.is_template), False)
 

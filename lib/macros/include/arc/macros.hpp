@@ -272,13 +272,15 @@
         return self.impl(method ## _c, asFunctor); \
     }
 
-#define ARC_DUCK_METHOD(method) \
+#define ARC_DUCK_METHOD_ATTR(method, ...) \
     template<::arc::IsTraitViewOrNode Self, class... Args> \
     requires ::arc::CanInvokeMethod<Self, ARC_This_Trait::method, Args...> \
-    ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
+    __VA_ARGS__ ARC_INLINE constexpr decltype(auto) method(this Self&& self, Args&&... args) \
     { \
         return ::arc::invokeMethod(self, method ## _c, ARC_FWD(args)...); \
     }
+#define ARC_DUCK_METHOD(method) ARC_DUCK_METHOD_ATTR(method)
+#define ARC_DUCK_METHOD_NODISCARD(method) ARC_DUCK_METHOD_ATTR(method, [[nodiscard]])
 
 #define ARC_SIGNATURE_METHOD_BODY(method, ...) \
     if constexpr (::arc::IsTraitView<Self>) \
@@ -297,10 +299,12 @@
 
 // ARC_SIGNATURE_METHOD in two, around the method's name, so that generated code can put the name where its diagnostics
 // should point (its declaration in the DSL): ARC_SIGNATURE_METHOD_HEAD(method) method ARC_SIGNATURE_METHOD_TAIL(method)
-#define ARC_SIGNATURE_METHOD_HEAD(method) \
+#define ARC_SIGNATURE_METHOD_HEAD_ATTR(method, ...) \
     ARC_AS_FUNCTOR_METHOD(method) \
     template<class Self, class... Args> \
-    ARC_INLINE constexpr decltype(auto)
+    __VA_ARGS__ ARC_INLINE constexpr decltype(auto)
+#define ARC_SIGNATURE_METHOD_HEAD(method) ARC_SIGNATURE_METHOD_HEAD_ATTR(method)
+#define ARC_SIGNATURE_METHOD_HEAD_NODISCARD(method) ARC_SIGNATURE_METHOD_HEAD_ATTR(method, [[nodiscard]])
 
 #define ARC_SIGNATURE_METHOD_TAIL(method) \
     (this Self&& self, Args&&... args) \

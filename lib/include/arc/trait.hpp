@@ -116,6 +116,12 @@ ARC_MODULE_EXPORT
 template<class Method>
 using TraitOf = decltype(traitOf(std::declval<Method>()));
 
+// The method's trait declares it [[nodiscard]], so no call through a trait view, or through a functor taken from one,
+// may discard its result. A node's calls of its own implementation are not views and stay exempt.
+ARC_MODULE_EXPORT
+template<class Method>
+concept IsNoDiscardMethod = requires (Method method) { TraitOf<Method>::Meta::NoDiscard::nodiscard(method); };
+
 ARC_MODULE_EXPORT
 template<IsTrait... Traits>
 requires (sizeof...(Traits) > 0)

@@ -199,6 +199,13 @@ struct {{ trait.name }} : ::arc::Trait
             {{ method_macro("ARC_METHOD_TAG_APPLICABLE", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
+        // Methods declared [[nodiscard]]: queried by arc::IsNoDiscardMethod
+        struct NoDiscard
+        {
+            {% for method_name in trait.method_names if trait.nodiscard(method_name) %}
+            static void nodiscard(ARC_This_Trait::{{ method_name }});
+            {% endfor %}
+        };
         {% if trait.is_protocol %}
         struct States
         {
@@ -579,7 +586,7 @@ struct {{ trait.name }} : ::arc::Trait
             {
                 {% for method_name in trait.method_names %}
                 {% if trait.all_normal(method_name) %}
-                {{ method_macro("ARC_SIGNATURE_METHOD_HEAD", method_name, trait.method_pos(method_name)) }}
+                {{ method_macro("ARC_SIGNATURE_METHOD_HEAD_NODISCARD" if trait.nodiscard(method_name) else "ARC_SIGNATURE_METHOD_HEAD", method_name, trait.method_pos(method_name)) }}
                 {{ arc_line(trait.method_pos(method_name), align=True) }}
                 {{ method_name }} ARC_SIGNATURE_METHOD_TAIL({{ method_name }})
                 {{ arc_end() }}
@@ -587,7 +594,7 @@ struct {{ trait.name }} : ::arc::Trait
                 {{ method_macro("ARC_AS_FUNCTOR_METHOD", method_name, trait.method_pos(method_name)) }}
                 {% for method in trait.methods if method.name == method_name %}
                 {{ method_template_params(trait, method) }}
-                ARC_INLINE constexpr decltype(auto)
+                {{ "[[nodiscard]] " if method.nodiscard else "" }}ARC_INLINE constexpr decltype(auto)
                 {{ arc_line(method.pos, align=True) }}
                 {{ method.name }}(this Self{{ " const&" if method.is_const else "&" }} self
                     {%- for type, name in method.params -%}
@@ -618,7 +625,7 @@ struct {{ trait.name }} : ::arc::Trait
             struct {{ trait.name }} : ::arc::MethodsBase
             {
                 {% for method_name in trait.method_names %}
-                {{ method_macro("ARC_DUCK_METHOD", method_name, trait.method_pos(method_name)) }}
+                {{ method_macro("ARC_DUCK_METHOD_NODISCARD" if trait.nodiscard(method_name) else "ARC_DUCK_METHOD", method_name, trait.method_pos(method_name)) }}
                 {% endfor %}
             };
         };

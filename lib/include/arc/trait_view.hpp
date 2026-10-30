@@ -21,6 +21,25 @@
 namespace arc {
 
 namespace detail {
+    // A trait view's call of one of its trait's methods: through the spy, then to the implementation
+    template<class Context, class Trait, class View, class Alias, class Method, class... Args>
+    ARC_INLINE constexpr decltype(auto) invokeViewMethod(View& view, Alias& alias, Method method, Args&&... args)
+    {
+        return invokeMethodWithSpy<Context>(getSpy<Context, Trait>(alias.getImpl()), view, alias.get(), method,
+                                            ARC_FWD(args)...);
+    }
+
+    // A [[nodiscard]] method's call answers nothing only through a target that keeps no result: a fan-out, a poster
+    // that returns nothing, or a declared return that resolves to void
+    template<class Method, class Result>
+    ARC_INLINE constexpr void assertKeepsResult()
+    {
+        ARC_STATIC_ASSERT_INLINE(not std::is_void_v<Result>)(
+            "A [[nodiscard]] method's call answers nothing here, through a fan-out or a target that keeps no result, "
+            "so its result would be dropped",
+            (method, arc::typeName<Method>));
+    }
+
     struct Unknown
     {
         template<class T>
@@ -161,14 +180,21 @@ struct TraitView final : Trait::Meta::Methods
 
     template<class Self, IsMethodOf<Trait> Method, class... Args>
     requires detail::MatchesSignature<Self, Method, Args...> and CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
+        and (not IsNoDiscardMethod<Method>)
     ARC_INLINE constexpr decltype(auto) impl(this Self&& self, Method method, Args&&... args)
     {
-        return detail::invokeMethodWithSpy<ContextOf<Node>>(
-            detail::getSpy<ContextOf<Node>, Trait>(self.alias.getImpl()),
-            self,
-            self.alias.get(),
-            method,
-            ARC_FWD(args)...);
+        return detail::invokeViewMethod<ContextOf<Node>, Trait>(self, self.alias, method, ARC_FWD(args)...);
+    }
+
+    // An attribute cannot be conditional, so the call is overloaded on IsNoDiscardMethod
+    template<class Self, IsMethodOf<Trait> Method, class... Args>
+    requires detail::MatchesSignature<Self, Method, Args...> and CanInvokeMethod<InterfaceOf<Self>, Method, Args...>
+        and IsNoDiscardMethod<Method>
+    [[nodiscard]] ARC_INLINE constexpr decltype(auto) impl(this Self&& self, Method method, Args&&... args)
+    {
+        detail::assertKeepsResult<Method, decltype(
+            detail::invokeViewMethod<ContextOf<Node>, Trait>(self, self.alias, method, ARC_FWD(args)...))>();
+        return detail::invokeViewMethod<ContextOf<Node>, Trait>(self, self.alias, method, ARC_FWD(args)...);
     }
 
     template<class Self, IsMethodOf<Trait> Method>
@@ -198,16 +224,21 @@ private:
         using View = std::conditional_t<Const, TraitView const, TraitView>;
 
         template<class... Args>
-        requires detail::MatchesSignature<View, Method, Args...>
+        requires detail::MatchesSignature<View, Method, Args...> and (not IsNoDiscardMethod<Method>)
         ARC_INLINE constexpr decltype(auto) operator()(Args&&... args) const
         {
             View called = view;
-            return detail::invokeMethodWithSpy<ContextOf<Node>>(
-                detail::getSpy<ContextOf<Node>, Trait>(called.alias.getImpl()),
-                called,
-                called.alias.get(),
-                Method{},
-                ARC_FWD(args)...);
+            return detail::invokeViewMethod<ContextOf<Node>, Trait>(called, called.alias, Method{}, ARC_FWD(args)...);
+        }
+
+        template<class... Args>
+        requires detail::MatchesSignature<View, Method, Args...> and IsNoDiscardMethod<Method>
+        [[nodiscard]] ARC_INLINE constexpr decltype(auto) operator()(Args&&... args) const
+        {
+            View called = view;
+            detail::assertKeepsResult<Method, decltype(
+                detail::invokeViewMethod<ContextOf<Node>, Trait>(called, called.alias, Method{}, ARC_FWD(args)...))>();
+            return detail::invokeViewMethod<ContextOf<Node>, Trait>(called, called.alias, Method{}, ARC_FWD(args)...);
         }
 
     private:

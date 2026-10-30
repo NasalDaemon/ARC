@@ -83,6 +83,11 @@ trait <Name>
     // (spies/overrides apply). Const methods get a `const&` self.
     reset() {}
     summary() const -> int { return 0; }
+
+    // Result must be used: discarding it warns at the call site
+    [[nodiscard]] tryReserve(std::size_t n) -> bool
+    template<class T>
+    [[nodiscard]] ! convert(T value) const -> T
 }
 
 } // namespace <project>
@@ -93,6 +98,10 @@ Non-template, non-defaulted, non-optional methods are asserted by `arc::assertIm
 A const view, or a view over a const node, reaches only the trait's const methods. A trait written with the method macros declares no signatures, so this does not constrain it.
 
 A method returning a non-movable type cannot have `post` contracts or belong to a trait with a protocol.
+
+**`[[nodiscard]]`** — written after any `template<...>` and before the method name (and `?`/`!`). Every call through a trait view then warns on a discarded result, whatever the implementing node declares: the named method, `view.impl(Trait::method_c, ...)`, a functor from `view.method(arc::asFunctor)`, a defaulted body's `self.method()` when the body runs against a view, and keyed views such as `key::Element(id)`. A node's calls of its own implementation are exempt, a defaulted body run through `arc::NodeImpl` included, since its `self` is then the node. A call that would answer nothing is refused at compile time: through a fan-out (a collection's `key::allElements` or `key::Elements(pred)`, a repeater), which drops every target's result, or through a posting key whose Poster returns nothing. It needs a declared non-void return type, so `-> void`, `-> auto` and an omitted return type are rejected, and overloads of one name must all carry it or none, as they share call surfaces. `arc::IsNoDiscardMethod<Trait::method>` tests for it.
+
+Default arguments are deliberately unsupported: a default silently keeps compiling every caller when a parameter's meaning changes. Spell the value at the call site, or add a defaulted method that supplies it, `reserveOne() -> bool { return self.tryReserve(1); }`.
 
 **`[Const]` annotation** — `trait ReadOnly [Const]` enforces that every method declared in the trait is `const` (including template and `...` methods). The generator rejects any non-const method at generation time.
 

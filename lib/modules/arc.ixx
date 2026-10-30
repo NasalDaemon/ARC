@@ -459,6 +459,7 @@ export namespace arc {
     using arc::TraitCanProvide;
     using arc::MatchesTrait;
     using arc::IsMethodOf;
+    using arc::IsNoDiscardMethod;
     using arc::TraitOf;
     using arc::JoinedTrait;
     using arc::AltTrait;

@@ -4,6 +4,7 @@ add_executable(arc_tests_headers
     test_abc_headers.cpp
     test_embedded_headers.cpp
     test_mem_ptr.cpp
+    test_nodiscard.cpp
 )
 add_executable(arc_tests_module
     test_abc_module.cpp
@@ -80,6 +81,7 @@ endif()
 target_generate_arc_headers(arc_tests_headers
     EMBED
         test_embedded_headers.cpp    arc/tests/test_embedded_headers.hxx
+        test_nodiscard.cpp           arc/tests/test_nodiscard.hxx
 )
 
 target_generate_arc_modules(arc_tests_module
@@ -148,3 +150,26 @@ target_link_libraries(arc_tests_mock PUBLIC
 add_test(arc_tests_headers arc_tests_headers)
 add_test(arc_tests_module arc_tests_module)
 add_test(arc_tests_mock arc_tests_mock)
+
+# Discarding a [[nodiscard]] trait method's result fails the compile on each call surface: arc_tests_headers compiles
+# test_nodiscard.cpp as it is, and each case below compiles it with one discarded call, building on its own.
+set_source_files_properties(test_nodiscard.cpp TARGET_DIRECTORY arc_tests_headers
+    PROPERTIES COMPILE_OPTIONS -Werror=unused-result)
+arc_import_properties()
+foreach(DISCARD_CASE NAMED OVERLOAD EXPLICIT DEFAULT TAG FUNCTOR KEYED DUCK FANOUT REPEATER SELF)
+    set(DISCARD_TARGET arc_nodiscard_discard_${DISCARD_CASE})
+    add_library(${DISCARD_TARGET} OBJECT EXCLUDE_FROM_ALL test_nodiscard.cpp)
+    target_compile_definitions(${DISCARD_TARGET} PRIVATE ARC_DISCARD_${DISCARD_CASE})
+    target_compile_options(${DISCARD_TARGET} PRIVATE -Werror=unused-result)
+    target_include_directories(${DISCARD_TARGET} PRIVATE ${ARC_GENERATOR_INCLUDE_DIR})
+    target_link_libraries(${DISCARD_TARGET} PRIVATE arc::headers arc::doctest)
+    add_dependencies(${DISCARD_TARGET} arc_tests_headers_hxx_arc)
+    add_test(NAME ${DISCARD_TARGET}
+        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${DISCARD_TARGET} --config $<CONFIG>)
+    set_tests_properties(${DISCARD_TARGET} PROPERTIES
+        PASS_REGULAR_EXPRESSION "ignoring return value|call answers nothing here")
+endforeach()
+
+add_test(NAME arc_generator_test
+    COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generator_test.py
+        ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py)

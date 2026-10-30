@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 py_binary(
     name = "generator",
@@ -11,4 +11,11 @@ py_binary(
         "@arc_gen_deps//markupsafe",
     ],
     visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "generator_test",
+    srcs = ["generator_test.py"],
+    args = ["$(rootpath :generator)"],
+    data = [":generator"],
 )
