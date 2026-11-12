@@ -85,6 +85,12 @@ template<class... Traits>
 requires (sizeof...(Traits) > 0)
 using TestOnlyNodeImpl = Impl<TestOnlyNode, Traits...>;
 
+ARC_MODULE_EXPORT
+struct EnableTestContext
+{
+    static void isTestContext(detail::TestContextTag);
+};
+
 namespace detail {
     template<class Root>
     auto getRootAssertHandler() -> arc::ThrowAssertHandler;
@@ -92,13 +98,14 @@ namespace detail {
     requires requires { typename Root::ArcContractAssertHandler; }
     auto getRootAssertHandler() -> Root::ArcContractAssertHandler;
 
+    template<class Info>
+    struct TestMapInfo_ : Info, EnableTestContext
+    {};
+
     struct TestMapInfo
     {
         template<IsContext Context>
-        struct MapInfo : Context::Info
-        {
-            static void isTestContext(detail::TestContextTag);
-        };
+        using MapInfo = TestMapInfo_<typename Context::Info>;
     };
 
     template<IsNodeHandle NodeT, IsNodeHandle MocksT>
@@ -198,7 +205,7 @@ using Graph = arc::Graph<Cluster<Node, Mocks>, Root>;
 
 ARC_MODULE_EXPORT
 template<IsNodeHandle Node, class GlobalNode, IsNodeHandle Mocks = Mock<>, class Root = void>
-using GraphWithGlobal = arc::GraphWithGlobal<Cluster<Node, Mocks>, GlobalNode, Root>;
+using GraphWithGlobal = arc::Graph<MapInfo<arc::detail::GraphWithGlobal<detail::Cluster<Node, Mocks>, GlobalNode>, detail::TestMapInfo>, Root>;
 
 } // namespace arc::test
 

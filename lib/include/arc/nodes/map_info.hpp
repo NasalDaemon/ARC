@@ -19,6 +19,24 @@ concept IsInfoMapper = requires {
     typename detail::TakesUnaryClassTemplate<T::template MapInfo>;
 } and IsStateless<T>;
 
+namespace detail {
+    template<class Original, class Mapped>
+    struct MappedRoot
+    {
+        using Root = Original::Root;
+    };
+
+    // A mapped root context stays the root, so Root::Context must name it
+    template<IsRootContext Original, class Mapped>
+    struct MappedRoot<Original, Mapped>
+    {
+        struct Root : Original::Root
+        {
+            using Context = Mapped;
+        };
+    };
+}
+
 ARC_MODULE_EXPORT
 template<IsNodeHandle NodeHandle, IsInfoMapper InfoMapper>
 struct MapInfo
@@ -27,6 +45,7 @@ struct MapInfo
     struct MappedContext : Context
     {
         using NodePath = detail::NodePathOf<Context>;
+        using Root = detail::MappedRoot<Context, MappedContext>::Root;
 
         template<class NH>
         friend auto innerNodeHandle(MappedContext*, AdlTag<NH>) -> arc::InnerNodeHandle<Context, NodeHandle>;

@@ -412,6 +412,7 @@ export namespace arc {
         using test::TestOnlyNode;
         using test::TestOnlyNodeUses;
         using test::TestOnlyNodeImpl;
+        using test::EnableTestContext;
         using test::Cluster;
         using test::Graph;
         using test::GraphWithGlobal;

@@ -22,6 +22,7 @@
 #include "arc/trait.hpp"
 
 #if !ARC_IMPORT_STD
+#include <concepts>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
@@ -172,8 +173,20 @@ namespace detail {
 
 namespace detail {
     template<class Root>
-    struct RootInfo : NullContext::Info
+    auto rootInfoBase() -> NullContext::Info;
+    template<class Root>
+    requires requires { typename Root::Info; }
+    auto rootInfoBase() -> Root::Info;
+    template<class Root>
+    using RootInfoBase = decltype(rootInfoBase<Root>());
+
+    template<class Root>
+    struct RootInfo : RootInfoBase<Root>
     {
+        ARC_STATIC_ASSERT(std::derived_from<RootInfoBase<Root>, NullContext::Info>)(
+            "Root::Info must derive from arc::NullContext::Info",
+            (root, arc::typeName<Root>)
+            (info, arc::typeName<RootInfoBase<Root>>));
         static constexpr decltype(getRootAssertHandler<Root>()) ContractAssert{};
     };
 

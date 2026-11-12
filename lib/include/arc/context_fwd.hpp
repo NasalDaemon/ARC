@@ -96,7 +96,7 @@ struct RootContext;
 
 ARC_MODULE_EXPORT
 template<class T>
-concept IsRootContext = IsContext<T> and std::same_as<T, typename T::Root::Context>;
+concept IsRootContext = IsContext<T> and std::same_as<detail::Decompress<T>, typename T::Root::Context>;
 
 ARC_MODULE_EXPORT
 template<class Parent_, IsNodeHandle NodeHandle>
