@@ -116,7 +116,7 @@ There are two ways to define a node, each with different pros and cons:
          #include "pi_cache.hpp"
 
          template<class Context>
-         auto node::PiCache::Node<Context>::impl(trait::Pi::Calc) -> Float
+         auto node::PiCache::Node<Context>::impl(trait::Pi::calc) -> Float
          {
             if (std::isnan(piValue)) [[unlikely]]
                piValue = getNode(trait::pi).calc();
@@ -234,8 +234,8 @@ Most nodes will have a flat structure, with `Traits` in the shorthand form `arc:
 ```
 cluster Dinner
 {
-   guest = Guest
-   fruit = FruitBasket
+   guest = node::Guest
+   fruit = node::FruitBasket
 
    using g = trait::Guest
    using a = trait::Apple, b = trait::Banana, o = trait::Orange, t = trait::Tangerine
@@ -254,18 +254,18 @@ trait Guest
 
 trait Apple
 {
-   take()
+   take(int amount)
 }
 
 trait Banana
 {
-   take()
+   take(int amount)
 }
 
 trait Orange [Types]
 {
    type Orange
-   take() -> Types::Orange
+   take(Types::Orange amount) -> Types::Orange
 }
 
 // Tangerine has an identical interface to Orange, but is resolved by a different name (advanced)

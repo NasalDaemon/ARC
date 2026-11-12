@@ -26,9 +26,9 @@ Only method calls from external nodes into the `arc::Union` incur the extra runt
 export module app.cluster;
 
 import app.traits;
-import app.farmer; // not shown
-export import app.cow;
-export import app.sheep;
+import app.node.farmer; // not shown
+export import app.node.cow;
+export import app.node.sheep;
 
 cluster app::Cluster
 {
@@ -91,6 +91,8 @@ export struct Sheep : arc::Node
 import app.cluster;
 import app.node.cow;
 import app.node.sheep;
+import app.traits;
+import arc;
 import std;
 
 enum Animal
@@ -107,6 +109,8 @@ Args parseArgs(int argc, char** argv);
 
 int main(int argc, char** argv)
 {
+    using namespace app;
+
     Args args = parseArgs(argc, argv);
 
     arc::Graph<app::cluster::Cluster> graph{
@@ -156,13 +160,13 @@ With `arc::Box<StaticNode, InFacade, OutFacade = void, OutInterfaces...>`, one a
 export module app.cluster;
 
 import app.traits;
-import app.farmer; // not shown
-export import app.animal;
+import app.node.farmer; // not shown
+export import app.node.ianimal;
 
 cluster app::Cluster
 {
-    farmer = Farmer
-    animal = arc::Virtual<IAnimal>
+    farmer = node::Farmer
+    animal = arc::Virtual<node::IAnimal>
 
     [trait::Animal]
     farmer --> animal
@@ -173,7 +177,7 @@ export module app.traits;
 
 import std;
 
-trait app::trait::Animal
+trait app::Animal
 {
     speak() const -> std::string
     evolve()
@@ -188,12 +192,12 @@ import std;
 
 namespace app::node {
 
-struct IAnimal : arc::INode
+export struct IAnimal : arc::INode
 {
     using Traits = arc::Traits<trait::Animal>;
 
     virtual std::string impl(trait::Animal::speak) const = 0;
-    virtual void impl(trait::Animal::evolve) const = 0;
+    virtual void impl(trait::Animal::evolve) = 0;
 };
 
 }
@@ -321,7 +325,7 @@ export struct Fox : arc::Node
 {
     using Traits = arc::Traits<trait::Animal>;
 
-    std::string impl(trait::Animal::speak) const override { return "yip"; }
+    std::string impl(trait::Animal::speak) const { return "yip"; }
 
     void impl(trait::Animal::evolve)
     {
@@ -363,7 +367,7 @@ export struct IAnimalFacade
             // This node is still alive in a detached state
             // It can call into itself and other nodes, but other nodes can't reach it
             std::println("{}", asTrait(trait::animal).speak());
-            // prints: yip! (assuming it adapted Fox)
+            // prints: yip (assuming it adapted Fox)
 
             std::println("{}", handle.getNext()->asTrait(trait::animal).speak());
             // prints: moo!
@@ -380,6 +384,7 @@ import app.node.sheep;
 import app.node.fox;
 import app.cluster;
 import app.traits;
+import arc;
 import std;
 
 enum class Animal
@@ -403,7 +408,8 @@ int main(int argc, char** argv)
     arc::Graph<app::cluster::Cluster> graph{
         .animal = arc::InPlace{
             [&](auto construct) {
-                if (args.animal == Animal::Cow)
+                // `::Animal`: the unqualified name is ambiguous with app::Animal, the trait
+                if (args.animal == ::Animal::Cow)
                     return construct(std::in_place_type<node::Cow>, true);
                 else
                     return construct(std::in_place_type<node::Sheep>);

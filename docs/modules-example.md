@@ -78,10 +78,11 @@ trait AuthService
     type Token
 
     // Check user/pass against database, and return if combo is valid
-    logIn(std::string_view user, std::string_view pass) -> Task<bool>
+    // Takes owning strings, as implementations are coroutines which may outlive the caller's arguments
+    logIn(std::string user, std::string pass) -> Task<bool>
 
     // Check user/oldPass against database, and return if password was changed
-    changePass(std::string_view user, std::string_view oldPass, std::string_view newPass) -> Task<bool>
+    changePass(std::string user, std::string oldPass, std::string newPass) -> Task<bool>
 }
 
 trait TokenStore [Types, Root]
@@ -156,6 +157,8 @@ cluster Cluster
 ```cpp
 export module my.token;
 
+import std;
+
 namespace my {
     export struct Token
     {
@@ -171,18 +174,20 @@ namespace my {
 ```cpp
 export module my.pass_hash;
 
+import std;
+
 namespace my {
     export struct PassHash
     {
         explicit PassHash(std::string_view s);
-        friend constexpr bool sameHash(PassHash const& self, std::string_view pass);
+        friend bool sameHash(PassHash const& self, std::string_view pass);
     private:
         // ... some data fields ...
     };
 }
 ```
 ## auth_service.ixx
-`my::AuthService` node implements the trait `my::trait::AuthService`. See node [documentation](node-structure.md).
+`my::node::AuthService` node implements the trait `my::trait::AuthService`. See node [documentation](node-structure.md).
 ```cpp
 export module my.node.auth_service;
 
@@ -220,7 +225,7 @@ export struct AuthService : arc::Node
     Task<bool> impl(
         this Self& self, // deducing-this deduces the node's context in the graph
         trait::AuthService::logIn,
-        // take user+pass as owning strings as this is a coroutine (still meets trait requirement)
+        // user+pass are owning strings (as declared by the trait), as this is a coroutine
         std::string user,
         std::string pass)
     {
@@ -277,11 +282,12 @@ export struct AuthService : arc::Node
 }
 ```
 ## sessions.ixx
-`my::Sessions` node implements the traits `my::trait::TokenStore` and `my::trait::SessionManager`. See node [documentation](node-structure.md).
+`my::node::Sessions` node implements the traits `my::trait::TokenStore` and `my::trait::SessionManager`. See node [documentation](node-structure.md).
 ```cpp
 export module my.node.sessions;
 
 import my.traits;
+import my.task; // not shown in example
 
 import arc;
 import std;
@@ -311,7 +317,7 @@ export struct Sessions
             // Exposes Token type to satisfy `trait::TokenStore` and `trait::SessionManager`
             // by deferring to the type provided by `trait::AuthService`
             using Token = arc::ResolveTypes<Node, trait::AuthService>::Token;
-            // Resolves to `my::AuthService::Types::Token` in this example
+            // Resolves to `my::node::AuthService::Types::Token` in this example
         };
 
         using Token = Types::Token;
@@ -324,7 +330,7 @@ export struct Sessions
             // `trait::Logger` dependency is explicitly resolved in the graph,
             // so we can call it directly with `getNode` instead of `getGlobal`
             getNode(trait::logger).log("Storing token for user: {}", user);
-            auto const [it, inserted] = userDetailsMap.try_emplace(user, std::move(passHash), std::move(token));
+            auto const [it, inserted] = userDetailsMap.try_emplace(std::string(user), std::move(passHash), std::move(token));
             if (not inserted)
             {
                 it->second.passHash = std::move(passHash);
@@ -335,7 +341,7 @@ export struct Sessions
         void impl(trait::TokenStore::revoke, std::string_view user)
         {
             getNode(trait::logger).log("Revoking token for user: {}", user);
-            userDetailsMap.erase(user);
+            userDetailsMap.erase(std::string(user));
         }
 
         bool impl(trait::SessionManager::hasToken, std::string_view user) const
@@ -358,7 +364,7 @@ export struct Sessions
 
             // Else, try to log in and return token if successful
             // Note: `getNode` can be called directly, since `Context` is immediately available
-            if (co_await getNode(trait::authService).logIn(user, pass))
+            if (co_await getNode(trait::authService).logIn(std::string(user), std::string(pass)))
                 co_return getUserDetails(user)->token;
 
             co_return std::nullopt;
@@ -366,7 +372,7 @@ export struct Sessions
 
         auto const* getUserDetails(std::string_view user) const
         {
-            auto const tokenIt = userDetailsMap.find(user);
+            auto const tokenIt = userDetailsMap.find(std::string(user));
             return tokenIt != userDetailsMap.end()
                 ? std::addressof(tokenIt->second)
                 : nullptr;
@@ -393,7 +399,7 @@ export struct Sessions
 ```
 
 ## logger.ixx
-`my::Logger` node implements the trait `my::trait::Logger` (which will be the global node)
+`my::node::Logger` node implements the trait `my::trait::Logger` (which will be the global node)
 ```cpp
 export module my.node.logger;
 
@@ -408,9 +414,9 @@ export struct Logger : arc::Node
     using Traits = arc::Traits<trait::Logger>;
 
     template<class... Args>
-    void impl(trait::Logger::log, Args&&... args) const
+    void impl(trait::Logger::log, std::string_view fmt, Args&&... args) const
     {
-        std::println(std::forward<Args>(args)...);
+        std::println("{}", std::vformat(fmt, std::make_format_args(args...)));
     }
 };
 
@@ -419,11 +425,14 @@ export struct Logger : arc::Node
 ## main.cpp
 Constructs the full graph of nodes which satisfies all requirements of the nodes within `my::cluster::Cluster`
 ```cpp
+#include <cassert>
+
 import my.cluster;
 import my.node.logger;
 import my.pass_hash;
 import my.traits;
 import arc;
+import std;
 
 using namespace my;
 
@@ -491,12 +500,13 @@ int main()
 }
 ```
 
-## <a name="unittests"></a>Unit testing trait::SessionManager trait of my::Sessions
+## <a name="unittests"></a>Unit testing trait::SessionManager trait of my::node::Sessions
 ```cpp
 #include <doctest/doctest.h>
 
 import my.node.sessions;
 import my.traits;
+import my.task; // not shown in example
 import arc;
 import std;
 
@@ -522,7 +532,7 @@ struct MockTypes
         std::size_t expiry;
         std::size_t const* time;
 
-        bool expired() const { return *time < expiry; }
+        bool expired() const { return *time >= expiry; }
         auto operator<=>(Token const&) const = default;
     };
 };
@@ -552,7 +562,7 @@ static void testSessionManager(
 
     // Wrong password fails to get a token
     std::optional<Token> token = sessionManager.getToken(theUser, wrongPass).value();
-    CHECK(not token.has_value())
+    CHECK(not token.has_value());
     // Correct password gets a token
     token = sessionManager.getToken(theUser, thePass).value();
     CHECK(token.has_value());
@@ -587,20 +597,20 @@ struct AuthServiceTestDouble : arc::test::TestOnlyNode
     // only those methods which are invoked from the node being tested
     my::Task<bool> impl(this auto& self, trait::AuthService::logIn, std::string_view user, std::string_view pass)
     {
-        if (userPasses[user] == pass)
+        if (auto const it = self.userPasses.find(user); it != self.userPasses.end() and it->second == pass)
         {
             // Each generated token has unique id
-            Token token{.id = self.tokenId++, .expiry = self.time + 2, .time = &self.time};
-            PassHash passHash{pass};
+            MockTypes::Token token{.id = self.tokenId++, .expiry = self.time + 2, .time = &self.time};
+            MockRoot::PassHash passHash{std::string(pass)};
             self.getNode(trait::tokenStore).store(user, passHash, token);
             co_return true;
         }
         co_return false;
-    };
+    }
 
-    void addUser(std::string const& user, std::string const& pass)
+    void addUser(std::string_view user, std::string_view pass)
     {
-        userPasses.insert_or_assign(user, pass);
+        userPasses.insert_or_assign(std::string(user), std::string(pass));
     }
 
     void passTime(std::size_t increase) { time += increase; }
@@ -608,45 +618,48 @@ struct AuthServiceTestDouble : arc::test::TestOnlyNode
 private:
     std::size_t time = 0;
     std::size_t tokenId = 0;
-    std::map<std::string, std::string> userPasses;
+    std::map<std::string, std::string, std::less<>> userPasses;
 };
 
-TEST_SUITE("my::Sessions as trait::SessionManager")
+TEST_SUITE("my::node::Sessions as trait::SessionManager")
 {
     TEST_CASE("Using AuthServiceTestDouble")
     {
-        arc::test::Graph<my::Sessions, arc::Combine<MockLogger, AuthServiceTestDouble>, MockRoot> graph;
-        // With `arc::test::Graph`, any and all `getNode` calls in `my::Sessions` resolve to
+        arc::test::Graph<my::node::Sessions, arc::Combine<MockLogger, AuthServiceTestDouble>, MockRoot> graph;
+        // With `arc::test::Graph`, any and all `getNode` calls in `my::node::Sessions` resolve to
         // `arc::Combine<MockLogger, AuthServiceTestDouble>`, which selects the node which implements the required trait
 
-        graph.mocks->addUser(theUser, thePass);
+        // The nodes of an `arc::Combine` are reached with `get<Node>()`
+        auto& authService = graph.mocks.get<AuthServiceTestDouble>();
+        authService->addUser(theUser, thePass);
         auto sessionManager = graph.node.asTrait(trait::sessionManager);
-        auto const incrementTime = [&](std::size_t inc) { graph.mocks->passTime(inc); };
+        auto const incrementTime = [&](std::size_t inc) { authService->passTime(inc); };
         testSessionManager(sessionManager, incrementTime);
     }
 
     TEST_CASE("Using arc::test::Mock")
     {
-        using Mocks = arc::test::Mock<MockTypes>;
-        arc::test::Graph<my::Sessions, Mocks, MockRoot> graph;
-        // With `arc::test::Graph`, any and all `getNode` calls in `my::Sessions` resolve to `Mocks`
+        // The mock is limited to `trait::AuthService`, leaving `trait::Logger` to `MockLogger`
+        using Mocks = arc::test::Mock<MockTypes, trait::AuthService>;
+        arc::test::Graph<my::node::Sessions, arc::Combine<MockLogger, Mocks>, MockRoot> graph;
+        auto& mocks = graph.mocks.get<Mocks>();
 
         std::size_t time = 0;
         std::size_t tokenId = 0;
 
-        // Mock all trait dependencies that are used by my::Sessions
+        // Mock all trait dependencies that are used by my::node::Sessions
         // NOTE: Not all of `trait::AuthService` needs to be defined in the mock,
-        // since `AuthService::changePass` is not called from `my::Sessions`
-        // NOTE: `trait::Logger::log` does not need to be explicitly mocked,
-        // the default implementation for any missing method is a no-op
-        graph.mocks->define(
+        // since `AuthService::changePass` is not called from `my::node::Sessions`
+        // NOTE: A mock throws when a method with no definition is called,
+        // unless `setReturnDefault()` has been called on it
+        mocks->define(
             [&](trait::AuthService::logIn, std::string user, std::string pass) -> my::Task<bool>
             {
                 if (user == theUser and pass == thePass)
                 {
                     // Each generated token has unique id
-                    Token token{.id = tokenId++, .expiry = time + 2, .time = &time};
-                    PassHash passHash{pass};
+                    MockTypes::Token token{.id = tokenId++, .expiry = time + 2, .time = &time};
+                    MockRoot::PassHash passHash{pass};
                     graph.node.asTrait(trait::tokenStore).store(theUser, passHash, token);
                     co_return true;
                 }

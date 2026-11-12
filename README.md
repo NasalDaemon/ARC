@@ -90,8 +90,8 @@ target_generate_arc_src(your_modules_lib
     GRAPH_TYPE   arc::Graph<your::app::Cluster> # the type of the graph within which each listed node has a context
     NODES                                      # List of pairs: node.path.from.root.cluster   module.name[:impl]
         apple          your.app.apple:impl
-        orange         your.app.orange         # :impl is default implementation parition name, so it can be ommitted
-        path.to.pear   your.app.pear:node_impl # :node_impl parition is used instead of :impl
+        orange         your.app.orange         # :impl is default implementation partition name, so it can be omitted
+        path.to.pear   your.app.pear:node_impl # :node_impl partition is used instead of :impl
 )
 ```
 </details>
@@ -290,7 +290,7 @@ int main()
 
     graph.bob.asTrait(trait::greeter).greet();
     // Output:
-    // Hello from Bob! I am 30 years old.
+    // Hello from Bob!
     // Well met, Bob. I am Alice of 29 years!
 
     return 0;

@@ -287,17 +287,24 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                 mnemonic         = "CppCompileModulePrecompile",
                 progress_message = "Precompiling C++ module {} [{}]".format(module_name, ctx.label),
             )
+            # Compiling the object rewrites the interface's own .gcm, so this
+            # action maps it to one of its own: rewriting the precompiled .gcm
+            # in place changes its CRC under every importer built against it.
+            obj_gcm = ctx.actions.declare_file(prefix + ".obj.gcm")
+            obj_mapper, _ = _gcc_write_mapper(
+                ctx, module_name, obj_gcm, needed_modules,
+                suffix = ("" if not safe_name else "_" + safe_name) + "_obj")
             ctx.actions.run(
                 inputs = depset(
-                    direct    = [src, mapper, gcm] + dep_gcms,
+                    direct    = [src, obj_mapper] + dep_gcms,
                     transitive = all_hdrs + [cc_toolchain.all_files],
                 ),
-                outputs    = [obj],
+                outputs    = [obj, obj_gcm],
                 executable = compiler,
                 env        = _GCC_ENV,
                 arguments  = [
                     "-fmodules-ts",
-                    "-fmodule-mapper=" + mapper.path,
+                    "-fmodule-mapper=" + obj_mapper.path,
                     "-x", "c++", "-c", src.path, "-o", obj.path,
                 ] + user_cxxopts + include_flags + define_flags + expanded_copts,
                 mnemonic         = "CppCompileModuleObj",

@@ -283,7 +283,7 @@ The implementing node owns the state and exposes it via const accessor methods. 
 Both the trait and the protocol must be listed in `arc::NodeImpl`:
 
 ```cpp
-namespace node {
+namespace app::node {
 
 using States  = arc::States<protocol::Connection>;
 using Main    = States::Main;
@@ -293,7 +293,7 @@ struct Network : arc::NodeImpl<trait::Network, protocol::Connection>
 {
     // Main accessors — const, called by the framework to read state before and after every call
 
-    Main protoState() const { return state; }
+    Main protoMain() const { return state; }
 
     Channel protoChannel(std::string const& name) const
     {
@@ -364,7 +364,7 @@ struct Network : arc::NodeImpl<trait::Network, protocol::Connection>
     std::map<std::string, std::string> pending;
 };
 
-} // namespace node
+} // namespace app::node
 ```
 
 ### What the framework checks on every call
@@ -393,7 +393,7 @@ The protocol state can be queried independently at any time using `asTrait(arc::
 
 ```cpp
 auto proto = getNode(trait::network).asTrait(arc::protocol(trait::network));
-bool isOpen = view.Open();  // true if the connection is currently Open
+bool isOpen = proto.Open();  // true if the connection is currently Open
 ```
 
 ## Generated C++ API
@@ -418,8 +418,8 @@ static_assert(arc::HasProtocol<app::trait::Network>);
 Any trait handle exposes `.asTrait(arc::protocol(trait))` and `->asProtocol()`, which both return a view of the bound protocol. All state variant checkers and predicate methods are accessible through the view:
 
 ```cpp
-auto proto = graph.network.asTrait(network).asTrait(arc::protocol(network));
-// auto proto = graph.network.asTrait(network)->asProtocol(); // equivalent
+auto proto = graph.network.asTrait(trait::network).asTrait(arc::protocol(trait::network));
+// auto proto = graph.network.asTrait(trait::network)->asProtocol(); // equivalent
 
 // Nullary state
 bool isOpen  = proto.Open();   // true if in Open state
@@ -433,7 +433,7 @@ bool hasPending = proto.hasPendingData("channelA");
 bool dead       = proto.isDead();
 
 // Raw enum value
-S::Main   s  = proto.protoState();
+S::Main   s  = proto.protoMain();
 S::Channel ch = proto.protoChannel("channelA");
 ```
 

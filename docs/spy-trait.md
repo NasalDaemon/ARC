@@ -190,13 +190,13 @@ struct CallCounterSpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args) const
     {
         ++counts[arc::typeId<Method>];
         return impl_fn(std::forward<decltype(args)>(args)...);
     }
 
-    std::map<arc::TypeId, int> counts;
+    mutable std::map<arc::TypeId, int> counts;
 };
 
 TEST_CASE("Verify method call counts")
@@ -207,7 +207,7 @@ TEST_CASE("Verify method call counts")
     performOperations(graph);
 
     // Verify expectations
-    CHECK(graph.global->counts[arc::typeId<trait::Storage::get>()] == 42);
+    CHECK(graph.global->counts[arc::typeId<trait::Storage::get>] == 42);
 }
 ```
 
@@ -219,7 +219,7 @@ struct ProfilingSpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args) const
     {
         auto start = std::chrono::high_resolution_clock::now();
 
@@ -239,12 +239,12 @@ struct ProfilingSpy : arc::Node
         }
     }
 
-    void recordTiming(arc::TypeId method, auto duration)
+    void recordTiming(arc::TypeId method, auto duration) const
     {
         timings[method].push_back(duration);
     }
 
-    std::map<arc::TypeId, std::vector<std::chrono::nanoseconds>> timings;
+    mutable std::map<arc::TypeId, std::vector<std::chrono::nanoseconds>> timings;
 };
 ```
 
@@ -257,7 +257,11 @@ struct ValidationSpy : arc::Node
         arc::trait::SpyOnly<trait::Filesystem>
     >;
 
-    decltype(auto) impl(arc::trait::Spy::intercept, trait::Filesystem::write, auto impl_fn, std::string_view path, std::string data)
+    // Arguments arrive as the caller passed them, before conversion to the trait's parameter types,
+    // and impl_fn takes those same types. This overload is therefore selected only for callers passing
+    // exactly a std::string_view and a std::string; any other call reaches the generic handler below.
+    auto impl(arc::trait::Spy::intercept, trait::Filesystem::write, auto impl_fn, std::string_view path, std::string data) const
+        -> decltype(impl_fn(path, std::move(data)))
     {
         // Validate path isn't empty
         if (path.empty())
@@ -272,7 +276,7 @@ struct ValidationSpy : arc::Node
 
     // Generic handler for other methods
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args) const
     {
         return impl_fn(std::forward<Args>(args)...);
     }
@@ -287,7 +291,7 @@ struct LoggingSpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args) const
     {
         std::println("[TRACE] Entering: {}", arc::typeName<Method>);
 
@@ -316,7 +320,9 @@ struct TestingSpy : arc::Node
     >;
 
     // Inject failures for testing error handling
-    decltype(auto) impl(arc::trait::Spy::intercept, trait::Storage::get, auto impl_fn, std::string_view path)
+    // Selected only for callers passing exactly a std::string_view (see Example 3)
+    auto impl(arc::trait::Spy::intercept, trait::Storage::get, auto impl_fn, std::string_view path) const
+        -> decltype(impl_fn(path))
     {
         // Simulate failure for specific test paths
         if (shouldFailNext && path == failPath)
@@ -329,12 +335,12 @@ struct TestingSpy : arc::Node
     }
 
     template<class Method>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, auto&&... args) const
     {
         return impl_fn(std::forward<decltype(args)>(args)...);
     }
 
-    bool shouldFailNext = false;
+    mutable bool shouldFailNext = false;
     std::string failPath;
 };
 ```
@@ -352,7 +358,7 @@ struct CompositeSpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
 
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args) const
     {
         // Layer 1: Logging
         logger.log(method);
@@ -397,14 +403,15 @@ struct LoggerSpy : arc::Node
     using Traits = arc::Traits<arc::trait::Spy>;
     using Depends = arc::Depends<arc::trait::Spy*>; // Optional dependency
 
-    template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
+    // The explicit object parameter carries the node's context, which resolves the next spy
+    template<class Self, class Method, class... Args>
+    decltype(auto) impl(this Self const& self, arc::trait::Spy::intercept, Method method, auto impl_fn, Args&&... args)
     {
         std::println("Logging: {}", arc::typeName<Method>);
 
         // Pass to next spy in chain if it exists, otherwise call implementation
-        if constexpr (arc::CanResolve<LoggerSpy, arc::trait::Spy>)
-            return getNode(arc::trait::spy).intercept(method, impl_fn, std::forward<Args>(args)...);
+        if constexpr (arc::CanResolve<Self, arc::trait::Spy>)
+            return self.getNode(arc::trait::spy).intercept(method, impl_fn, std::forward<Args>(args)...);
         else
             return impl_fn(std::forward<Args>(args)...);
     }
@@ -435,14 +442,15 @@ struct ConditionalSpy : arc::Node
     bool impl(arc::trait::Spy::disable) { active = false; return true; }
 
     template<class Method, class... Args>
-    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args) const
     {
         if (active)
-            recordCall<Method>();
+            ++callCount;
         return impl_fn(std::forward<Args>(args)...);
     }
 
     bool active = true;
+    mutable int callCount = 0;
 };
 ```
 `arc::TracerSpy` implements both methods. See [TracerSpy](tracer-spy.md#runtime-toggle-via-the-spy-trait) for an example.
@@ -463,7 +471,7 @@ struct ConditionalSpy : arc::Node
 
 ```cpp
 template<class Method, class... Args>
-decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
+decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args) const
 {
     #ifdef ENABLE_PROFILING
     auto timer = startTimer();
@@ -478,30 +486,32 @@ decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... 
 The spy system is particularly valuable for testing:
 
 ```cpp
+// Defined outside the test: a local class cannot have member templates
+struct CacheSpy : arc::Node
+{
+    using Traits = arc::Traits<
+        arc::trait::SpyOnly<trait::PathOps>
+    >;
+
+    template<class Method, class... Args>
+    decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args) const
+    {
+        ++counts[arc::typeId<Method>];
+        return impl_fn(std::forward<Args>(args)...);
+    }
+
+    mutable std::map<arc::TypeId, int> counts;
+};
+
 TEST_CASE("Filesystem caches path operations")
 {
-    struct CacheSpy : arc::Node
-    {
-        using Traits = arc::Traits<
-            arc::trait::SpyOnly<trait::PathOps>
-        >;
-
-        template<class Method, class... Args>
-        decltype(auto) impl(arc::trait::Spy::intercept, Method, auto impl_fn, Args&&... args)
-        {
-            ++counts[arc::typeId<Method>];
-            return impl_fn(std::forward<Args>(args)...);
-        }
-
-        std::map<arc::TypeId, int> counts;
-    };
-
     arc::GraphWithGlobal<FilesystemCluster, CacheSpy> graph{...};
 
-    // Perform operations
-    graph->fs.read("/path/to/file");
-    graph->fs.read("/path/to/file");  // Should use cached path
-    graph->fs.read("/path/to/file");
+    // Perform operations through the trait, as only trait calls are intercepted
+    auto fs = graph->fs.asTrait(trait::filesystem);
+    fs.read("/path/to/file");
+    fs.read("/path/to/file");  // Should use cached path
+    fs.read("/path/to/file");
 
     // Verify path normalization was called only once (cached)
     CHECK(graph.global->counts[arc::typeId<trait::PathOps::normalise>] == 1);
@@ -529,6 +539,7 @@ TEST_CASE("Filesystem caches path operations")
 
 1. **Trait methods only**: Can only intercept trait method calls via `getNode` and `asTrait`, not arbitrary function calls, such as calling `YourNode::impl(Method, ...)` directly
 2. **Graph scope**: Only works within an ARC dependency graph with `GraphWithGlobal`
+3. **Argument types are fixed**: `intercept` receives the arguments as the caller passed them, before conversion to the trait's parameter types, and `impl_fn` must be called with arguments of those same types. A spy can change an argument's value, not its type
 
 ## Summary
 

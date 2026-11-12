@@ -115,10 +115,17 @@ struct AuthServiceTestDouble : arc::test::TestOnlyNode
     // Only implement the methods actually called by the node under test
     bool impl(this auto& self, trait::AuthService::logIn, std::string_view user, std::string_view pass)
     {
-        return self.users.contains(user) && self.users[user] == pass;
+        auto const it = self.users.find(user);
+        return it != self.users.end() && it->second == pass;
     }
 
-    std::map<std::string, std::string> users;
+    void addUser(std::string user, std::string pass)
+    {
+        users.insert_or_assign(std::move(user), std::move(pass));
+    }
+
+    // std::less<> allows lookup by std::string_view
+    std::map<std::string, std::string, std::less<>> users;
 };
 
 TEST_CASE("With a single test double")
@@ -130,7 +137,8 @@ TEST_CASE("With a single test double")
 TEST_CASE("With multiple test doubles")
 {
     arc::test::Graph<node::Sessions, arc::Combine<MockLogger, AuthServiceTestDouble>> graph;
-    graph.mocks->addUser("alice", "pass123");
+    // The nodes of an arc::Combine are reached with get<Node>()
+    graph.mocks.get<AuthServiceTestDouble>()->addUser("alice", "pass123");
     // ...
 }
 ```
@@ -143,8 +151,8 @@ TEST_CASE("With multiple test doubles")
 
 `MockParams` configures initial behaviour:
 ```cpp
-arc::test::Graph<MyNode> graph{.mocks{test::MockParams{
-    .defaultBehaviour = test::MockDefault::ThrowIfMissing,  // or ReturnDefault
+arc::test::Graph<MyNode> graph{.mocks{arc::test::MockParams{
+    .defaultBehaviour = arc::test::MockDefault::ThrowIfMissing,  // or ReturnDefault
     .counting = false,
     .logAllCalls = false,
     .logBufferMaxSize = 1024,
@@ -175,9 +183,9 @@ graph.mocks->define(
 graph.mocks->defineConst([](trait::T::method) { return 1; });
 graph.mocks->defineMut([](trait::T::method) { return 2; });
 
-// Fixed return value without a lambda (lower priority than define/defineConst/defineMut)
+// Fixed return value without a lambda (replaces an earlier define for the same overload, and is replaced by a later one)
 graph.mocks->implReturns<trait::Calculator::add, int, int>(42);
-// Fixed return value for all method overloads (lower priority than implReturns)
+// Fixed return value for all method overloads (lower priority than define and implReturns)
 graph.mocks->methodReturns<trait::Calculator::add>(42);
 
 // Sequence of return values (returned in order, throws when exhausted, return type optionally specified in second template param)
@@ -271,7 +279,7 @@ struct IntegrationSpy : arc::NodeImpl<arc::trait::Spy>
 SCENARIO("App cluster end-to-end with spying")
 {
     arc::GraphWithGlobal<cluster::App, IntegrationSpy> graph;
-    auto spy = graph.global.asTrait(arc::trait::Spy);
+    auto spy = graph.global.asTrait(arc::trait::spy);
     auto myTrait = graph.main.myNode.asTrait(trait::myTrait);
 
     GIVEN("a fresh cluster")
@@ -340,7 +348,7 @@ struct Root
 
 TEST_CASE("second test")
 {
-    arc::test::Graph<TestCluster2, arc::test::Mock<>, Root> graph;
+    arc::test::Graph<cluster::TestCluster2, arc::test::Mock<>, Root> graph;
     // ...
 }
 

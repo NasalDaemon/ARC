@@ -74,7 +74,7 @@ All nodes should declare their dependencies with `arc::Depends` (or `arc::Uses` 
 using Depends = arc::Depends<
     trait::Logger,           // Required dependency
     trait::Metrics*,         // Optional dependency (only checked when used)
-    arc::Global<trait::Spy>  // Global node dependency (via getGlobal)
+    arc::Global<arc::trait::Spy>  // Global node dependency (via getGlobal)
 >;
 ```
 
@@ -177,7 +177,7 @@ struct FruitBasket : arc::Node
     };
 };
 
-struct PearImpl : FruitBasket
+struct FruitBasket::PearImpl : FruitBasket
 {
     // Accesses parent state directly since it's a subclass
     int impl(trait::Pear::take) { return pears--; }

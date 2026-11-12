@@ -458,7 +458,7 @@ cluster Outer
     fooBar     = cluster::FooBar
     bazCluster = cluster::Baz
 
-    [Foo]  baz --> fooBar    // 3. Inter-cluster: Outer routes bazCluster.baz Foo dependency to fooBar.foo
+    [Foo]  bazCluster --> fooBar    // 3. Inter-cluster: Outer routes bazCluster.baz Foo dependency to fooBar.foo
 }
 ```
 
@@ -534,7 +534,7 @@ cluster Outer
     [[cluster::Data <=> cluster::Compute]]
     data    <=> compute   // mutual: data gets Compute trunk, compute gets Data trunk
     repl    ==> compute   // repl gets Compute trunk from compute
-    data    <== repl      // repl get Data trunk from data
+    data    <== repl      // repl gets Data trunk from data
 }
 ```
 
@@ -566,7 +566,7 @@ cluster MyCluster [Root]
 }
 
 // With aliases for Context and Root:
-cluster MyCluster [C = Context, R = Root]
+cluster MyAliasedCluster [C = Context, R = Root]
 {
     node = R::NodeType
 }
@@ -582,8 +582,8 @@ Key differences from clusters:
 - Single **nexus** node (first node listed) that coordinates the domain
 - Only the nexus connects to `@parent`
 - Naming rules enforced at compile time:
-  - `pascalCase` — stateless unary node
-  - `CamelCase` — stateful unary node
+  - `camelCase` — stateless unary node
+  - `PascalCase` — stateful unary node
   - `ALL_CAPS` — sub-cluster or sub-domain
 - Unary-to-unary connections must use strong arrows `--->>>` (get uglier as count increases, discouraging coupling)
 - Sub-clusters/sub-domains may connect directly to each other

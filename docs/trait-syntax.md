@@ -145,9 +145,9 @@ trait WithDefaults
     }
 }
 
-// `Trait` interface is provided and enforced, but must be resolved using name `AltTrait`.
+// `Trait` interface is provided and enforced, but must be resolved using name `OtherTrait`.
 // Useful for disambiguation between two dependencies implementing the same trait.
-trait AltTrait = Trait
+trait OtherTrait = Trait
 
 // `Trait` and `Complex` interfaces are both provided and enforced.
 // A node implementing `TraitAndComplex` also implicitly implements `Trait` and `Complex`

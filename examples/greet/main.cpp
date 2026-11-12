@@ -22,7 +22,7 @@ int main()
 
     graph.bob.asTrait(trait::greeter).greet();
     // Output:
-    // Hello from Bob! I am 30 years old.
+    // Hello from Bob!
     // Well met, Bob. I am Alice of 29 years!
 
     return 0;

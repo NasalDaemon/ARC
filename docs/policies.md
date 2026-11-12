@@ -63,7 +63,7 @@ Mutual consent still applies — `@any` is not a unilateral bypass. Same-group c
 Nodes can belong to multiple groups:
 
 ```cpp
-node = Root::Default : InGroup<policy::Class::High, policy::Class::Low>
+node = Root::Default : arc::InGroup<policy::Class::High, policy::Class::Low>
 ```
 
 Permission semantics for JoinedGroups:
@@ -78,7 +78,7 @@ policy Access
 }
 
 // Node in both User and Admin groups
-multiNode = Node : InGroup<policy::Access::User, policy::Access::Admin>
+multiNode = Node : arc::InGroup<policy::Access::User, policy::Access::Admin>
 
 // Guest can READ multiNode (Guest -> User satisfies OR)
 // Guest CANNOT WRITE to multiNode (no write to Admin, fails AND)
@@ -137,12 +137,12 @@ Both declarations are required — either policy omitting its side blocks the co
 ```cpp
 cluster SafeSystem [Root]
 {
-    sensor     = Root::Sensor        : InGroup<policy::SecurityLevel::Privileged>
-    controller = Root::Controller    : InGroup<policy::SecurityLevel::Trusted>
-    ui         = Root::UserInterface : InGroup<policy::SecurityLevel::Untrusted>
+    sensor     = Root::Sensor        : arc::InGroup<policy::SecurityLevel::Privileged>
+    controller = Root::Controller    : arc::InGroup<policy::SecurityLevel::Trusted>
+    ui         = Root::UserInterface : arc::InGroup<policy::SecurityLevel::Untrusted>
 
     [trait::SensorData]
-    sensor --> controller  // OK: Trusted reads from Privileged
+    controller --> sensor  // OK: Trusted reads from Privileged
 
     [trait::DisplayData]
     controller --> ui      // OK: Trusted writes to Untrusted
@@ -165,11 +165,12 @@ policy SafetyClass
 
 cluster MainSystem
 {
-    critical = CriticalSubsystem : InGroup<policy::SafetyClass::ASIL_D>
-    normal = Node : InGroup<policy::SafetyClass::QM>
+    critical = CriticalSubsystem : arc::InGroup<policy::SafetyClass::ASIL_C>
+    normal = Node : arc::InGroup<policy::SafetyClass::QM>
 
-    // normal can read from critical.node1 (QM -> ASIL_C -> ASIL_D)
-    // critical.node1 can write to normal (ASIL_D => ASIL_C => QM)
+    // normal can read from critical.node1 (QM -> ASIL_C)
+    // critical.node1 can write to normal (ASIL_C => QM)
+    // Connections are not transitive: were critical ASIL_D, normal could not read from it
 }
 
 cluster CriticalSubsystem
@@ -248,7 +249,7 @@ policy SafetyLevel { /* ... */ }
 
 cluster MyCluster
 {
-    node = Node : InGroup<policy::SafetyLevel::ASIL_D, policy::SecurityLevel::Privileged>
+    node = Node : arc::InGroup<policy::SafetyLevel::ASIL_D, policy::SecurityLevel::Privileged>
 }
 ```
 

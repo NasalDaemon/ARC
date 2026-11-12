@@ -25,12 +25,12 @@ namespace my::app {
 cluster FruitSalad [Context, Root] // Optional type annotations
 {
     // 1. Node definitions
-    apple = Apple
-    banana = Banana
-    cherry = Cherry
-    sourCherry = Cherry
-    date = Date
-    elderberry = Elderberry
+    apple = node::Apple
+    banana = node::Banana
+    cherry = node::Cherry
+    sourCherry = node::Cherry
+    date = node::Date
+    elderberry = node::Elderberry
 
     // 2. (Optional) enable all connections to @global node (must come first)
     [[@global]] @all ==> @global
@@ -48,7 +48,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // Equivalent to:
     // [trait::Elderberry]
     // elderberry <-- @parent, apple, banana, cherry, sourCherry, date
-    // Sink nodes (like `elderBerry`) may not have any outgoing connections apart from the implicit
+    // Sink nodes (like `elderberry`) may not have any outgoing connections apart from the implicit
     // connections to global nodes and other sink nodes
     // Sink traits cannot be used in any further connection blocks
 
@@ -64,7 +64,7 @@ cluster FruitSalad [Context, Root] // Optional type annotations
     // and cherry.getNode(trait::apple) ~= apple.asTrait(trait::apple)
 
     // 5. Aliases for traits
-    using B = trait::Banana, C = trait::cherry, D = trait::Date
+    using B = trait::Banana, C = trait::Cherry, D = trait::Date
 
     // 6. Many-to-one (and using trait alias)
     [B] apple, cherry --> banana
@@ -213,9 +213,9 @@ cluster MyCluster
     onThread0 = Node2 : arc::OnThread<0>
     // Equivalent to:
     // onThread0 = arc::OnThread<Node2, 0>
-    onAnyThread = Node3 : arc::OnAnyThread : arc::StaticMap<int>
+    onAnyThread = Node3 : arc::AnyThread : arc::StaticMap<int>
     // Equivalent to:
-    // onAnyThread = arc::StaticMap<arc::OnAnyThread<Node3>, int>
+    // onAnyThread = arc::StaticMap<arc::AnyThread<Node3>, int>
     ordered = Node4 : arc::DynamicMap<int, std::map>
     // Equivalent to:
     // ordered = arc::DynamicMap<Node4, int, std::map>

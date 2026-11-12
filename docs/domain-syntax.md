@@ -11,7 +11,7 @@ Domains in ARC are special `cluster`s with extra restrictions. If you are unfami
 > Domains differ from normal clusters by requiring a single nexus node (the orchestrator), restricting direct sub-node connections, and enforcing naming/wiring rules. This results in flatter, shallower, and more modular graphs, ideal for complex or growing projects.
 >
 > **To define a domain:**
-> Use `domain` instead of `cluster`, specify a single nexus, and follow naming conventions (ALL_CAPS for sub-clusters/domains, CamelCase for stateful nodes, lowercase for stateless).
+> Use `domain` instead of `cluster`, specify a single nexus, and follow naming conventions (ALL_CAPS for sub-clusters/domains, PascalCase for stateful nodes, camelCase for stateless).
 >
 > Use domains when you need strict boundaries, orchestration, and scalability; use clusters for simpler groupings.
 </details>
@@ -42,7 +42,7 @@ According to various studies, iteratively growing networks tend to become scale-
 
 * Every `domain` must have a _single_ traitful unary nexus-node which acts as the central hub or coordinator for the `domain`
 * Sub-`cluster`s or sub-`domain`s must have names in ALL_CAPS
-* Unary nodes (including the nexus) in the `domain` that have state must have names starting with a capital letter (e.g., CamelCase), and stateless nodes must have names starting with a lowercase letter (e.g., pascalCase)
+* Unary nodes (including the nexus) in the `domain` that have state must have names starting with a capital letter (e.g., PascalCase), and stateless nodes must have names starting with a lowercase letter (e.g., camelCase)
 * The nexus-node is the only node allowed any connection to or from the parent `@parent` of the `domain`
   * In general, the nexus-node has no restrictions on which nodes it is connected to
 * Sub-`clusters` and sub-`domain`s may connect directly to each other
@@ -65,8 +65,8 @@ The domain syntax is identical to the cluster syntax, with a few key differences
     * The generated domain type is placed inside `namespace domain` within the enclosing namespace instead of `namespace cluster`
 * The first node named is the nexus-node, which will be made to conform to the responsibilities of the nexus
 * Node names must be spelled correctly to represent the following properties, which are enforced in the C++ build step once all the types are known:
-    * Stateless unary: pascalCase
-    * Stateful unary: CamelCase
+    * Stateless unary: camelCase
+    * Stateful unary: PascalCase
     * Non-unary (sub-domain or sub-cluster): ALL_CAPS
 * Unary-to-unary sub-node connections must use strong arrows `--->>>`, all of which will be made to get stronger as the total number of these connections increases
 * Sink traits are not allowed in domains unless it is to the `@global` node
@@ -80,7 +80,7 @@ namespace shop {
 
 domain ShopDomain
 {
-    Api = ShopRestAPI         // `Api` is stateful nexus
+    Api = node::ShopRestAPI   // `Api` is stateful nexus
     CUSTOMER = CustomerDomain // sub-domain
     ORDER = OrderDomain       // sub-domain
     DELIVERY = DeliveryDomain // sub-domain
@@ -102,9 +102,9 @@ domain ShopDomain
 
 domain CustomerDomain
 {
-    gw = CustomerGateway        // `gw` is stateless nexus
-    Accounts = CustomerAccounts // stateful unary sub-node
-    Regs = CustomerRegulations  // stateful unary sub-node
+    gw = node::CustomerGateway        // `gw` is stateless nexus
+    Accounts = node::CustomerAccounts // stateful unary sub-node
+    Regs = node::CustomerRegulations  // stateful unary sub-node
 
     using res = trait::CustomerResponse, req = trait::CustomerRequest
     [res <-> req]
@@ -137,6 +137,8 @@ Below is an example of the nexus-node for `ShopDomain`. In handwritten C++ code,
 Instead, `ShopRestAPI` takes ownership of the entire flow of the order, delegating the responsibility for the smaller self-contained units of work to sub-nodes which take no responsibility for completing the overall `OrderRequest`. This looser form of coupling also allows for finer-grained testing, as each testable unit of behaviour is isolated within fewer sub-`domain`s and sub-nodes.
 
 ```cpp
+namespace shop::node {
+
 struct ShopRestAPI
 {
     template<class Context>
@@ -154,23 +156,47 @@ struct ShopRestAPI
             , trait::ShopRequest
             , trait::CustomerResponse
             , trait::DeliveryResponse
+            , trait::OrderResponse
         >;
 
         using OrderRequest = Context::Root::OrderRequestType;
+        using OrderResponse = Context::Root::OrderResponseType;
         using RequestId = std::size_t;
+
+        struct NewOrderFlow
+        {
+            OrderRequest req;
+            std::optional<bool> canAfford;
+            std::optional<bool> canDeliver;
+
+            bool readyToRespond() const
+            {
+                // We are ready to respond if we have received both canAfford and canDeliver responses
+                // or if one of them is false, indicating a failure condition
+                return (canAfford.has_value() and canDeliver.has_value())
+                    or (not canAfford.value_or(true) or not canDeliver.value_or(true));
+            }
+        };
 
         void impl(trait::ShopRequest::order, OrderRequest req)
         {
             // Gateway coordinates the order flow by delegating to the other nodes
-            newOrderFlows[req.id].req = std::move(req);
-            scheduleTimeout(req.id);
-            getNode(trait::customerRequest).canAfford(req.id, req.customerId, req.productId, req.quantity);
-            getNode(trait::deliveryRequest).canDeliver(req.id, req.productId, req.quantity);
+            auto const reqId = req.id;
+            auto& flow = newOrderFlows[reqId];
+            flow.req = std::move(req);
+            scheduleTimeout(reqId);
+            getNode(trait::customerRequest).canAfford(reqId, flow.req.customerId, flow.req.productId, flow.req.quantity);
+            getNode(trait::deliveryRequest).canDeliver(reqId, flow.req.productId, flow.req.quantity);
         }
 
         void scheduleTimeout(RequestId reqId)
         {
             // ... logic to respond with timeout if not all subdomains respond in time
+        }
+
+        void cancelTimeout(RequestId reqId)
+        {
+            // ... logic to cancel the timeout scheduled for the request
         }
 
         void impl(trait::CustomerResponse::canAfford, RequestId reqId, bool canAfford)
@@ -186,7 +212,7 @@ struct ShopRestAPI
         template<class T>
         void updateFlow(RequestId reqId, T NewOrderFlow::* memPtr, auto const& value)
         {
-            if (auto flowIt = newOrderFlows.find(reqId); it != newOrderFlows.end())
+            if (auto flowIt = newOrderFlows.find(reqId); flowIt != newOrderFlows.end())
             {
                 auto& flow = flowIt->second;
                 flow.*memPtr = value;
@@ -202,7 +228,7 @@ struct ShopRestAPI
 
         void onResponseReady(NewOrderFlow const& flow)
         {
-            ShopRespose res;
+            OrderResponse res;
             if (not flow.canAfford.value_or(true))
             {
                 res.success = false;
@@ -224,29 +250,16 @@ struct ShopRestAPI
                     flow.req.quantity);
             }
 
-            getNode(trait::shopResponse).order(reqId, res);
+            getNode(trait::shopResponse).order(flow.req.id, res);
         }
 
-        // ... etc
-
-        struct NewOrderFlow
-        {
-            OrderRequest req;
-            std::optional<bool> canAfford;
-            std::optional<bool> canDeliver;
-
-            bool readyToRespond() const
-            {
-                // We are ready to respond if we have received both canAfford and canDeliver responses
-                // or if one of them is false, indicating a failure condition
-                return canAfford.has_value() and canDeliver.has_value()
-                    or (not canAfford.value_or(true) or not canDeliver.value_or(true));
-            }
-        };
+        // ... etc, including the implementation of trait::OrderResponse
 
         std::map<RequestId, NewOrderFlow> newOrderFlows;
     };
-}
+};
+
+} // namespace shop::node
 ```
 
 ## When to use domains instead of clusters

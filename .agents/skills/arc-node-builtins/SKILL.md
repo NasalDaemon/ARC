@@ -209,21 +209,23 @@ The `add` callable takes `(ID const& id, auto&&... args)` where extra args are f
 - `contains(id)` — returns `bool`, whether an element with this ID exists
 - `getId(id)` — returns pointer to element node, or `nullptr` if not found
 - `atId(id)` — returns reference to element node, throws `std::out_of_range` if not found
-- Dynamic only: `insert(id, args...)` (throws on duplicate), `tryInsert(id, args...)`, `remove(id)`, `removeIf(pred)`, `forEach(func)` — index variants take `arc::autoId` instead of an id when inserting. `insert`/`tryInsert` return a pointer that is `nullptr` if the storage cannot accommodate the element (e.g. index id space exhausted).
+- Dynamic only: `insert(id, args...)` (throws on duplicate), `tryInsert(id, args...)`, `remove(id)`, `removeIf(pred)`, `forEach(func)` — index variants take `arc::autoId` instead of an id when inserting. `insert` returns a pointer to the element, `nullptr` if the storage cannot accommodate it (e.g. index id space exhausted); `tryInsert` returns a `std::pair` of that pointer and whether the element was inserted.
 
 **Storage policy** — layout is pluggable: `arc::Collection<NodeHandle, ID, Policy>` with `arc::CollectionPolicy<Dynamic, StorageTemplate>`. `MapStorage` backs the Map aliases, `VectorStorage` the LinearMap aliases, `IndexStorage` the Index aliases. Custom storages implement the `arc::IsCollectionStorage` / `arc::IsDynamicCollectionStorage` concepts.
 
 **Accessing elements via traits** — use keys in `getNode()`:
 ```cpp
-// Single element by ID
+// Single element by ID: the ID must be trivially copyable, and of exactly the collection's ID type
 auto elem = self.getNode(trait::element, key::Element(myId));
 
-// All elements
-self.getNode(trait::element, key::allElements).forEach([](auto& elem) { ... });
+// All elements: a trait method called on this view is called on every element
+self.getNode(trait::element, key::allElements).method(args...);
 
-// Filtered elements
-self.getNode(trait::element, key::Elements([](auto const& id) { return id != "skip"; }));
+// Filtered elements: called on every element whose ID satisfies the predicate
+self.getNode(trait::element, key::Elements([](auto const& id) { return id != skippedId; })).method(args...);
 ```
+
+An ID that is not trivially copyable, such as `std::string`, cannot be a key. In a dynamic collection, reach such an element through the control view instead: `self.getNode(trait::element, key::collection).fromId(id)`.
 
 **Handle** — `getElementHandle()` returns an opaque handle (index for static storage, shared ownership for dynamic). A static handle can be used with `key::Element(handle)` for faster access than ID lookup; a dynamic handle is not trivially copyable, so it cannot be a key — resolve it through the control view (`key::collection`) with `fromHandle(handle)`.
 
@@ -233,13 +235,15 @@ self.getNode(trait::element, key::Elements([](auto const& id) { return id != "sk
 
 `arc::PeerNode` is a base class for nodes inside a collection (Map/Index) that need to discover and interact with sibling elements. It extends `arc::Node` with collection-aware methods.
 
-**Usage** — derive from `PeerNode` instead of `Node`:
+**Usage** — derive from `PeerNode` instead of `Node`, and list `arc::trait::Peer` in `Traits`. The peer node must be a member of the cluster used as the collection's element (`elements = cluster::Element : arc::StaticMap<int>`); `getPeers()` does not compile for a node that is itself the element:
 ```cpp
-export struct MyElement : arc::PeerNode::
-    Uses<trait::SomeDep>::
-    Impl<trait::ElementTrait>
+export struct MyElement : arc::PeerNode
 {
-    auto myMethod(this auto& self)
+    using Depends = arc::Depends<trait::SomeDep>;
+    // PeerDetachedOpen accepts every sibling as a peer
+    using Traits = arc::Traits<trait::ElementTrait, arc::trait::Peer(arc::PeerDetachedOpen)>;
+
+    auto impl(this auto& self, trait::ElementTrait::myMethod)
     {
         auto const& id = self.getElementId();
         auto handle = self.getElementHandle();
@@ -268,7 +272,7 @@ trait arc::trait::Peer
 ```
 
 Default implementations:
-- `PeerNode` — rejects all peers (both methods return `false`)
+- `PeerNode` — rejects all peers (both methods return `false`). A node that declares any `impl` of its own hides these: add `using arc::PeerNode::impl;`
 - `PeerDetached` — detached trait impl rejects all peers (for detached/virtual contexts)
 - `PeerDetachedOpen` — detached trait impl accepts all peers (both methods return `true`)
 
@@ -370,9 +374,9 @@ auto elem = self.getNode(trait::element, key::Element(myId));
 auto handle = self.getElementHandle();
 auto elem = self.getNode(trait::element, key::Element(handle));
 
-// Iterate all collection elements
-self.getNode(trait::element, key::allElements).forEach([](auto& elem) { ... });
+// Call a trait method on all collection elements
+self.getNode(trait::element, key::allElements).method(args...);
 
-// Filter collection elements by predicate on ID
-self.getNode(trait::element, key::Elements([](auto const& id) { return pred; }));
+// Call a trait method on the collection elements whose ID satisfies a predicate
+self.getNode(trait::element, key::Elements([](auto const& id) { return pred; })).method(args...);
 ```

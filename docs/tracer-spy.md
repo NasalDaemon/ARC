@@ -77,7 +77,7 @@ Event schema:
 | `parent` | enter | Caller's `id`, or `0` for top-level |
 | `depth` | enter/exit/throw | Call depth (top-level = 0) |
 | `node` | enter/exit/throw | Type name of the intercepted node handle (e.g. `app::node::Mirror`), read from the spy caller's `Context::NodeHandle` |
-| `method` | enter/exit/throw | Fully-qualified trait method type name |
+| `method` | enter/exit/throw | Fully-qualified trait method type name, as the compiler prints it: GCC includes the inline `trait::` namespace (`app::trait::Storage::get`), Clang omits it (`app::Storage::get`) |
 | `args` | enter | Array of `{type, value?}` records — `value` omitted when not `std::formattable` |
 | `ns` | exit/throw | Wall-clock duration of the call in nanoseconds |
 | `ret_type` | exit | Return type name (`"void"` for void returns) |
@@ -166,7 +166,8 @@ Commit the resulting trace as a golden file; subsequent runs diff against it.
 ```cpp
 std::ostringstream trace;
 graph.global->write(trace, arc::TracerSpy::Format::Jsonl);
-CHECK(trace.str().find("\"method\":\"app::trait::Storage::get\"") != std::string::npos);
+// Match the unqualified tail: the namespace qualification depends on the compiler (see `method` below)
+CHECK(trace.str().find("Storage::get\"") != std::string::npos);
 ```
 
 ### Tune recording window and buffer size via `Params`
@@ -195,12 +196,12 @@ The event log is an `arc::CircularBuffer`, so each event also has a stable buffe
 ```cpp
 struct MyNode : arc::NodeImpl<MyTrait>
 {
-    void doSomething()
+    void doSomething(this auto& self) // deducing-this `self` has the node context that reaches the global
     {
         // ...
-        getGlobal(arc::spy).enable();   // start recording from here
+        self.getGlobal(arc::spy).enable();   // start recording from here
         // ...
-        getGlobal(arc::spy).disable();  // stop recording from here
+        self.getGlobal(arc::spy).disable();  // stop recording from here
         // ...
     }
 };
@@ -229,4 +230,4 @@ Because each event carries both the trait-qualified `method` name and the user-f
 ## See also
 
 - [Spy trait](spy-trait.md) — the underlying interception mechanism. `TracerSpy` is a turnkey `arc::trait::Spy` implementation; the spy-trait doc covers building custom spies and daisy-chaining them.
-- [`/arc-node-builtins`](../.claude/skills/arc-node-builtins/SKILL.md) — quick-reference card of all built-in node wrappers.
+- [`/arc-node-builtins`](../.agents/skills/arc-node-builtins/SKILL.md) — quick-reference card of all built-in node wrappers.
