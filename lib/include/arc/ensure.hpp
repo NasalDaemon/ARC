@@ -10,6 +10,7 @@
 #include "arc/node_fwd.hpp"
 #include "arc/static_assert.hpp"
 #include "arc/trait.hpp"
+#include "arc/trunk_links.hpp"
 
 namespace arc {
 
@@ -31,11 +32,23 @@ namespace detail {
                 "Not all entries in node's arc::Depends<>/Uses<> are satisfied by its cluster",
                 ARC_SA_NODE_CONTEXT(node, T)(missing, missingDependencies<T, false>()));
     }
+
+    // A predicate may check first what would otherwise surface, less clearly, as unsatisfied dependencies
+    template<class Pred, class T>
+    consteval bool assertBeforeDependencies()
+    {
+        if constexpr (requires { { Pred::template assertBeforeDependencies<T>() } -> std::same_as<bool>; })
+            return Pred::template assertBeforeDependencies<T>();
+        else
+            return true;
+    }
 }
 
+// The node's dependencies are checked only once each predicate's earlier check holds
 ARC_MODULE_EXPORT
 template<class T, class... Pred>
-requires ((detail::assertNodeDependenciesSatisfied<T>(), ..., Pred::template assert<T>()), true)
+requires (... and detail::assertBeforeDependencies<Pred, T>())
+     and ((detail::assertNodeDependenciesSatisfied<T>(), ..., Pred::template assert<T>()), true)
 using Ensure = T;
 
 namespace pred {

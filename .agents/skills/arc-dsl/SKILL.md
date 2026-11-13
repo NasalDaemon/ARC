@@ -464,98 +464,37 @@ cluster Outer
 
 **Note:** Connection blocks use local subcluster names only — no dot-paths (`fooBar.foo` is NOT valid in `.ixx.arc`).
 
-### Trunk Connections (Inter-Cluster Bulk Wiring)
+### Trunks
 
-Named after **network trunking** — a single high-capacity link that carries many separate channels between two endpoints. Trunks bundle multiple traits into one connection line.
-
-#### Cluster Trunks
-
-A cluster declares a curated **trunk** — a named subset of its exposed traits — which a sibling node or subcluster can depend on over one connection line:
+A trunk bundles traits a cluster exposes into one connection line. Declare named trunks, one header block each, sized to what each kind of client uses, and build larger ones by extension:
 
 ```arc
-cluster Producer [Trunk = A + B + C]   // subset; D exposed but not in trunk
+cluster Compute [Trunk Parse = Tokeniser + Parser]
+                [Trunk Repl = Compute::Parse + Evaluator]
+                [Trunk Script = Compute::Parse + Functions + Variables]
 {
     // ...
-
-    [A] .. --> a
-    [B] .. --> b
-    [C] .. --> c
-    [D] .. --> d
+    [Tokeniser] .. --> tokeniser   // each trunk trait exposed to the parent
 }
 
-cluster Consumer
+cluster Calculator
 {
-    // ...
-
-    [A] x --> ..
-    [B] y --> ..
-    [C] z --> ..
-}
-
-cluster Outer
-{
-    producer = cluster::Producer
-    consumer = cluster::Consumer
-    node = node::Node
-
-    [[cluster::Producer]]
-    consumer ==> producer    // consumer gets A + B + C
-    [D]
-    node     --> producer    // D available as normal
-}
-```
-
-### Inline Trunking
-
-You can also define a trunk inline without a cluster declaration.
-
-```arc
-cluster MyCluster
-{
-    abc = node::ABC
-    xyz = node::XYZ
-
-    [[A + B + C]]
-    xyz ==> abc
-}
-```
-
-#### Bi-directional Trunks
-
-When two clusters depend on each others' trunks, declare it in one block with `<=>` separating the two trunks. Connections inside may use `==>`, `<==`, or `<=>` per pair — analogous to `[A <-> B]` for traits.
-
-```arc
-cluster Outer
-{
-    data    = cluster::Data
     compute = cluster::Compute
     repl    = node::Repl
+    data    = cluster::Data
 
-    [[cluster::Data <=> cluster::Compute]]
-    data    <=> compute   // mutual: data gets Compute trunk, compute gets Data trunk
-    repl    ==> compute   // repl gets Compute trunk from compute
-    data    <== repl      // repl gets Data trunk from data
+    [[Compute::Repl]]   repl ==> compute
+    [[Compute::Script]] data ==> compute
 }
 ```
 
-Equivalent to two single-direction blocks:
-```arc
-[[cluster::Data]]    repl, compute ==> data
-[[cluster::Compute]] repl, data    ==> compute
-```
+- `[[Compute]]` is the union of the named trunks. A cluster with a single face may declare it as `[Trunk = A + B]`.
+- A client uses every trait of the trunk it takes, as its `Uses<>` lists them (optional `T*` count); the compiler checks it. `[[Compute::Repl*]]` takes part of a trunk, for a one-off client.
+- A trait reaches a node through one link, so leave a trunk's traits out of the node's other links.
+- `[[A + B]] xyz ==> abc` bundles traits at the link; `[[Data <=> Compute]]` wires two clusters taking each other's trunks.
+- A trunk's name is a type in the cluster, so it should not repeat a trait's name.
 
-Both sides of `<=>` must be single cluster trunks — inline trunks with `+` cannot be bi-directional.
-
-**Rules:**
-- Trunk traits in `[Trunk = ...]` must each have a matching `[T] .. --> node` exposure (generator-checked).
-- Trunk consumption: double brackets `[[...]]` + `==`-style arrow (`==>`, `<==`, `<=>`). Mixing `-` and `=` arrow forms is rejected.
-- `[[...]]` can contain a single cluster (cluster trunk), multiple traits joined with `+` (inline trunk), or two cluster trunks joined with `<=>` (bi-trunk).
-- `<=>` is only allowed inside a bi-trunk block — in a uni-trunk block both directions would carry the same trunk, so it is rejected.
-- The bi-trunk separator must be `=`-style (`<=>`); `<-->` is rejected.
-- Inline trunks with `+` cannot use `<=>` — each side of a bi-trunk must be a single cluster trunk.
-- No sinks, no `@notrait` in trunk blocks.
-
-**Use when:** a subcluster has a coherent public face and a consumer needs most of it, or you want to bundle traits inline. Use the bi-trunk form when the mutual coupling between two clusters is the headline fact.
+See `docs/cluster-syntax.md` for the full rules.
 
 ### Parameterised Clusters
 

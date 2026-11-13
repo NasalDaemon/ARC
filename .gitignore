@@ -8,3 +8,4 @@ bazel-*
 # CMake build artifacts
 cmake-build/
 CMakeUserPresets.json
+__pycache__/

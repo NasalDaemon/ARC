@@ -26,11 +26,14 @@ cluster Calculator [Root]
     [Output]      repl --> output
     [History]     lineReader --> data
 
-    [[cluster::Data]]    repl ==> data
-    [[cluster::Compute]] repl, data ==> compute
+    [[Data]]            repl ==> data
+    [[Compute::Repl]]   repl ==> compute
+    [[Compute::Script]] data ==> compute
 }
 
-cluster Compute [Trunk = Tokeniser + Parser + Evaluator + Functions + Variables]
+cluster Compute [Trunk Parse = Tokeniser + Parser]
+                [Trunk Repl = Compute::Parse + Evaluator]
+                [Trunk Script = Compute::Parse + Functions + Variables]
 {
     tokeniser = node::Tokeniser
     parser    = node::Parser

@@ -13,6 +13,7 @@ arc_header_library(
     embed_arcs = {
         "test_embedded_headers.cpp": "arc/tests/test_embedded_headers.hxx",
         "test_nodiscard.cpp": "arc/tests/test_nodiscard.hxx",
+        "test_trunk.cpp": "arc/tests/test_trunk.hxx",
     },
     visibility = ["//visibility:public"],
     testonly = True,
@@ -61,6 +62,7 @@ cc_test(
         "test_embedded_headers.cpp",
         "test_mem_ptr.cpp",
         "test_nodiscard.cpp",
+        "test_trunk.cpp",
     ],
     deps = [
         "//doctest:doctest",
@@ -93,6 +95,57 @@ compile_fail_test(
     ],
     expect = "ignoring return value|call answers nothing here",
     copts = ["-Werror=unused-result"],
+)
+
+# A trait reaching a node through a trunk and through another link fails the compile
+compile_fail_test(
+    name = "trunk_overlaps",
+    src = "test_trunk.cpp",
+    deps = [
+        "//doctest:doctest",
+        ":arc_tests_headers_lib",
+    ],
+    cases = [
+        "ARC_TRUNK_OVERLAP_EXACT",
+        "ARC_TRUNK_OVERLAP_TRUNKS",
+        "ARC_TRUNK_OVERLAP_JOINED",
+        "ARC_TRUNK_OVERLAP_FANOUT",
+        "ARC_TRUNK_OVERLAP_SINK",
+        "ARC_TRUNK_OVERLAP_PARENT",
+    ],
+    expect = "a trunk cannot be disambiguated",
+    # The overlap leaves the trait unresolved, which goes unreported as the node's dependencies go unchecked
+    unexpect = "are satisfied by its cluster",
+)
+
+# A node taking a cluster's trunk in full without using all of it fails the compile
+compile_fail_test(
+    name = "trunk_partial_use",
+    src = "test_trunk.cpp",
+    deps = [
+        "//doctest:doctest",
+        ":arc_tests_headers_lib",
+    ],
+    cases = [
+        "ARC_TRUNK_PARTIAL_NODE",
+        "ARC_TRUNK_PARTIAL_SUBCLUSTER",
+        "ARC_TRUNK_PARTIAL_INLINE_SUBCLUSTER",
+        "ARC_TRUNK_PARTIAL_PER_TRAIT_SUBCLUSTER",
+        "ARC_TRUNK_PARTIAL_SELF_FORWARD_SUBCLUSTER",
+    ],
+    expect = "without using all of its traits",
+)
+
+# A node taking a cluster's trunk in full without listing its dependencies fails the compile
+compile_fail_test(
+    name = "trunk_undeclared_use",
+    src = "test_trunk.cpp",
+    deps = [
+        "//doctest:doctest",
+        ":arc_tests_headers_lib",
+    ],
+    cases = ["ARC_TRUNK_UNDECLARED"],
+    expect = "lists no dependencies to check its use against",
 )
 
 ###########################################################################
@@ -180,6 +233,7 @@ cpp_module_test(
             "test_embedded_headers.cpp",
             "test_mem_ptr.cpp",
             "test_nodiscard.cpp",
+            "test_trunk.cpp",
             "test_combine.cpp",      # arc_tests_mock
             "test_lazy.cpp",
             "test_mock.cpp",

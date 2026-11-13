@@ -10,6 +10,7 @@
 
 #include "arc/context_fwd.hpp"
 #include "arc/defer.hpp"
+#include "arc/depends.hpp"
 #include "arc/emplace.hpp"
 #include "arc/ensure.hpp"
 #include "arc/finalise.hpp"
@@ -207,6 +208,8 @@ struct Union
     public:
         struct Depends
         {
+            using Items = detail::DependsItems<detail::UsesOf<ToNode<Options>>...>;
+
             static constexpr bool isSpecified = (ToNode<Options>::Depends::isSpecified and ...);
 
             // This will be enforced by each option's own Depends

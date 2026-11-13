@@ -6,6 +6,7 @@
 #include "arc/detail/type_at.hpp"
 #include "arc/cluster.hpp"
 #include "arc/context.hpp"
+#include "arc/depends.hpp"
 #include "arc/link.hpp"
 #include "arc/macros.hpp"
 #include "arc/static_assert.hpp"
@@ -55,6 +56,10 @@ struct Combine
         {
             return (sizeof...(Nodes) == 0) and decltype(detail::CombinePart<Cluster, Fallback>::node)::isUnary();
         }
+
+        using Depends = detail::DependsThrough<
+            ContextToNodeState<typename detail::CombinePart<Cluster, Nodes>::Context>...,
+            ContextToNodeState<typename detail::CombinePart<Cluster, Fallback>::Context>>;
 
         template<IsTrait Trait>
         requires (... || ContextHasTrait<typename detail::CombinePart<Cluster, Nodes>::Context, Trait>)

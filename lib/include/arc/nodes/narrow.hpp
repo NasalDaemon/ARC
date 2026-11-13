@@ -30,6 +30,8 @@ struct Narrow
         };
         ARC_NODE(Inner, node);
 
+        using Depends = detail::DependsThrough<ContextToNodeState<Inner>>;
+
         // Narrow exposed traits
         template<class T>
         requires (... || MatchesTrait<T, Traits>)

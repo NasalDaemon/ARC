@@ -999,9 +999,17 @@ namespace {{ cluster.cluster_class }} {
 {% endif %}
 struct {{ cluster.name }}
 {
-    {% if cluster.trunk_traits %}
-    using Trunk = ::arc::Trunk<{{ cluster.trunk_traits | join(", ") }}>;
-    {% endif %}
+    {% for trunk in cluster.trunks.values() if trunk.name is none %}
+    using Trunk = ::arc::Trunk<{{ trunk.traits | join(", ") }}>;
+    {% endfor %}
+    {% for trunk in cluster.trunks.values() if trunk.name is not none %}
+    struct {{ trunk.name }}
+    {
+        using Trunk = ::arc::Trunk<{{ trunk.traits | join(", ") }}>;
+        // Where the trunk is declared in the DSL, file:line:col, for diagnostics
+        static constexpr char const SourceLocation[] = "{{ trunk.source_location }}";
+    };
+    {% endfor %}
     // Where the cluster is defined in the DSL, file:line:col, for diagnostics
     static constexpr char const SourceLocation[] = "{{ cluster.pos }}";
 
@@ -1038,6 +1046,9 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
     {% endfor %}
 
     {% endif %}
+    {% for node in cluster.nodes %}
+    struct {{ node.context }};
+    {% endfor %}
     using Depends = ::arc::Depends<{{ cluster.dependencies | join(", ") }}>;
     {% if 1 == cluster.nodes | length %}
 
@@ -1048,7 +1059,6 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
     {% endif %}
 
     {% for node in cluster.nodes %}
-    struct {{ node.context }};
     {% for alias, target in node.intermediate_aliases %}
     {{ arc_line(node.pos) }}
     using {{ alias }} =
@@ -1070,6 +1080,13 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
     {% endif %}
     {{ arc_end() }}
     {% endfor %}
+    {% set parent_links = cluster.parent_node.trunk_links %}
+    {% if parent_links %}
+    {% for link, pos in parent_links %}
+    struct ParentTrunkLink{{ loop.index0 }}_ : {{ link }} { static constexpr char const Pos[] = "{{ pos }}"; };
+    {% endfor %}
+    static_assert(::arc::detail::assertParentTrunkLinksDisjoint<{% for _ in parent_links %}ParentTrunkLink{{ loop.index0 }}_{{ ", " if not loop.last }}{% endfor %}>());
+    {% endif %}
     {% endif %}
 
     {% for node in cluster.nodes %}
@@ -1087,6 +1104,9 @@ struct {{ cluster.cluster_class }}::{{ cluster.name }}{% if cluster.templates %}
         ARC_LINK(({{ connection.trait }}), {{ connection.context }})
         {% endif %}
         {{ arc_end() }}
+        {% endfor %}
+        {% for link, pos in node.trunk_links %}
+        struct TrunkLink{{ loop.index0 }}_ : {{ link }} { static constexpr char const Pos[] = "{{ pos }}"; };
         {% endfor %}
     };
     {% endfor %}

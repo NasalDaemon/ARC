@@ -16,7 +16,7 @@ load("//bazel:cpp_module.bzl", "toolchain_cxxopts")
 
 _CHECK = """
 set -u
-stamp=$1; expect=$2; compiler=$3; count=$4; shift 4
+stamp=$1; expect=$2; unexpect=$3; compiler=$4; count=$5; shift 5
 cases=("${@:1:$count}"); shift "$count"
 log=$(mktemp)
 if ! "$compiler" "$@" >"$log" 2>&1; then
@@ -28,6 +28,9 @@ for case in "${cases[@]}"; do
     fi
     if ! grep -Eq "$expect" "$log"; then
         echo "compile_fail_test: $case failed without a diagnostic matching '$expect':"; cat "$log"; exit 1
+    fi
+    if [ -n "$unexpect" ] && grep -Eq "$unexpect" "$log"; then
+        echo "compile_fail_test: $case failed with a diagnostic matching '$unexpect' as well:"; cat "$log"; exit 1
     fi
 done
 touch "$stamp"
@@ -62,7 +65,7 @@ def _compile_fail_test_impl(ctx):
         inputs = depset([ctx.file.src], transitive = [compilation.headers, cc_toolchain.all_files]),
         outputs = [stamp],
         command = _CHECK,
-        arguments = [stamp.path, ctx.attr.expect, compiler, str(len(ctx.attr.cases))] + ctx.attr.cases + flags,
+        arguments = [stamp.path, ctx.attr.expect, ctx.attr.unexpect, compiler, str(len(ctx.attr.cases))] + ctx.attr.cases + flags,
         mnemonic = "CompileFailCheck",
         progress_message = "Checking that {} rejects each case".format(ctx.file.src.short_path),
     )
@@ -81,6 +84,8 @@ compile_fail_test = rule(
         "cases": attr.string_list(mandatory = True, allow_empty = False),
         # An extended regular expression the failing diagnostic must match.
         "expect": attr.string(mandatory = True),
+        # An extended regular expression no diagnostic may match, when not empty.
+        "unexpect": attr.string(),
         "copts": attr.string_list(),
     } | CC_TOOLCHAIN_ATTRS,
     toolchains = use_cc_toolchain(),

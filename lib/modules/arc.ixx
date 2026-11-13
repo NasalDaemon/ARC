@@ -172,6 +172,7 @@ export namespace arc {
     }
     // depends.hpp
     using arc::Depends;
+    using arc::ParentUse;
     // detached.hpp
     using arc::DetachedInterface;
     using arc::IsDetachedInterface;
@@ -201,6 +202,7 @@ export namespace arc {
         using pred::Stateless;
         using pred::HasDepends;
         using pred::HasTraits;
+        using pred::TrunkLinks;
     }
     // environment.hpp
     using arc::Environment;
@@ -392,6 +394,8 @@ export namespace arc {
         using detail::staticAssertNodeName;
         using detail::staticAssertNodePath;
         using detail::staticAssertParentCluster;
+        // Used by generated clusters whose parent takes a trunk
+        using detail::assertParentTrunkLinksDisjoint;
         // Used by ARC_METHODS
         using detail::assertManualImplements;
     }
@@ -467,6 +471,11 @@ export namespace arc {
     using arc::Trunk;
     using arc::IsTrunk;
     using arc::TrunkOf;
+    // trunk_links.hpp
+    using arc::TrunkLink;
+    using arc::PartialTrunkLink;
+    using arc::InlineTrunkLink;
+    using arc::TraitLink;
     // traits_fwd.hpp
     using arc::ResolvedTrait;
     using arc::IsResolvedTrait;

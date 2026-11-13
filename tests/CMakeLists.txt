@@ -5,6 +5,7 @@ add_executable(arc_tests_headers
     test_embedded_headers.cpp
     test_mem_ptr.cpp
     test_nodiscard.cpp
+    test_trunk.cpp
 )
 add_executable(arc_tests_module
     test_abc_module.cpp
@@ -82,6 +83,7 @@ target_generate_arc_headers(arc_tests_headers
     EMBED
         test_embedded_headers.cpp    arc/tests/test_embedded_headers.hxx
         test_nodiscard.cpp           arc/tests/test_nodiscard.hxx
+        test_trunk.cpp               arc/tests/test_trunk.hxx
 )
 
 target_generate_arc_modules(arc_tests_module
@@ -170,6 +172,41 @@ foreach(DISCARD_CASE NAMED OVERLOAD EXPLICIT DEFAULT TAG FUNCTOR KEYED DUCK FANO
         PASS_REGULAR_EXPRESSION "ignoring return value|call answers nothing here")
 endforeach()
 
-add_test(NAME arc_generator_test
-    COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generator_test.py
-        ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py)
+# A graph whose links break a trunk rule fails the compile: arc_tests_headers compiles test_trunk.cpp as it is, and each
+# case below compiles it building one such graph, on its own.
+foreach(TRUNK_CASE_EXPECT
+        "OVERLAP_EXACT|a trunk cannot be disambiguated"
+        "OVERLAP_TRUNKS|a trunk cannot be disambiguated"
+        "OVERLAP_JOINED|a trunk cannot be disambiguated"
+        "OVERLAP_FANOUT|a trunk cannot be disambiguated"
+        "OVERLAP_SINK|a trunk cannot be disambiguated"
+        "OVERLAP_PARENT|a trunk cannot be disambiguated"
+        "PARTIAL_NODE|without using all of its traits"
+        "PARTIAL_SUBCLUSTER|without using all of its traits"
+        "PARTIAL_INLINE_SUBCLUSTER|without using all of its traits"
+        "PARTIAL_PER_TRAIT_SUBCLUSTER|without using all of its traits"
+        "PARTIAL_SELF_FORWARD_SUBCLUSTER|without using all of its traits"
+        "UNDECLARED|lists no dependencies to check its use against")
+    string(REPLACE "|" ";" TRUNK_CASE_EXPECT "${TRUNK_CASE_EXPECT}")
+    list(GET TRUNK_CASE_EXPECT 0 TRUNK_CASE)
+    list(GET TRUNK_CASE_EXPECT 1 TRUNK_EXPECT)
+    set(TRUNK_TARGET arc_trunk_rejects_${TRUNK_CASE})
+    add_library(${TRUNK_TARGET} OBJECT EXCLUDE_FROM_ALL test_trunk.cpp)
+    target_compile_definitions(${TRUNK_TARGET} PRIVATE ARC_TRUNK_${TRUNK_CASE})
+    target_include_directories(${TRUNK_TARGET} PRIVATE ${ARC_GENERATOR_INCLUDE_DIR})
+    target_link_libraries(${TRUNK_TARGET} PRIVATE arc::headers arc::doctest)
+    add_dependencies(${TRUNK_TARGET} arc_tests_headers_hxx_arc)
+    add_test(NAME ${TRUNK_TARGET}
+        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${TRUNK_TARGET} --config $<CONFIG>)
+    set_tests_properties(${TRUNK_TARGET} PROPERTIES PASS_REGULAR_EXPRESSION "${TRUNK_EXPECT}")
+    if(TRUNK_CASE MATCHES "^OVERLAP_")
+        # The overlap leaves the trait unresolved, which goes unreported as the node's dependencies are not checked
+        set_tests_properties(${TRUNK_TARGET} PROPERTIES FAIL_REGULAR_EXPRESSION "are satisfied by its cluster")
+    endif()
+endforeach()
+
+foreach(GENERATOR_TEST annotations nodiscard parser_cache trunk_declarations trunk_links)
+    add_test(NAME arc_generator_test_${GENERATOR_TEST}
+        COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/tests/test_${GENERATOR_TEST}.py
+            ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py)
+endforeach()

@@ -5,6 +5,7 @@
 #include "arc/detail/storage.hpp"
 #include "arc/cluster_fwd.hpp"
 #include "arc/context_fwd.hpp"
+#include "arc/depends.hpp"
 #include "arc/function.hpp"
 #include "arc/global_trait.hpp"
 #include "arc/link.hpp"
@@ -69,6 +70,7 @@ struct Lazy
 
     public:
         using Traits = arc::TraitsTemplate<TraitsTemplate>;
+        using Depends = detail::DependsThrough<NodeState>;
 
         ARC_INLINE constexpr decltype(auto) impl(this auto& self, auto&&... args)
         {

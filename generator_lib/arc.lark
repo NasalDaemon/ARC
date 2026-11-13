@@ -62,7 +62,8 @@ proto_state_arrow: R_RARROW  -> state_arrow_r
 
 proto_state_set: NAME ("|" NAME)*
 
-cluster_scope:  FQNAME [cluster_annotations] "{" node+ cluster_ctor* connection_block* "}"
+# Annotations may be split over several [...] blocks, read as one comma-separated block
+cluster_scope:  FQNAME cluster_annotations* "{" node+ cluster_ctor* connection_block* "}"
 policy_scope:   FQNAME                       "{" group_alias* group_connection+ "}"
 trait_scope:    FQNAME [trait_annotations]   "{" trait_body+ "}" -> trait_def
            |    FQNAME "=" trait_alias_rhs ("+" trait_alias_rhs)* -> trait_alias
@@ -97,9 +98,10 @@ group_arrow: L_RARROW  -> group_l_r_arrow
            | B_WRARROW -> group_bi_wr_arrow
            | B_RWARROW -> group_bi_rw_arrow
 
-cluster_annotations: "[" cluster_annotation ["," cluster_annotation] "]"
+cluster_annotations: "[" cluster_annotation ("," cluster_annotation)* "]"
+# `Trunk = A + B` declares the cluster's default trunk, `Trunk Name = C + D` a named one
 cluster_annotation: [NAME "="] CLUSTER_ANNOTATION_NAME
-                  | CLUSTER_TRUNK_ANNOTATION "=" trunk_trait ("+" trunk_trait)*
+                  | CLUSTER_TRUNK_ANNOTATION [NAME] "=" trunk_trait ("+" trunk_trait)*
 trunk_trait: FQNAME [full_templ_args]
 CLUSTER_ANNOTATION_NAME.1: "Context" | "Root" | "Info"
 CLUSTER_TRUNK_ANNOTATION.2: "Trunk"

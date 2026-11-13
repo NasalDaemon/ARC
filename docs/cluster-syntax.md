@@ -202,6 +202,17 @@ cluster MyCluster [C = Context, R = Root]
 }
 ```
 
+Annotations may be split over several blocks, read as one; a header with trunks reads best with one block each:
+```arc
+cluster Compute [R = Root]
+                [Trunk Repl = Tokeniser + Parser + Evaluator]
+                [Trunk Script = Tokeniser + Parser + Functions + Variables]
+{
+    // ...
+}
+```
+Each annotation appears once across the blocks.
+
 ### Templated node definitions
 There are many higher-order nodes provided by ARC that are templated on other nodes, such as `arc::InGroup`, `arc::OnThread`, and `arc::StaticMap`. The DSL provides a convenient syntax for using these without needing to write out the full template syntax. The general form is `nodeName = UnderlyingNode : Wrapper1<Args> : Wrapper2<Args> ...` where each wrapper is a higher-order node taking an underlying node as its first template argument. This allows you to quickly and easily read the node definitions from left to right, starting with the underlying node and then seeing how it is wrapped by various higher-order nodes. For example:
 ```arc
@@ -265,14 +276,15 @@ Multiple no-trait sinks can be declared in one line. This is only possible for n
 
 ## Trunking Connections `[[...]]` + `==>`
 
-Named after **network trunking** — a single high-capacity link carrying many separate channels between two endpoints. Trunks bundle multiple traits into one connection line.
+Named after **network trunking**, a single link carrying many channels: a trunk bundles several traits into one connection line.
 
 ### Cluster Trunks
 
-A cluster declares a curated **trunk** of exposed traits in its header, and a sibling node or subcluster carries all of those traits over one connection line.
+A cluster declares the trunks it offers in its header, one annotation block each. It declares either one trunk, `[Trunk = A + B]`, or named trunks, `[Trunk Name = ...]`, whose union is then its default trunk. Each trait of a trunk must be exposed to the parent.
 
 ```arc
-cluster Producer [Trunk = A + B + C]   // subset; D exposed but not in trunk
+cluster Producer [Trunk Core = A + B]
+                 [Trunk Extra = C + D]
 {
     // ...
 
@@ -282,89 +294,95 @@ cluster Producer [Trunk = A + B + C]   // subset; D exposed but not in trunk
     [D] .. --> d
 }
 
-cluster Consumer
-{
-    // ...
-
-    [A] x --> ..
-    [B] y --> ..
-    [C] z --> ..
-}
-
 cluster Outer
 {
     producer = cluster::Producer
-    consumer = cluster::Consumer
-    node = node::Node
+    consumer = cluster::Consumer   // uses A and B
+    extra    = node::Extra         // uses C and D
+    all      = node::All           // uses A, B, C and D
 
-    [[cluster::Producer]]
-    consumer ==> producer    // consumer gets A + B + C
-    [D]
-    node --> producer        // D available as normal
+    [[Producer::Core]]  consumer ==> producer
+    [[Producer::Extra]] extra    ==> producer
+    [[Producer]]        all      ==> producer
 }
 ```
 
-### Inline Trunking
+A client names a trunk as it names the cluster, so `[[Producer::Core]]` where the cluster is visible unqualified, else `[[app::cluster::Producer::Core]]`.
 
-You can also define a trunk inline without a cluster declaration.
+### Extending a Trunk
+
+A named trunk extends others of its cluster by naming them, `Cluster::Name`. This builds a richer face from a smaller one:
 
 ```arc
-cluster MyCluster
-{
-    abc = node::ABC
-    xyz = node::XYZ
-
-    [[A + B + C]]
-    xyz ==> abc
-}
+cluster Compute [Trunk Parse = Tokeniser + Parser]
+                [Trunk Repl = Compute::Parse + Evaluator]
+                [Trunk Script = Compute::Parse + Functions + Variables]
 ```
 
-Inline trunks are useful when:
-- You want to bundle traits without defining a cluster or a new joined trait
-- You need a one-off trunk for a specific connection
+Extended trunks merge, each trait once in the order first listed. A trait the trunk lists itself must be new to it. The default trunk is the union, so it is not extended.
+
+### Full Use
+
+A client must use every trait of the trunk it takes, and the compiler checks it:
+- a node uses what its `arc::Node::Uses<>` or `arc::Depends<>` lists, optional `T*` entries included;
+- a subcluster uses what its nodes use of the links they take from `@parent`, by any kind of link, renamed or not;
+- a wrapper uses what it wraps: a collection its element, `arc::Union` its options, and `arc::Lazy`, `arc::Narrow` and `arc::Combine` the nodes within.
+
+```
+Node takes a trunk without using all of its traits: declare a trunk on the cluster for just the traits the node uses, ...
+  trunk    = app::cluster::Producer::Core
+  unused   = app::trait::B
+  link     = app.ixx.arc:31:38
+  declared = app.ixx.arc:12:9
+```
+
+When a client needs part of a trunk, declare a named trunk for that part. For a one-off client, `[[Producer*]]` takes part of a trunk; the part then passes on, so a subcluster taking it with `*` is itself taken with `*`, or through a trunk matching what it uses.
+
+A node that lists no dependencies (a bare `arc::Node`, a mock, an `arc::Virtual`) cannot take a trunk in full. Where such a node takes links from its subcluster's `@parent`, it counts as using all they carry: the check cannot see further. Inline trunks, and trunks `@parent` takes, are not checked for full use.
+
+### One Link per Trait
+
+A trait reaches a node through one link. A trunk cannot be disambiguated inside the node, so a node may not take a trait through a trunk and through another link: a per-trait link, a fan-out, a sink or another trunk. The same holds for `@parent`. Traits match as resolution matches them, so a joined trait overlaps each of its traits. Two per-trait links may overlap, as the node can name either.
+
+The generator rejects the overlaps it can see in the file, and the compiler the rest:
+
+```
+Node takes a trait through a trunk and through another link, and a trunk cannot be disambiguated inside the node: take the trait through one link only
+  overlap = app::trait::A through [[app::cluster::Producer::Core]] at app.ixx.arc:31:38 and [app::trait::A] at app.ixx.arc:32:24
+```
+
+Before C++26 the fields print as `<?>`, and the failed requirement names the trait and the node's two links: `TraitReachesNodeThroughTwoLinks<app::trait::A, ...::client_::TrunkLink0_, ...::client_::TrunkLink1_>`.
+
+### Inline Trunks
+
+A link may bundle traits itself:
+
+```arc
+[[A + B + C]]
+xyz ==> abc
+```
 
 ### Bi-directional Trunks
 
-Two clusters that depend on each other's trunks can be wired in a single block using a `<=>` separator in the header. The block's left and right trunks behave like the two sides of a `[A <-> B]` bi-trait header, and the connection lines may use `==>`, `<==`, or `<=>` per pair.
+Two clusters taking each other's trunks may share one block, `<=>` separating the two trunks. Its lines use `==>`, `<==` or `<=>`:
 
 ```arc
-cluster Outer
-{
-    data    = cluster::Data
-    compute = cluster::Compute
-    repl    = node::Repl
-
-    [[cluster::Data <=> cluster::Compute]]
-    data <=> compute  // data and compute consume each other's trunks
-    repl ==> compute  // repl consumes Compute trunk
-    data <== repl     // repl consumes Data trunk (reversed form)
-}
+[[Data <=> Compute]]
+data <=> compute  // each takes the other's trunk
+repl ==> compute  // repl takes Compute's
+data <== repl     // repl takes Data's
 ```
 
-This is equivalent to:
-
-```arc
-cluster Outer
-{
-    // ...
-    [[cluster::Data]]    repl, compute ==> data
-    [[cluster::Compute]] repl, data    ==> compute
-}
-```
-
-The bi-trunk form is a matter of taste — it makes the symmetric relationship explicit but mixes arrow directions in one block.
-
-Both sides of a bi-trunk connetion block must be single cluster trunks (no `+` on either side).
+This equals `[[Data]] repl, compute ==> data` and `[[Compute]] repl, data ==> compute`. Each side is a single cluster trunk, which may be named and take `*`.
 
 ### Rules
-- `[Trunk = T1 + T2 + ...]` declares the cluster's curated public surface. Every listed trait must be exposed via a matching `[T] .. --> node` parent connection — the generator checks this.
-- Trunk consumption uses **double brackets** `[[...]]` and **`==`-style arrows** (`==>`, `<==`, `<=>`). Single-bracket `[...]` with `==>` is rejected, and `[[...]]` with `-->` is rejected.
-- A `[[...]]` block can contain a single cluster (uses cluster's trunk), multiple traits joined with `+` (inline trunk), or two cluster trunks joined with `<=>` (bi-trunk).
-- Bi-directional connections (`<=>`) are only allowed inside a bi-trunk block `[[A <=> B]]`; in a uni-trunk block they're rejected because both directions would carry the same trunk.
-- The bi-trunk separator must be `=`-style (e.g. `<=>`); `<->` is rejected to match the `==`-style arrow convention.
-- Inline trunks (`+`) cannot be bi-directional — each side of `<=>` must be a single cluster trunk.
-- No bi-trait `[[X <-> Y]]` (use `<=>` instead), no sinks, no `@notrait`.
+- Trunk blocks use `[[...]]` with `==`-style arrows; `-->` there, or `==>` in `[...]`, is rejected.
+- `*` takes one cluster trunk in part; it is rejected on inline trunks and where `@parent` takes the trunk.
+- A trunk cannot fan out (`[[X]] a ==> {b, c}`) or be taken twice by one node: fan out its traits instead.
+- No sinks, `@notrait` or `<->` in trunk blocks.
+- A named trunk is a type in the cluster's scope, so its name must not be a name the cluster uses unqualified (a trait, a type, a template argument or parameter); `Node`, `Trunk`, `SourceLocation` and the cluster's name are taken. A node may not be named `Depends`.
 
 ### When to use
-- A subcluster has a coherent public face (multiple related traits) and a sibling consumer needs most of it. The named trunk replaces a hand-maintained `trait Composite = A + B + C` alias.
-- You want to bundle traits inline without defining a cluster or naming a new joined trait
+- A cluster has faces that several clients use in full: give each face a named trunk, and build larger faces by extension.
+- A trait belongs in a trunk only if every client of that trunk uses it; a trunk of one trait is just a per-trait link.
+- An inline trunk bundles traits for one link without naming them.

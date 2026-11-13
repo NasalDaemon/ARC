@@ -78,7 +78,7 @@ using Depends = arc::Depends<
 >;
 ```
 
-In clusters this is optional, but in **domains** it is mandatory.
+In clusters this is optional, but in **domains** it is mandatory, and a node taking a cluster's trunk lists them too, so the compiler can check it uses the whole trunk.
 
 ## Context-Injected Node (complex dependencies, type resolution)
 

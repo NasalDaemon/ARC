@@ -345,6 +345,62 @@ def is_global_trait(trait: str | None) -> bool:
     return trait in GLOBAL_TRAIT or "arc::Global<" in trait
 
 
+TRUNK_OF_PREFIX = "::arc::TrunkOf<"
+INLINE_TRUNK_PREFIX = "::arc::Trunk<"
+# Names a cluster's trunk may not take, as they name other members of the cluster's struct
+RESERVED_TRUNK_NAMES = ("Node", "Trunk", "SourceLocation")
+# Names a node may not take, as they name member types of every cluster's node struct
+RESERVED_NODE_NAMES = ("Depends",)
+
+def is_trunk_trait(trait: str | None) -> bool:
+    return trait is not None and (trait.startswith(TRUNK_OF_PREFIX) or trait.startswith(INLINE_TRUNK_PREFIX))
+
+
+def short_pos(pos: str | None) -> str:
+    """file:line:col with the file's name alone, for positions quoted in generated diagnostics"""
+    if not pos:
+        return ""
+    parts = pos.rsplit(":", 2)
+    if len(parts) == 3 and parts[1].isdigit():
+        return f"{Path(parts[0]).name}:{parts[1]}:{parts[2]}"
+    return Path(pos).name
+
+
+class TrunkDecl:
+    """A trunk a cluster declares in its header: `Trunk = A + B`, or `Trunk Name = A + B` when named"""
+    def __init__(self, name: str | None, traits: list[str], pos: str, entries: list[tuple[str, str]] | None = None):
+        self.name = name
+        # The trunk's traits, each trunk it extends expanded
+        self.traits = traits
+        self.pos = pos
+        # As declared, (trait or `Cluster::Name` of a trunk it extends, DSL position)
+        self.entries = entries or [(t, pos) for t in traits]
+        # (trait, label of the trunk that lists it) once expanded
+        self.expanded: list[tuple[str, str]] | None = None
+
+    @property
+    def label(self) -> str:
+        return f"trunk '{self.name}'" if self.name else "default trunk"
+
+    @property
+    def source_location(self) -> str:
+        return short_pos(self.pos)
+
+
+class TrunkUse:
+    """How a connection in a trunk block `[[...]]` takes its trunk: a cluster's declared trunk, its face, in full or
+    in part (`[[cluster::X*]]`), or an inline trunk `[[A + B]]` of the listed members"""
+    def __init__(self, face: str | None, partial: bool, members: list[str] | None):
+        self.face = face
+        self.partial = partial
+        self.members = members
+
+    def describe(self, trait: str) -> str:
+        if self.face is not None:
+            return f"[[{self.face}{'*' if self.partial else ''}]]"
+        return f"[[{' + '.join(self.members or [trait])}]]"
+
+
 class CppType:
     def __init__(self, string: str, *, is_auto: bool = False, tree: Tree | None = None):
         if string.endswith("..."):
@@ -423,8 +479,10 @@ class Connection:
         traitblock_id: Optional[int] = None,
         fanout_id: Optional[int] = None,
         to_repeater: Repeater | None = None,
+        trunk: TrunkUse | None = None,
     ):
         self.pos = pos
+        self.trunk = trunk
         self.to_node: Node | Repeater = to_node
         self.trait: str = trait
         if self.trait in NO_TRAIT:
@@ -441,7 +499,7 @@ class Connection:
         return self.to_node.context
 
     def copy(self):
-        return Connection(self.pos, self.to_node, self.trait, self.to_trait, self.traitblock_id, self.fanout_id, self.to_repeater)
+        return Connection(self.pos, self.to_node, self.trait, self.to_trait, self.traitblock_id, self.fanout_id, self.to_repeater, self.trunk)
 
     def is_renaming(self):
         return self.trait != self.to_trait
@@ -488,7 +546,25 @@ class Node:
     def node_alias(self):
         return f"{self.context}Node_"
 
-    def add_connection(self, pos, traitblock_id: Optional[int], fanout_id: Optional[int], is_override: bool, to_node: 'Node', trait: str, *, to_trait: str | None = None):
+    @property
+    def trunk_links(self) -> list[tuple[str, str]]:
+        """The links this node holds, as (link type, DSL position), for the trunk checks: only when one is a trunk"""
+        if not any(c.trunk is not None for c in self.connections):
+            return []
+        links = []
+        for c in self.connections:
+            if is_no_trait(c.trait) or is_global_trait(c.trait):
+                continue
+            if c.trunk is None:
+                link = f"::arc::TraitLink<{c.trait}>"
+            elif c.trunk.face is None:
+                link = f"::arc::InlineTrunkLink<{c.trait}>"
+            else:
+                link = f"::arc::{'Partial' if c.trunk.partial else ''}TrunkLink<{c.trunk.face}>"
+            links.append((link, short_pos(c.pos)))
+        return links
+
+    def add_connection(self, pos, traitblock_id: Optional[int], fanout_id: Optional[int], is_override: bool, to_node: 'Node', trait: str, *, to_trait: str | None = None, trunk: TrunkUse | None = None):
         assert self.cluster == to_node.cluster
         if to_node == self and fanout_id is None:
             raise SyntaxError(f"{pos} cannot connect '{self.name}' to itself")
@@ -527,11 +603,23 @@ class Node:
         elif to_node.is_global:
                 to_trait = f"::arc::Global<{effective_to_trait}>"
 
+        if trunk is not None and trunk.partial:
+            if self.is_parent:
+                raise SyntaxError(f"{pos} '*' in {trunk.describe(trait)} has no effect where @parent takes the trunk in "
+                                  f"{self.cluster.cluster_class} '{self.cluster.full_name}': only a node's use of a trunk is checked")
+            if to_node.is_parent:
+                self.cluster.partial_parent_links.add((self.name, effective_to_trait))
+
         to_node.add_client(pos, self, effective_to_trait)
-        connection = Connection(pos, to_node, trait=trait, to_trait=to_trait, traitblock_id=traitblock_id, fanout_id=fanout_id)
+        connection = Connection(pos, to_node, trait=trait, to_trait=to_trait, traitblock_id=traitblock_id, fanout_id=fanout_id, trunk=trunk)
 
         # Deal with repeated connections to the same trait
         if existing := next((c for c in self.connections if c.trait == connection.trait), None):
+            if is_trunk_trait(connection.trait):
+                described = (trunk or existing.trunk).describe(connection.trait) if (trunk or existing.trunk) else connection.trait
+                raise SyntaxError(f"{pos} '{self.name}' in {self.cluster.cluster_class} '{self.cluster.full_name}' takes trunk "
+                                  f"{described} more than once (first here {existing.pos}); a trunk cannot fan out: "
+                                  "fan out its traits one link each")
             # Check that this new connection to the same trait is being added in the right place
             if self.cluster.is_domain and fanout_id is None:
                 raise SyntaxError(f"{pos}: '{self.name}' in domain '{self.cluster.full_name}', repeated connections to trait '{connection.trait}' must be via explicit fanout")
@@ -561,6 +649,14 @@ class Node:
                 existing.to_repeater.add_connection(connection)
         else:
             self.connections.append(connection)
+
+    def trait_asked_of_parent(self, trait: str) -> str:
+        """The trait this node asks for through its link for trait to @parent, which a renaming link changes"""
+        for c in self.connections:
+            targets = c.to_repeater.connections if c.to_repeater is not None else [c]
+            if any(t.to_node.is_parent and t.to_trait == trait for t in targets):
+                return c.trait
+        return trait
 
     def add_client(self, pos, client, trait):
         if self.no_traits:
@@ -658,7 +754,10 @@ class Cluster:
         self.dependencies: list[str] = []
         # trait: [(Node, position)] where len(list) > 1 only when trait is NO_TRAIT
         self.sink_traits: dict[str, list[tuple[Node, str]]] = defaultdict(list)
-        self.trunk_traits: list[str] = []
+        # Declared trunks by name, None naming the default trunk
+        self.trunks: dict[str | None, TrunkDecl] = {}
+        # (client node name, trunk trait) of each trunk a node takes from @parent with `[[cluster::X*]]`
+        self.partial_parent_links: set[tuple[str, str]] = set()
         self.constructors: list[ClusterCtor] = []
 
     @property
@@ -684,7 +783,10 @@ class Cluster:
         if isinstance(node, Repeater):
             return []
         traits = set(f'::arc::NoTrait<{node.node_alias}>' if trait in NO_TRAIT else trait for _, _, trait in node.clients)
-        return [f"::arc::pred::HasTraits<{', '.join(traits)}>"]
+        preds = [f"::arc::pred::HasTraits<{', '.join(traits)}>"]
+        if links := node.trunk_links:
+            preds.append(f"::arc::pred::TrunkLinks<{', '.join(f'typename {node.context}::TrunkLink{i}_' for i in range(len(links)))}>")
+        return preds
 
     def predicates_str(self, node) -> str:
         if preds := self.predicates(node):
@@ -751,6 +853,107 @@ class Cluster:
         hint = f"; did you mean '{close[0]}'?" if close else f"; its nodes are: {', '.join(known)}"
         raise SyntaxError(f"{get_pos(token)} Unknown node '{name}' in {self.cluster_class} '{self.full_name}'{hint}")
 
+    def expand_trunks(self):
+        """Lists each declared trunk's traits, expanding each entry that names another of the cluster's named trunks,
+        `Cluster::Name`, into that trunk's traits. A cluster declares either its one trunk, `Trunk = ...`, or named
+        trunks, whose union is then its default trunk."""
+        named = [decl for decl in self.trunks.values() if decl.name is not None]
+        if named and (default := self.trunks.get(None)):
+            raise SyntaxError(f"{default.pos} {self.cluster_class} '{self.full_name}' declares a default trunk beside named trunks: "
+                              f"its default trunk is the union of its named trunks, so name this one too, 'Trunk Name = ...'")
+        expanding: list[TrunkDecl] = []
+
+        def expand(decl: TrunkDecl) -> list[tuple[str, str]]:
+            """The trunk's traits, each with the trunk it is listed in. The trunks it extends merge, each trait once in
+            the order first listed, while each trait it lists itself must be in none of them, nor listed twice."""
+            if decl in expanding:
+                cycle = " -> ".join(d.label for d in expanding[expanding.index(decl):] + [decl])
+                raise SyntaxError(f"{decl.pos} {self.cluster_class} '{self.full_name}' declares trunks that extend each other: {cycle}")
+            if decl.expanded is not None:
+                return decl.expanded
+            expanding.append(decl)
+            # Each entry as the trunk it extends, or None for a trait the trunk lists itself
+            resolved: list[tuple[str, str, TrunkDecl | None]] = []
+            for entry, pos in decl.entries:
+                qualifier, _, face_name = entry.lstrip(":").rpartition("::")
+                if qualifier == self.name:
+                    if face_name == "Trunk":
+                        raise SyntaxError(f"{pos} {decl.label} of {self.cluster_class} '{self.full_name}' extends '{entry}', the default "
+                                          "trunk, which is the union of the named trunks: name the trunk to extend, "
+                                          f"'Trunk Core = ...', and extend '{self.name}::Core'")
+                    name = face_name
+                    if name not in self.trunks:
+                        known = [f"{self.name}::{d.name}" for d in named if d is not decl]
+                        raise SyntaxError(f"{pos} {decl.label} of {self.cluster_class} '{self.full_name}' extends '{entry}', "
+                                          f"but the {self.cluster_class} declares no such trunk"
+                                          + (f"; its trunks are: {', '.join(known)}" if known else ""))
+                    resolved.append((entry, pos, self.trunks[name]))
+                else:
+                    if qualifier.rpartition("::")[2] == self.name and face_name in self.trunks:
+                        raise SyntaxError(f"{pos} {decl.label} of {self.cluster_class} '{self.full_name}' lists '{entry}': to extend "
+                                          f"the trunk, name it as '{self.name}::{face_name}'")
+                    resolved.append((entry, pos, None))
+            extended_traits: dict[str, str] = {}
+            for _, _, extended in resolved:
+                if extended is not None:
+                    for trait, _ in expand(extended):
+                        extended_traits.setdefault(trait, extended.label)
+            traits: list[tuple[str, str]] = []
+            listed: dict[str, str] = {}
+            for entry, pos, extended in resolved:
+                if extended is not None:
+                    traits.extend((trait, extended.label) for trait, _ in expand(extended) if trait not in (t for t, _ in traits))
+                    continue
+                if face := extended_traits.get(entry):
+                    raise SyntaxError(f"{pos} {decl.label} of {self.cluster_class} '{self.full_name}' lists trait '{entry}', which "
+                                      f"{face} it extends already has: a trait it lists itself must be new")
+                if first := listed.get(entry):
+                    raise SyntaxError(f"{pos} {decl.label} of {self.cluster_class} '{self.full_name}' lists trait '{entry}' twice "
+                                      f"(first here {first})")
+                listed[entry] = pos
+                traits.append((entry, decl.label))
+            expanding.pop()
+            decl.expanded = traits
+            return traits
+
+        for decl in self.trunks.values():
+            decl.traits = [trait for trait, _ in expand(decl)]
+        if named:
+            union: list[str] = []
+            for decl in named:
+                union.extend(trait for trait in decl.traits if trait not in union)
+            self.trunks = {None: TrunkDecl(None, union, self.pos), **self.trunks}
+
+    def check_trunk_names(self, nodes: dict[str, 'Node']):
+        """A named trunk is a struct of the cluster's struct, so its name would shadow any name the cluster spells
+        unqualified, in a trait, a trunk's face or a node's type, and may not be a template parameter's"""
+        names = {decl.name: decl for decl in self.trunks.values() if decl.name is not None}
+        if not names:
+            return
+        for _, param in self.templates:
+            if decl := names.get(param):
+                raise SyntaxError(f"{decl.pos} Trunk name '{param}' in {self.cluster_class} '{self.full_name}' is the name of a "
+                                  "template parameter of the cluster: rename the trunk")
+        spellings: list[tuple[str, str | None]] = []
+        for decl in self.trunks.values():
+            spellings.extend(decl.entries)
+        spellings.extend((spelt, None) for spelt in self.aliases.values())
+        for node in nodes.values():
+            if node.is_user_node and not node.is_parent and not node.is_global:
+                spellings.append((node.impl, node.pos))
+            for c in node.connections:
+                spellings.extend((t, c.pos) for t in (c.trait, c.to_trait) + tuple((c.trunk.members or []) if c.trunk else []))
+                if c.trunk is not None and c.trunk.face is not None:
+                    spellings.append((c.trunk.face, c.pos))
+        # Each name that starts a type's name, or a template argument's, as one not qualified by a scope or a member
+        for spelling, pos in spellings:
+            for unqualified in re.finditer(r"(?<![\w:.])([A-Za-z_]\w*)", spelling or ""):
+                if decl := names.get(unqualified.group(1)):
+                    where = f" here {pos}" if pos else " in a connection alias"
+                    raise SyntaxError(f"{decl.pos} Trunk name '{decl.name}' in {self.cluster_class} '{self.full_name}' is also "
+                                      f"a name the {self.cluster_class} spells unqualified, in '{spelling}'{where}: inside the "
+                                      f"{self.cluster_class} it would name the trunk instead, so rename the trunk")
+
     def walk(self, children):
         aliases: dict[str, str] = {}
         nodes: dict[str, Node] = {}
@@ -760,8 +963,11 @@ class Cluster:
         sink_connection_seen = False
         left_trait: str
         right_trait: str
+        left_trunk: TrunkUse | None = None
+        right_trunk: TrunkUse | None = None
         bi_trait: bool
         is_trunk_block: bool = False
+        annotations_seen: dict[str, str] = {}
         traitblock_id = 0
         fanout_id = 0
 
@@ -811,12 +1017,31 @@ class Cluster:
                     for ann in child.children:
                         current_token = ann
                         if ann.children[0].value == "Trunk":
-                            traits = []
+                            trunk_name: str | None = None
+                            entries: list[tuple[str, str]] = []
                             for c in ann.children[1:]:
-                                if isinstance(c, Tree) and c.data == imported('trunk_trait'):
-                                    traits.append(reconstruct(c))
-                            self.trunk_traits = traits
-                        elif ann.children[-1].value == "Context":
+                                # Module grammars import NAME unprefixed
+                                if isinstance(c, Token) and c.type in ('NAME', imported('NAME')):
+                                    trunk_name = c.value
+                                elif isinstance(c, Tree) and c.data == imported('trunk_trait'):
+                                    entries.append((reconstruct(c), get_pos(c)))
+                            if trunk_name in RESERVED_TRUNK_NAMES or trunk_name == self.name:
+                                raise SyntaxError(f"{get_pos(ann)} Trunk name '{trunk_name}' in {self.cluster_class} '{self.full_name}' "
+                                                  f"is reserved: it names another member of the {self.cluster_class}")
+                            if previous := self.trunks.get(trunk_name):
+                                if trunk_name is None:
+                                    raise SyntaxError(f"{get_pos(ann)} {self.cluster_class} '{self.full_name}' declares its default trunk twice "
+                                                      f"(first here {previous.pos}); name the other one: 'Trunk Name = ...'")
+                                raise SyntaxError(f"{get_pos(ann)} {self.cluster_class} '{self.full_name}' declares trunk '{trunk_name}' twice "
+                                                  f"(first here {previous.pos})")
+                            self.trunks[trunk_name] = TrunkDecl(trunk_name, [], get_pos(ann), entries)
+                            continue
+                        kind = ann.children[-1].value
+                        if kind in annotations_seen:
+                            raise SyntaxError(f"{get_pos(ann)} {self.cluster_class} '{self.full_name}' declares annotation '{kind}' twice "
+                                              f"(first here {annotations_seen[kind]})")
+                        annotations_seen[kind] = get_pos(ann)
+                        if ann.children[-1].value == "Context":
                             self.context_name = ann.children[0].value
                         elif ann.children[-1].value == "Root":
                             self.root_name = ann.children[0].value
@@ -828,6 +1053,9 @@ class Cluster:
                             raise SyntaxError(f"{get_pos(ann)} Unknown cluster annotation: {ann.children[0].value}")
                 elif child.data == imported('node'):
                     name = child.children[0].value
+                    if name in RESERVED_NODE_NAMES:
+                        raise SyntaxError(f"{get_pos(child)} Node name '{name}' in {self.cluster_class} '{self.full_name}' is reserved: "
+                                          f"it names a member type of every {self.cluster_class}")
                     if name in nodes:
                         raise SyntaxError(f"{get_pos(child)} Node '{name}' already defined in {self.cluster_class} '{self.full_name}'")
                     impl = reconstruct(child.children[1])
@@ -893,30 +1121,43 @@ class Cluster:
                                                       f"(single type on each side, e.g. '[[cluster::A <=> cluster::B]]'). "
                                                       f"Inline trunks with '+' cannot be bi-directional in {self.cluster_class} '{self.full_name}'")
 
-                                def build_trunk_trait(trees: list[Tree], pos_token: Tree | Token) -> str:
+                                def build_trunk_trait(trees: list[Tree], pos_token: Tree | Token) -> tuple[str, TrunkUse | None]:
                                     trait_strs = []
+                                    partial = False
                                     for t in trees:
                                         s = reconstruct(t)
                                         if s in NO_TRAIT:
                                             raise SyntaxError(f"{get_pos(t)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' "
                                                               f"cannot use special trait '{s}'")
+                                        if s.endswith('*') or s.endswith('&'):
+                                            stripped = s[:-1].rstrip()
+                                            if len(trees) > 1 or s.endswith('&') or stripped.endswith('*') or stripped.endswith('&'):
+                                                raise SyntaxError(f"{get_pos(t)} '{s}' in trunk block '[[...]]' in {self.cluster_class} '{self.full_name}': "
+                                                                  "only a cluster's trunk may be marked with one '*', as in '[[cluster::X*]]', "
+                                                                  "to take only part of it")
+                                            partial = True
+                                            s = stripped
                                         trait_strs.append(s)
                                     if len(trait_strs) == 1:
                                         s = trait_strs[0]
                                         if s in GLOBAL_TRAIT:
-                                            return s
-                                        return f"::arc::TrunkOf<{s}>"
+                                            if partial:
+                                                raise SyntaxError(f"{get_pos(pos_token)} '@global' in trunk block '[[...]]' in {self.cluster_class} "
+                                                                  f"'{self.full_name}' cannot be marked with '*'")
+                                            return s, None
+                                        return f"{TRUNK_OF_PREFIX}{s}>", TrunkUse(s, partial, None)
                                     if any(t in GLOBAL_TRAIT for t in trait_strs):
                                         raise SyntaxError(f"{get_pos(pos_token)} Trunk block '[[...]]' in {self.cluster_class} '{self.full_name}' "
                                                           f"cannot use @global trait in inline trunk trait '{trait_strs}'")
-                                    return f"::arc::Trunk<{', '.join(trait_strs)}>"
+                                    return f"{INLINE_TRUNK_PREFIX}{', '.join(trait_strs)}>", TrunkUse(None, False, trait_strs)
 
-                                left_trait = build_trunk_trait(left_trait_trees, child)
+                                left_trait, left_trunk = build_trunk_trait(left_trait_trees, child)
                                 if bi_trait:
-                                    right_trait = build_trunk_trait(right_trait_trees, child)
+                                    right_trait, right_trunk = build_trunk_trait(right_trait_trees, child)
                                 else:
-                                    right_trait = left_trait
+                                    right_trait, right_trunk = left_trait, left_trunk
                             else:
+                                left_trunk = right_trunk = None
                                 left_trait = reconstruct(child.children[0])
                                 if len(child.children) == 1:
                                     bi_trait = False
@@ -1007,19 +1248,19 @@ class Cluster:
                                     for lnode, rnode in lrnodes:
                                         if is_trunk_block and lnode.is_global:
                                             raise SyntaxError(f"{pos} in {self.cluster_class} '{self.full_name}': Trunk connection cannot target @global node.")
-                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait, trunk=left_trunk)
                                 elif arrow.data == imported('right_arrow'):
                                     validate_fanout(right_arrow=True)
                                     for lnode, rnode in lrnodes:
                                         if is_trunk_block and rnode.is_global:
                                             raise SyntaxError(f"{pos} in {self.cluster_class} '{self.full_name}': Trunk connection cannot target @global node.")
-                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait, trunk=right_trunk)
                                 elif arrow.data == imported('bi_arrow'):
                                     validate_fanout(right_arrow=False, double_headed=True)
                                     validate_fanout(right_arrow=True, double_headed=True)
                                     for lnode, rnode in lrnodes:
-                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait)
-                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait)
+                                        rnode.add_connection(pos, tid, lfid, is_override, lnode, left_trait, trunk=left_trunk)
+                                        lnode.add_connection(pos, tid, rfid, is_override, rnode, right_trait, trunk=right_trunk)
                                 elif arrow.data == imported('left_arrow_from'):
                                     validate_fanout(right_arrow=False)
                                     from_trait = reconstruct(arrow.children[-1].children[0])
@@ -1068,6 +1309,9 @@ class Cluster:
             print(f"ERROR: {get_pos(current_token)} raised exception: {e}")
             raise
 
+        # Once every annotation block is read, as a trunk may extend one declared in a later block
+        self.expand_trunks()
+
         # Connect all nodes (including parent) to sink nodes at very end
         sink_traits = self.sink_traits
         self.sink_traits = {}
@@ -1087,14 +1331,31 @@ class Cluster:
         self.nodes.extend(self.user_nodes)
         self.repeaters.sort(key=lambda r: r.name)
         self.nodes.extend(self.repeaters)
-        self.dependencies = [aliases.get(trait, trait) for _, _, trait in self.parent_node.clients]
-        self.dependencies.sort()
+        # Each link a node takes from @parent, with the node, as arc::ParentUse: it matches as the trait does, while
+        # the trunk checks of a link the cluster holds count only what the node uses of it
+        def dependency(client: Node, trait: str) -> str:
+            if is_no_trait(trait) or is_global_trait(trait):
+                return aliases.get(trait, trait)
+            if client.is_parent:
+                # Passed back out to the cluster's own parent: no node of the cluster uses it
+                return f"::arc::ParentUse<{aliases.get(trait, trait)}, {aliases.get(trait, trait)}, void, false>"
+            asked = client.trait_asked_of_parent(trait)
+            partial = "true" if (client.name, trait) in self.partial_parent_links else "false"
+            return f"::arc::ParentUse<{aliases.get(trait, trait)}, {aliases.get(asked, asked)}, {client.context}, {partial}>"
+        self.dependencies = sorted({dependency(client, trait) for _, client, trait in self.parent_node.clients})
 
-        if self.trunk_traits is not None:
-            parent_traits = {c.trait for c in self.parent_node.connections}
-            for trait in self.trunk_traits:
+        parent_traits = set()
+        for c in self.parent_node.connections:
+            parent_traits.add(c.trait)
+            if c.trunk is not None and c.trunk.members:
+                parent_traits.update(c.trunk.members)
+        self.check_trunk_names(nodes)
+
+        # Named trunks first, so that the error names the trunk listing the trait rather than their union
+        for decl in sorted(self.trunks.values(), key=lambda d: d.name is None):
+            for trait in decl.traits:
                 if trait not in parent_traits:
-                    raise SyntaxError(f"{full_pos(self.pos)} {self.cluster_class} '{self.full_name}' trunk annotation lists trait '{trait}' "
+                    raise SyntaxError(f"{decl.pos} {self.cluster_class} '{self.full_name}' {decl.label} lists trait '{trait}' "
                                       f"but there is no '[{trait}] .. --> node' parent connection")
 
     def finalise(self):
@@ -2207,12 +2468,79 @@ class Repr:
 
     def finalise(self):
         self.namespaces = sorted(self.namespaces_dict.values(), key=lambda v: v.name)
+        self.check_trunk_overlaps()
         for n in self.namespaces:
             n.finalise()
         self.has_cluster = any(len(namespace.clusters) != 0 for namespace in self.namespaces)
         self.has_trait = any(len(namespace.traits) != 0 for namespace in self.namespaces)
         self.has_protocol = any(len(namespace.protocols) != 0 for namespace in self.namespaces)
         self.check_protocol_refs()
+
+    def find_trunk(self, consumer: Cluster, face: str) -> TrunkDecl | None:
+        """The trunk `[[face]]` names, when a cluster in the consumer's namespace in this file declares it, found the
+        way C++ looks the name up from the consumer's namespace outwards (else the C++ compiler checks it)"""
+        if '<' in face:
+            return None
+        clusters = {f"{c.namespace.name}::{c.cluster_class}::{c.name}" if c.namespace.name else f"{c.cluster_class}::{c.name}": c
+                    for n in self.namespaces for c in n.clusters}
+        if face.startswith("::"):
+            candidates = [face[2:]]
+        else:
+            # A cluster's node is defined in its struct, in namespace ns::cluster (or ns::domain), within ns
+            scopes = consumer.namespace.name.split("::") if consumer.namespace.name else []
+            candidates = ["::".join(scopes + [consumer.cluster_class, consumer.name, face]),
+                          "::".join(scopes + [consumer.cluster_class, face])]
+            candidates += ["::".join(scopes[:i] + [face]) for i in range(len(scopes), -1, -1)]
+        for candidate in candidates:
+            if cluster := clusters.get(candidate):
+                trunk_name = None
+            else:
+                owner, _, trunk_name = candidate.rpartition("::")
+                cluster = clusters.get(owner)
+                if cluster is None:
+                    continue
+            # Trait names are spelt relative to their cluster's namespace, so are only comparable within one
+            if cluster.namespace.name != consumer.namespace.name:
+                return None
+            return cluster.trunks.get(trunk_name)
+        return None
+
+    def check_trunk_overlaps(self):
+        """No node, nor a cluster's parent, may take a trait through a trunk and another link, as the trunk cannot be
+        disambiguated inside the node. Checked here for the trunks whose traits this file lists, and otherwise by the
+        C++ compiler."""
+        for namespace in self.namespaces:
+            for cluster in namespace.clusters:
+                for node in [cluster.parent_node] + cluster.user_nodes:
+                    links: list[tuple[Connection, list[str]]] = []
+                    for c in node.connections:
+                        if is_no_trait(c.trait) or is_global_trait(c.trait):
+                            continue
+                        if c.trunk is None:
+                            traits = [cluster.aliases.get(c.trait, c.trait)]
+                        elif c.trunk.members is not None:
+                            traits = [cluster.aliases.get(t, t) for t in c.trunk.members]
+                        elif decl := self.find_trunk(cluster, c.trunk.face):
+                            traits = decl.traits
+                        else:
+                            continue
+                        links.append((c, traits))
+                    for i, (a, a_traits) in enumerate(links):
+                        for b, b_traits in links[i+1:]:
+                            if a.trunk is None and b.trunk is None:
+                                continue
+                            if shared := next((t for t in a_traits if t in b_traits), None):
+                                def line_col(c: Connection) -> tuple[int, int]:
+                                    parts = c.pos.rsplit(":", 2)
+                                    return (int(parts[1]), int(parts[2])) if len(parts) == 3 and parts[1].isdigit() else (0, 0)
+                                first, second = sorted((a, b), key=line_col)
+                                def describe(c: Connection) -> str:
+                                    return c.trunk.describe(c.trait) if c.trunk else f"[{c.trait}]"
+                                raise SyntaxError(
+                                    f"{second.pos} '{node.name}' in {cluster.cluster_class} '{cluster.full_name}' takes trait '{shared}' "
+                                    f"through {describe(first)} here {first.pos} and through {describe(second)}; a trunk cannot be "
+                                    "disambiguated inside the node, so the trait must reach it through one link only: "
+                                    "drop it from the other link, or take the trunk's traits one link each")
 
     def check_protocol_refs(self):
         """Each state or predicate a protocol clause names bare must be one of its protocol's, when the protocol is
