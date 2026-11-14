@@ -70,7 +70,7 @@ trait Mutating
 
 trait Counting
 {
-    requires std::same_as<decltype(const_.n()), int>
+    requires requires { { const_.n() } -> std::same_as<int>; }
 
     n() const -> int
 }

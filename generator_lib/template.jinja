@@ -882,8 +882,12 @@ struct {{ trait.name }} : ::arc::Trait
                 "requires { typename " ~ trait.impl_name ~ "::Traits; }") }}
             {% for require in trait.requires %}
             {{ arc_line(require.pos, align=True) }}
+            {% if require.constraint %}
+            {{ assert_implements(trait, require.pos ~ ": Trait requirement not satisfied: " ~ require.dsl, require.constraint) }}
+            {% else %}
             {{ assert_implements(trait, require.pos ~ ": Trait requirement not satisfied: " ~ require.dsl,
                 "requires (" ~ trait.impl_name ~ " impl_, " ~ trait.impl_name ~ " const const_) { " ~ require.cpp ~ " }") }}
+            {% endif %}
             {{ arc_end() }}
             {% endfor %}
             {% for method in trait.methods %}

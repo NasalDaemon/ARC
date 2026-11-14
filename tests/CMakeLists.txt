@@ -205,7 +205,7 @@ foreach(TRUNK_CASE_EXPECT
     endif()
 endforeach()
 
-foreach(GENERATOR_TEST annotations nodiscard parser_cache trunk_declarations trunk_links)
+foreach(GENERATOR_TEST annotations nodiscard parser_cache requirements trunk_declarations trunk_links)
     add_test(NAME arc_generator_test_${GENERATOR_TEST}
         COMMAND ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/tests/test_${GENERATOR_TEST}.py
             ${ARC_GENERATOR_PYTHON} ${ARC_GENERATOR_DIR}/generate.py)

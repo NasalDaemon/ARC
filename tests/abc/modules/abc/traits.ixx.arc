@@ -17,7 +17,6 @@ trait AliceWrite [Types, R = Root]
     type AliceType
 
     requires requires { impl_.impl(set_c, std::declval<int>()); }
-    requires std::same_as<decltype(impl_.impl(set_c, std::declval<int>())), void>
 
     requires requires (int i) {
         { impl_.impl(set_c, i) } -> std::same_as<void>;

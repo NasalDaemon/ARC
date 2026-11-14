@@ -93,7 +93,8 @@ trait Trait4 [Types, Root]
     // `requires <constraint>` checks that the constraint is true.
     // Parenthesise the whole constraint when the bare form doesn't parse, e.g. comparisons
     // with `<`/`>`, or a leading `!(` or `not`.
-    // In a constraint, `impl_`/`const_` may appear only unevaluated (decltype, sizeof, requires).
+    // A bare constraint cannot name `impl_`/`const_`: name the implementor with `[Impl]`, or check it
+    // in `requires requires`. In `trait Trait5 [Impl]`: requires std::default_initializable<Impl>
     requires std::integral<typename Types::Int>
     requires !std::is_same_v<typename Root::Int, bool>
     requires (sizeof(typename Types::Int) <= sizeof(typename Root::Int))

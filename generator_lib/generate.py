@@ -207,10 +207,13 @@ def cpp_string_literal(s: str) -> str:
 
 class Requirement:
     """A requirement asserted by a trait's Meta::assertImplements, with the DSL it was generated from."""
-    def __init__(self, cpp: str, dsl: str, pos: str):
+    def __init__(self, cpp: str, dsl: str, pos: str, constraint: str | None = None):
         self.cpp = cpp
         self.dsl = dsl
         self.pos = pos
+        # The constraint of `requires <constraint>`: asserted as itself, so a failure gets the compiler's concept
+        # diagnostics
+        self.constraint = constraint
 
 
 _NAMED_EXPR_RE = re.compile(r'^([A-Za-z_]\w*)\s*:\s*(.+)$', re.DOTALL)
@@ -1736,12 +1739,19 @@ class Trait:
                         misuse = "names a type" if m.group(1) == "typename" else f"evaluates {m.group(1)}"
                         raise SyntaxError(f"{full_pos(get_tree_pos(c))} '{dsl}' {misuse}, so it is not a constraint: "
                                           f"for a validity check write 'requires requires {{ {dsl.removeprefix('requires').strip()}; }}'")
+                    if c.data == imported('trait_requires_constraint') and (m := re.search(r'\b(impl_|const_)\b', dsl)):
+                        raise SyntaxError(f"{full_pos(get_tree_pos(c))} '{dsl}' names {m.group(1)}, which a constraint cannot: "
+                                          f"name the implementor with [Impl], or check it in "
+                                          f"'requires requires {{ requires {dsl.removeprefix('requires').strip()}; }}'")
                     if c.data == imported('trait_requires_expression') and re.search(r'\{\s*\}$', dsl):
                         raise SyntaxError(f"{full_pos(get_tree_pos(c))} '{dsl}' has no requirements")
                     # Copied as written into a nested requirement: a constraint must then hold, and a
-                    # requires-expression keeps the DSL's lines
-                    self.requires.append(Requirement(source_from(c.meta.start_pos, c.meta.end_pos).text + ';',
-                                                     dsl, get_tree_pos(c)))
+                    # requires-expression keeps the DSL's lines. assertImplements asserts a constraint as itself.
+                    text = source_from(c.meta.start_pos, c.meta.end_pos).text
+                    constraint = None
+                    if c.data == imported('trait_requires_constraint'):
+                        constraint = text.strip().removeprefix('requires').strip()
+                    self.requires.append(Requirement(text + ';', dsl, get_tree_pos(c), constraint))
             else:
                 raise SyntaxError(f'{get_pos(c)} Unknown trait entity: {c.data}')
         if self.const_trait:

@@ -24,6 +24,7 @@ GENERATOR_TESTS = [
     "annotations",
     "nodiscard",
     "parser_cache",
+    "requirements",
     "trunk_declarations",
     "trunk_links",
 ]
