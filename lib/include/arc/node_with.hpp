@@ -28,25 +28,14 @@ template<class T>
 auto getImplBase() -> TraitsItem<T>::Trait::Meta::Impl;
 template<IsQualified T>
 auto getImplBase() -> TraitsItem<RawTrait<T>>::Trait::Meta::ImplQualified;
-template<class T>
-auto getImplDisable() -> TraitsItem<T>::Trait::Meta::DisableImpl;
-template<IsQualified T>
-auto getImplDisable() -> TraitsItem<RawTrait<T>>::Trait::Meta::NoDisable;
-
 template<class Trait>
 using ImplBase = decltype(getImplBase<Trait>());
-template<class Trait>
-using ImplDisable = decltype(getImplDisable<Trait>());
 
 template<class... TraitTs>
 struct Methods : ImplBase<TraitTs>...
 {
     using ImplBase<TraitTs>::impl...;
 };
-
-template<class... TraitTs>
-struct Disable : ImplDisable<TraitTs>...
-{};
 
 template<class... DependTraits>
 struct Resolve : DependsTrait<DependTraits>::Meta::Resolver...
@@ -80,7 +69,6 @@ struct NodeWith<Node, void(DependTraits...), TraitTs...>
     , Resolve<DependTraits...>
     , AsTrait<Node, TraitTs...>
     , Methods<TraitTs...>
-    , protected Disable<TraitTs...>
 {
     using Depends = Resolve<DependTraits...>::Depends;
     using Traits = AsTrait<Node, TraitTs...>::Traits;

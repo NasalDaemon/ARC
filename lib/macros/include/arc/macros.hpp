@@ -194,18 +194,16 @@
         }; \
         using Methods = NamedMethods::TraitName; \
         using DuckMethods = Methods; \
-        struct DisableImpl \
+        struct DisableImpl : Methods \
         { \
             METHOD_LIST(ARC_NAMED_METHOD_IMPL_DISABLE) \
         }; \
-        struct NoDisable {}; \
         struct DefaultImpl {}; \
-        struct Impl : Methods \
+        struct Impl : DisableImpl \
         { \
             struct TraitName : MethodTags \
             { \
                 using Impl = Methods; \
-                using Disable = DisableImpl; \
             }; \
             METHOD_LIST(ARC_NAMED_METHOD_IMPL) \
         }; \

@@ -90,6 +90,17 @@ namespace key {
 
 } // namespace key
 
+namespace detail {
+
+    // Deduces the ID type of an arc::key::Element, or of a key derived from one
+    template<class ID>
+    ID elementKeyId(key::Element<ID> const&);
+
+    template<class Key>
+    concept IsElementKey = requires (Key const& key) { detail::elementKeyId(key); };
+
+} // namespace detail
+
 // Collection of identically-typed nodes; Policy selects element lifetime and storage
 // layout (see arc::CollectionPolicy). Prefer the Dynamic/Static[Map|LinearMap|Index]
 // aliases below.
@@ -430,45 +441,43 @@ template<class Context>
 template<class Trait>
 struct Collection<NodeHandle, ID, Policy>::Node<Context>::AsTrait : Node
 {
-    template<class Self>
-    constexpr auto finalise(this Self& self, auto& source, key::Element<ID> const& key, auto const&... keys)
+    // One overload dispatching on the key, as MSVC finds overloads on the key type ambiguous with explicit object
+    // parameters
+    template<class Self, class Source, class Key>
+    ARC_INLINE constexpr auto finalise(this Self& self, Source& source, Key const& key, auto const&... keys)
     {
-        auto* const element = self.getId(key.id);
-        if (element == nullptr) [[unlikely]]
-            throw std::out_of_range("Element with given ID does not exist in collection");
-        auto target = element->asTrait(detail::AsRef{}, Trait{});
-        return target.ptr->finalise(source, keys...);
-    }
-
-    template<class Self>
-    constexpr auto finalise(this Self& self, auto& source, key::Element<StrongHandle> const& key, auto const&... keys)
-    {
-        auto& element = self.store.elementOf(key.id)->node;
-        auto target = element.asTrait(detail::AsRef{}, Trait{});
-        return target.ptr->finalise(source, keys...);
-    }
-
-    template<class Self, class Source>
-    constexpr auto finalise(this Self& self, Source& source, key::Collection const&, auto const&... keys)
-    {
-        auto& controlView = detail::downCast<ControlView<Trait>>(detail::upCast<Node>(self));
-        auto& controlViewEnv = mergeEnvParts<SourceNodeEnvironment::WithSourceNode<Source>>(controlView);
-        return controlViewEnv.finalise(source, keys...);
-    }
-
-    // Constrained, as MSVC otherwise prefers it to the overloads above for a matching key
-    template<class T>
-    requires (not std::is_same_v<T, ID> and not std::is_same_v<T, StrongHandle>)
-    static constexpr auto finalise(auto&, key::Element<T> const&, auto const&...)
-    {
-        ARC_STATIC_ASSERT_INLINE(std::is_same_v<T, ID> or std::is_same_v<T, StrongHandle>)("arc::key::Element type is not the collection's ID or Handle type",
-            (key_type, arc::typeName<T>)(id, arc::typeName<ID>)(handle, arc::typeName<StrongHandle>));
-    }
-
-    ARC_INLINE constexpr auto finalise(this auto& self, auto& source, auto const& key, auto const&... keys)
-    {
-        // Don't consume the key, as we need to consume it for each element
-        return arc::finalise<false>(source, self, key, keys...);
+        if constexpr (detail::IsElementKey<Key>)
+        {
+            using T = decltype(detail::elementKeyId(key));
+            if constexpr (std::is_same_v<T, ID>)
+            {
+                auto* const element = self.getId(key.id);
+                if (element == nullptr) [[unlikely]]
+                    throw std::out_of_range("Element with given ID does not exist in collection");
+                auto target = element->asTrait(detail::AsRef{}, Trait{});
+                return target.ptr->finalise(source, keys...);
+            }
+            else if constexpr (std::is_same_v<T, StrongHandle>)
+            {
+                auto& element = self.store.elementOf(key.id)->node;
+                auto target = element.asTrait(detail::AsRef{}, Trait{});
+                return target.ptr->finalise(source, keys...);
+            }
+            else
+                ARC_STATIC_ASSERT_INLINE(detail::alwaysFalse<T>)("arc::key::Element type is not the collection's ID or Handle type",
+                    (key_type, arc::typeName<T>)(id, arc::typeName<ID>)(handle, arc::typeName<StrongHandle>));
+        }
+        else if constexpr (std::derived_from<Key, key::Collection>)
+        {
+            auto& controlView = detail::downCast<ControlView<Trait>>(detail::upCast<Node>(self));
+            auto& controlViewEnv = mergeEnvParts<SourceNodeEnvironment::WithSourceNode<Source>>(controlView);
+            return controlViewEnv.finalise(source, keys...);
+        }
+        else
+        {
+            // Don't consume the key, as we need to consume it for each element
+            return arc::finalise<false>(source, self, key, keys...);
+        }
     }
 
     constexpr void implWithKey(this auto& self, key::Default const&, auto const& keys, auto&&... args)

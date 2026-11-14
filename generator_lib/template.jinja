@@ -630,14 +630,14 @@ struct {{ trait.name }} : ::arc::Trait
             };
         };
         using DuckMethods = NamedDuckMethods::{{ trait.name }};
-        // Disable redirections `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
-        struct DisableImpl
+        // Hides the `node.method(...)` --> `node.impl(method, ...)` redirections of Methods from Impl, so that
+        // `node.method(...)` names a method only when the node declares it, and Impl does not call back into itself
+        struct DisableImpl : Methods
         {
             {% for method_name in trait.method_names %}
             {{ method_macro("ARC_NAMED_METHOD_IMPL_DISABLE", method_name, trait.method_pos(method_name)) }}
             {% endfor %}
         };
-        struct NoDisable{};
         // Default method implementations as specified in the trait definition
         struct DefaultImpl
         {
@@ -685,12 +685,11 @@ struct {{ trait.name }} : ::arc::Trait
         };
         // Redirects `node.impl({{ trait.name }}::method, ...)` --> `node.method(...)`
         // Effective only when using arc::NodeImpl<{{ trait.name }}> or arc::Node::Uses<...>::Impl<{{ trait.name }}>
-        struct Impl : protected Methods
+        struct Impl : protected DisableImpl
         {
             struct {{ trait.name }} : MethodTags
             {
                 using Impl = Methods;
-                using Disable = DisableImpl;
             };
             {% for method_name in trait.method_names %}
             {{ method_macro("ARC_NAMED_METHOD_IMPL", method_name, trait.method_pos(method_name)) }}
@@ -925,9 +924,7 @@ inline constexpr {{ trait.name }} {{ trait.variable }}{};
         struct Impl : AltTrait::Meta::Impl
         {
             struct {{ alias[0] }} : AltTrait::Meta::MethodTags
-            {
-                using Disable = AltTrait::Meta::DisableImpl;
-            };
+            {};
         };
         struct ImplQualified : AltTrait::Meta::ImplQualified
         {
@@ -958,9 +955,7 @@ inline constexpr {{ trait.name }} {{ trait.variable }}{};
         struct Impl : JoinedTrait::Meta::Impl
         {
             struct {{ alias[0] }} : JoinedTrait::Meta::MethodTags
-            {
-                using Disable = JoinedTrait::Meta::DisableImpl;
-            };
+            {};
         };
         struct ImplQualified : JoinedTrait::Meta::ImplQualified
         {

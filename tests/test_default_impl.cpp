@@ -98,7 +98,7 @@ struct CallsDefaultInImplNamed : arc::NodeImpl<Counter>
     void decrement(this auto& self)
     {
         // Test internal method dispatch for correct default impl behaviour
-        self.Methods::add(-1); --self.value;
+        self.Counter::Impl::add(-1); --self.value;
     }
     int count() const { return value; }
 
