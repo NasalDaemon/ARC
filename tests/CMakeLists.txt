@@ -155,21 +155,26 @@ add_test(arc_tests_mock arc_tests_mock)
 
 # Discarding a [[nodiscard]] trait method's result fails the compile on each call surface: arc_tests_headers compiles
 # test_nodiscard.cpp as it is, and each case below compiles it with one discarded call, building on its own.
+if(MSVC)
+    set(ARC_NODISCARD_ERROR_FLAG /we4834)
+else()
+    set(ARC_NODISCARD_ERROR_FLAG -Werror=unused-result)
+endif()
 set_source_files_properties(test_nodiscard.cpp TARGET_DIRECTORY arc_tests_headers
-    PROPERTIES COMPILE_OPTIONS -Werror=unused-result)
+    PROPERTIES COMPILE_OPTIONS ${ARC_NODISCARD_ERROR_FLAG})
 arc_import_properties()
 foreach(DISCARD_CASE NAMED OVERLOAD EXPLICIT DEFAULT TAG FUNCTOR KEYED DUCK FANOUT REPEATER SELF)
     set(DISCARD_TARGET arc_nodiscard_discard_${DISCARD_CASE})
     add_library(${DISCARD_TARGET} OBJECT EXCLUDE_FROM_ALL test_nodiscard.cpp)
     target_compile_definitions(${DISCARD_TARGET} PRIVATE ARC_DISCARD_${DISCARD_CASE})
-    target_compile_options(${DISCARD_TARGET} PRIVATE -Werror=unused-result)
+    target_compile_options(${DISCARD_TARGET} PRIVATE ${ARC_NODISCARD_ERROR_FLAG})
     target_include_directories(${DISCARD_TARGET} PRIVATE ${ARC_GENERATOR_INCLUDE_DIR})
     target_link_libraries(${DISCARD_TARGET} PRIVATE arc::headers arc::doctest)
     add_dependencies(${DISCARD_TARGET} arc_tests_headers_hxx_arc)
     add_test(NAME ${DISCARD_TARGET}
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${DISCARD_TARGET} --config $<CONFIG>)
     set_tests_properties(${DISCARD_TARGET} PROPERTIES
-        PASS_REGULAR_EXPRESSION "ignoring return value|call answers nothing here")
+        PASS_REGULAR_EXPRESSION "ignoring return value|discarding return value|call answers nothing here")
 endforeach()
 
 # A graph whose links break a trunk rule fails the compile: arc_tests_headers compiles test_trunk.cpp as it is, and each

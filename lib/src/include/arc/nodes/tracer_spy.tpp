@@ -13,6 +13,8 @@ void TracerSpy::reset(Params p)
     std::destroy_at(&events);
     std::construct_at(&events, p.maxEvents);
     perMethod.clear();
+    byName.clear();
+    timing = p.timing;
     nextCallId = 0;
     maxDepthSeen = 0;
     minDepthLog = p.minDepth;

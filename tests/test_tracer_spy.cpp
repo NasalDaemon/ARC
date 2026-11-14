@@ -544,6 +544,42 @@ SCENARIO(R"(TracerSpy can be constructed paused via Params.recording = false)")
     }
 }
 
+SCENARIO(R"(TracerSpy counts calls without timing them unless Params.timing is set)")
+{
+    GIVEN(R"(a recording TracerSpy with default timing)")
+    {
+        arc::GraphWithGlobal<cluster::Main, arc::TracerSpy, Root> graph{
+            .global{{.recording = true}},
+            .main{}
+        };
+
+        WHEN(R"(calls are made, and again after a reset that keeps the Params)")
+        {
+            graph->doubler->asTrait(trait::doubler).twice(1);
+            graph->doubler->asTrait(trait::doubler).twice(2);
+            auto const before = graph.global->getStats();
+            graph.global->reset(true);
+            graph->doubler->asTrait(trait::doubler).twice(3);
+
+            THEN(R"(every method's calls are counted and no time is recorded)")
+            {
+                REQUIRE(before.size() == 2);
+                for (auto const& [m, s] : before)
+                    CHECK(s.calls == 2);
+                REQUIRE(graph.global->getStats().size() == 2);
+                for (auto const& [m, s] : graph.global->getStats())
+                {
+                    CHECK(s.calls == 1);
+                    CHECK(s.total.count() == 0);
+                    CHECK(s.maxTime.count() == 0);
+                }
+                CHECK(graph.global->getEvents().size() == 4);
+                for (auto const& e : graph.global->getEvents())
+                    CHECK(e.ns.count() == 0);
+            }
+        }
+    }
+}
 
 SCENARIO(R"(TracerSpy reset(Params) clears state and applies new Params)")
 {

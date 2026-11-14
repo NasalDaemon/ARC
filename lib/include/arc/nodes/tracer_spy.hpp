@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #endif
@@ -40,6 +41,9 @@ struct TracerSpyParams
     // When false, event log is paused at construction.
     // Toggle via `startRecording()` / `stopRecording()`.
     bool recording = false;
+    // When true, each call is timed into Stats' total and maxTime and its
+    // events' ns, at two clock reads a call. Otherwise those stay zero.
+    bool timing = false;
 };
 
 // TracerSpy — global spy node that records every intercepted trait call
@@ -96,6 +100,7 @@ struct TracerSpy : arc::Node
         : minDepthLog(p.minDepth)
         , maxDepthLog(p.maxDepth)
         , recording(p.recording)
+        , timing(p.timing)
         , events(p.maxEvents)
     {}
 
@@ -116,7 +121,8 @@ struct TracerSpy : arc::Node
             .minDepth = minDepthLog,
             .maxDepth = maxDepthLog,
             .maxEvents = events.max_size(),
-            .recording = newRecording.value_or(recording)
+            .recording = newRecording.value_or(recording),
+            .timing = timing
         });
     }
 
@@ -164,9 +170,9 @@ struct TracerSpy : arc::Node
         if (stack.size() > maxDepthSeen)
             maxDepthSeen = stack.size();
 
-        auto& stat = perMethod[name];
+        auto& stat = statsFor(name);
         ++stat.calls;
-        auto const t0 = std::chrono::steady_clock::now();
+        auto const t0 = timing ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
 
         struct Guard
         {
@@ -253,19 +259,47 @@ private:
     std::size_t minDepthLog{};
     std::size_t maxDepthLog{};
     bool recording{};
+    bool timing{};
 
     // Bounded ring buffer: oldest events are evicted when capacity is reached.
     // Per-method `Stats` are independent and accumulate across evictions, so the
     // summary remains accurate even when the trace itself has been truncated.
     mutable arc::CircularBuffer<Event> events;
     mutable std::map<std::string_view, Stats> perMethod;
+    // perMethod's entries by the address and length of their typeName
+    // storage, so a call hashes a pointer rather than comparing names. Map
+    // nodes never move.
+    struct NameAt
+    {
+        char const* at;
+        std::size_t size;
+        bool operator==(NameAt const&) const = default;
+    };
+    struct HashNameAt
+    {
+        std::size_t operator()(NameAt n) const noexcept
+        {
+            return std::hash<char const*>{}(n.at) ^ (n.size * 0x9E3779B97F4A7C15ull);
+        }
+    };
+    mutable std::unordered_map<NameAt, Stats*, HashNameAt> byName;
     mutable std::size_t nextCallId = 0;
     mutable std::size_t maxDepthSeen = 0;
 
     static std::vector<std::size_t>& parentStack();
 
+    Stats& statsFor(std::string_view name) const
+    {
+        auto [it, added] = byName.try_emplace(NameAt{name.data(), name.size()}, nullptr);
+        if (added)
+            it->second = &perMethod[name];
+        return *it->second;
+    }
+
     std::chrono::nanoseconds recordElapsed(Stats& stat, std::chrono::steady_clock::time_point t0) const noexcept
     {
+        if (!timing)
+            return {};
         auto const dt = std::chrono::steady_clock::now() - t0;
         stat.total += dt;
         if (dt > stat.maxTime) stat.maxTime = dt;

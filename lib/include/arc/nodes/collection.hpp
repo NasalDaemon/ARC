@@ -456,7 +456,9 @@ struct Collection<NodeHandle, ID, Policy>::Node<Context>::AsTrait : Node
         return controlViewEnv.finalise(source, keys...);
     }
 
+    // Constrained, as MSVC otherwise prefers it to the overloads above for a matching key
     template<class T>
+    requires (not std::is_same_v<T, ID> and not std::is_same_v<T, StrongHandle>)
     static constexpr auto finalise(auto&, key::Element<T> const&, auto const&...)
     {
         ARC_STATIC_ASSERT_INLINE(std::is_same_v<T, ID> or std::is_same_v<T, StrongHandle>)("arc::key::Element type is not the collection's ID or Handle type",

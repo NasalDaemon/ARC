@@ -363,6 +363,13 @@ namespace detail {
             return false;
     }
 
+    // Whether the node uses every trait of a trunk
+    template<class Node, class... Traits>
+    consteval bool usesAllTrunkTraits(TrunkTraitList<Traits...>)
+    {
+        return (... and nodeUsesTrait<Node, Traits>());
+    }
+
     // The traits of a trunk that the node does not use, comma separated
     template<class Node, class... Traits>
     consteval std::string unusedTrunkTraits(TrunkTraitList<Traits...>)
@@ -386,7 +393,7 @@ namespace detail {
     {
         if constexpr (Link::fullUse)
         {
-            using Face = Link::TrunkFace;
+            using Face [[maybe_unused]] = Link::TrunkFace;
             if constexpr (not declaresDependencyItems<Node>())
                 ARC_STATIC_ASSERT_INLINE(declaresDependencyItems<Node>())(
                     "Node takes a trunk in full but lists no dependencies to check its use against: "
@@ -395,7 +402,7 @@ namespace detail {
                     (link, Link::Pos) \
                     ARC_SA_NODE_CONTEXT(node, Node));
             else
-                ARC_STATIC_ASSERT_INLINE(unusedTrunkTraits<Node>(LinkTraits<Link>{}).empty())(
+                ARC_STATIC_ASSERT_INLINE(usesAllTrunkTraits<Node>(LinkTraits<Link>{}))(
                 "Node takes a trunk without using all of its traits: declare a trunk on the cluster for just the traits "
                 "the node uses, `Trunk Name = ...`, and take it with [[cluster::X::Name]], or take those traits one link "
                 "each; [[cluster::X*]] accepts a subset, for a one-off client only",
