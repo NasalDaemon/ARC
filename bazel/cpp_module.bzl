@@ -129,6 +129,23 @@ def _toolchain_cxxopts(cc_toolchain, feature_configuration):
 # Exported for std_module.bzl, which hand-assembles its actions too.
 toolchain_cxxopts = _toolchain_cxxopts
 
+def _lto_enabled(feature_configuration, flags):
+    """Whether a compile with `flags`, in command-line order, emits LTO objects.
+
+    ARC_INLINE_LTO forces inlining across translation units only when it is
+    defined, and GCC refuses to compile a call to a forced function whose body it
+    cannot see. So ARC_LTO follows the flags that actually turn LTO on, rather
+    than a define a config could set apart from them: the toolchain's thin_lto
+    feature, then the last of -flto, -flto=<x> or -fno-lto.
+    """
+    on = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "thin_lto")
+    for flag in flags:
+        if flag == "-fno-lto":
+            on = False
+        elif flag == "-flto" or flag.startswith("-flto="):
+            on = True
+    return on
+
 # ---------------------------------------------------------------------------
 # Provider collection helpers
 # ---------------------------------------------------------------------------
@@ -489,6 +506,9 @@ def _cpp_module_impl(ctx):
     for inc in compile_quote_includes:
         include_flags += ["-iquote", inc]
     define_flags  = ["-D" + d   for d   in all_defines]
+    # Derived per target, never propagated: each compile decides from its own flags.
+    if _lto_enabled(feature_configuration, toolchain_cxxopts + _user_cxxopts(ctx) + expanded_copts):
+        define_flags.append("-DARC_LTO=1")
 
     # Propagate transitive link CcInfos from module_deps.
     impl_cc_infos = []

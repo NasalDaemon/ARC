@@ -217,6 +217,7 @@ export namespace arc {
     using arc::StatelessInvocable;
     using arc::Function;
     using arc::FunctionPolicy;
+    using arc::FunctionRef;
     // finalise.hpp
     using arc::finalise;
     // global_context.hpp

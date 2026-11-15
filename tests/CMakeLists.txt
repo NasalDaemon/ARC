@@ -12,6 +12,8 @@ add_executable(arc_tests_module
     test_circular_buffer.cpp
     test_collection.cpp
     test_contracts.cpp
+    test_function.cpp
+    test_function_ref.cpp
     test_const_trait.cpp
     test_default_impl.cpp
     test_embedded_modules.cpp

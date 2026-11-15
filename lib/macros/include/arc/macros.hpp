@@ -127,6 +127,36 @@
 #   define ARC_COLD [[gnu::noinline, gnu::cold]]
 #endif
 
+// Forces inlining, under LTO only, of a function defined in another translation unit, such
+// as a module's implementation partition: the link step sees its body, the callers' compile
+// steps do not. Without LTO it declares an ordinary function, called out of line.
+//
+// On the declaration its callers see; the definition is left plain. GCC warns that an
+// always_inline function not declared inline might not be inlined (declaring it inline would
+// require its body in every caller), and a pragma cannot sit inside a declaration, so the
+// declarations are bracketed whole:
+//     ARC_INLINE_LTO_BEGIN
+//     ARC_INLINE_LTO void visit(arc::FunctionRef<void(int)> f) const;
+//     ARC_INLINE_LTO_END
+//
+// ARC_LTO=1 must be defined exactly when the translation unit is compiled for LTO: GCC refuses to
+// compile a call to an always_inline function whose body it cannot see. ARC's Bazel cpp_module
+// rule and its CMake targets derive it from the build's own LTO flags; set it by hand nowhere else.
+#if defined(ARC_LTO) && ARC_LTO && ARC_COMPILER_MSVC
+#   define ARC_INLINE_LTO [[msvc::forceinline]]
+#elif defined(ARC_LTO) && ARC_LTO
+#   define ARC_INLINE_LTO [[gnu::always_inline]]
+#else
+#   define ARC_INLINE_LTO
+#endif
+#if defined(ARC_LTO) && ARC_LTO && ARC_COMPILER_GCC
+#   define ARC_INLINE_LTO_BEGIN _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wattributes\"")
+#   define ARC_INLINE_LTO_END _Pragma("GCC diagnostic pop")
+#else
+#   define ARC_INLINE_LTO_BEGIN
+#   define ARC_INLINE_LTO_END
+#endif
+
 // Only valid on automatic variables and function parameters, never on data members
 #if defined(__has_cpp_attribute) && __has_cpp_attribute(indeterminate)
 #   define ARC_INDETERMINATE [[indeterminate]]

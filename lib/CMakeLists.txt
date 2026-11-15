@@ -29,6 +29,10 @@ add_library(arc::headers ALIAS arc_lib_compiled)
 add_library(arc_module_lib)
 add_library(arc::module ALIAS arc_module_lib)
 
+# ARC_INLINE_LTO forces inlining only where the consuming target is built with LTO.
+target_compile_definitions(arc_compiler_flags INTERFACE
+    $<$<BOOL:$<TARGET_PROPERTY:INTERPROCEDURAL_OPTIMIZATION>>:ARC_LTO=1>)
+
 target_compile_features(arc_lib INTERFACE cxx_std_23)
 target_compile_features(arc_module_lib PUBLIC cxx_std_23)
 

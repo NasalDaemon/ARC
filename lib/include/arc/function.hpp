@@ -10,6 +10,7 @@
 
 #if !ARC_IMPORT_STD
 #include <concepts>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #endif
@@ -24,6 +25,29 @@ struct Overload : F...
 };
 
 namespace detail {
+    // std::invoke_r, which GCC before 15 gets wrong: std::invoke instead, discarding the result when R is void
+    template<class R>
+    constexpr R invokeR(auto&& f, auto&&... args)
+    {
+        if constexpr (compiler < gcc(15))
+        {
+            if constexpr (std::is_void_v<R>)
+                std::invoke(ARC_FWD(f), ARC_FWD(args)...);
+            else
+                return std::invoke(ARC_FWD(f), ARC_FWD(args)...);
+        }
+        else
+            return std::invoke_r<R>(ARC_FWD(f), ARC_FWD(args)...);
+    }
+
+    // How a type-erased thunk takes a parameter declared as T: by value when T would be passed in registers anyway
+    // (trivially copyable, at most two words), otherwise by reference, so the caller's argument is not moved again
+    template<class T>
+    using ThunkParam = std::conditional_t<
+        std::is_trivially_copyable_v<T> and sizeof(T) <= 2 * sizeof(void*),
+        T,
+        T&&>;
+
     template<class T>
     inline constexpr bool isFunctionSig = false;
     template<class R, class... Args>
@@ -84,14 +108,14 @@ struct Function<R(Args...), Policy_>
     constexpr Function(F&& f) : callable{makeCallable<std::remove_cvref_t<F>>(ARC_FWD(f))}
     {}
 
-    constexpr R operator()(auto&&... args) requires (Policy.mutableCall)
+    constexpr R operator()(Args... args) requires (Policy.mutableCall)
     {
-        return callable->mutableFunction(callable.get(), ARC_FWD(args)...);
+        return callable->mutableFunction(callable.get(), std::forward<Args>(args)...);
     }
 
-    constexpr R operator()(auto&&... args) const requires (Policy.constCall)
+    constexpr R operator()(Args... args) const requires (Policy.constCall)
     {
-        return callable->immutableFunction(callable.get(), ARC_FWD(args)...);
+        return callable->immutableFunction(callable.get(), std::forward<Args>(args)...);
     }
 
     constexpr operator bool() const { return callable.get() != nullptr; }
@@ -102,8 +126,8 @@ private:
     struct CallableBase
     {
         using Destroy = void(*)(CallableBase*);
-        using MutableFunction = R(*)(CallableBase*, Args...);
-        using ImmutableFunction = R(*)(CallableBase const*, Args...);
+        using MutableFunction = R(*)(CallableBase*, detail::ThunkParam<Args>...);
+        using ImmutableFunction = R(*)(CallableBase const*, detail::ThunkParam<Args>...);
         using Copy = CallableBase*(*)(CallableBase const*);
 
         Destroy destroy;
@@ -134,23 +158,17 @@ private:
             if constexpr (Policy.mutableCall)
             {
                 this->mutableFunction =
-                    [](CallableBase* base, Args... args) -> R
+                    [](CallableBase* base, detail::ThunkParam<Args>... args) -> R
                     {
-                        if constexpr (compiler < gcc(15))
-                            return std::invoke(static_cast<Callable*>(base)->f, ARC_FWD(args)...);
-                        else
-                            return std::invoke_r<R>(static_cast<Callable*>(base)->f, ARC_FWD(args)...);
+                        return detail::invokeR<R>(static_cast<Callable*>(base)->f, std::forward<Args>(args)...);
                     };
             }
             if constexpr (Policy.constCall)
             {
                 this->immutableFunction =
-                    [](CallableBase const* base, Args... args) -> R
+                    [](CallableBase const* base, detail::ThunkParam<Args>... args) -> R
                     {
-                        if constexpr (compiler < gcc(15))
-                            return std::invoke(static_cast<Callable const*>(base)->f, ARC_FWD(args)...);
-                        else
-                            return std::invoke_r<R>(static_cast<Callable const*>(base)->f, ARC_FWD(args)...);
+                        return detail::invokeR<R>(static_cast<Callable const*>(base)->f, std::forward<Args>(args)...);
                     };
             }
             if constexpr (Policy.copyable)
@@ -184,10 +202,63 @@ private:
     CallableBase* makeCallable(auto&& f)
     {
         if constexpr (std::is_empty_v<F>)
-            return emptyCallable<F>.copy(std::addressof(emptyCallable<F>));
+            // shared static instance with no state, which destroy leaves alone
+            return const_cast<Callable<F>*>(std::addressof(emptyCallable<F>));
         else
             return new Callable<F>(ARC_FWD(f));
     }
+};
+
+// Non-owning reference to any callable object, for a parameter that takes a callback without being a template
+// Takes a function signature as a template parameter, e.g. `FunctionRef<void(int)>`
+// Stores two pointers: the referenced callable and a function that calls it
+// Calling it is one indirect call; inlining the function that takes it lets the compiler inline the callable too
+// It does not extend the callable's lifetime: bind it to a parameter, never store one past the call
+ARC_MODULE_EXPORT
+template<IsFunctionSignature F>
+struct FunctionRef;
+
+template<class R, class... Args>
+struct FunctionRef<R(Args...)>
+{
+    template<class F>
+    requires (not std::same_as<std::remove_cvref_t<F>, FunctionRef>)
+        and std::is_invocable_r_v<R, F&, Args...>
+    constexpr FunctionRef(F&& f) noexcept
+        : thunk{&call<std::remove_reference_t<F>>}
+    {
+        if constexpr (std::is_function_v<std::remove_reference_t<F>>)
+            target.function = reinterpret_cast<void(*)()>(std::addressof(f));
+        else
+            target.object = const_cast<void*>(static_cast<void const*>(std::addressof(f)));
+    }
+
+    FunctionRef(FunctionRef const&) = default;
+    FunctionRef& operator=(FunctionRef const&) = default;
+
+    constexpr R operator()(Args... args) const { return thunk(target, std::forward<Args>(args)...); }
+
+private:
+    union Target
+    {
+        void* object;
+        void (*function)();
+    };
+
+    template<class F>
+    static constexpr R call(Target target, detail::ThunkParam<Args>... args)
+    {
+        auto&& f = [&]() -> F& {
+            if constexpr (std::is_function_v<F>)
+                return *reinterpret_cast<F*>(target.function);
+            else
+                return *static_cast<F*>(target.object);
+        }();
+        return detail::invokeR<R>(f, std::forward<Args>(args)...);
+    }
+
+    Target target;
+    R (*thunk)(Target, detail::ThunkParam<Args>...);
 };
 
 } // namespace arc
