@@ -3,6 +3,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//bazel:cpp_module.bzl", "cpp_module")
 load("@arc_module_deps//:module_deps.bzl", "MODULE_PROVIDER_TARGETS")
+load("@arc_cc_info//:cc_info.bzl", "COMPILER", "VERSION")
+
+# GCC before 16 rejects an implementation unit of M importing a partition that
+# itself imports M ("cannot import module in its own purview"), which every
+# :impl partition does: generate partitions of M for it instead.
+_GENERATE_PARTITIONS = COMPILER == "gcc" and int(VERSION.split(".")[0]) < 16
 
 def _write_src_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.out)
@@ -99,7 +105,8 @@ def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partitio
     testonly = kwargs.get("testonly", False)
     pkg = native.package_name()
 
-    all_mods = []
+    all_srcs = []
+    src_deps = {}
     module_names = {}
     known_direct_deps_map = {}
     computed_module_deps = []
@@ -111,8 +118,8 @@ def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partitio
         # Key names on the NODE PATH, not the module: a graph may hold several
         # nodes of the same module (e.g. two arc::DynamicMap collections whose
         # elements are the same cluster type), and keying on the module makes
-        # those collide on both the generated target name and the module
-        # partition name.  Node paths are unique within a graph by construction.
+        # those collide on the generated target and file names.  Node paths
+        # are unique within a graph by construction.
         impl_hash = _impl_hash(graph_type, node_name)
 
         child_prefix = "{name}__{node_module}_{impl_partition}_{hash}".format(
@@ -124,11 +131,16 @@ def _arc_instantiate_module(name, graph_module, graph_type, nodes, impl_partitio
         out_file = child_prefix + "_arc_inst.cpp"
         src_name = child_prefix + "_gensrc"
 
-        module_name = "{node_module}:{impl_partition}_{hash}".format(
-            node_module = node_module,
-            impl_partition = impl_partition,
-            hash = impl_hash,
-        )
+        node_common_imports = common_imports
+        module_decl = node_module
+        if _GENERATE_PARTITIONS:
+            module_decl = "{node_module}:{impl_partition}_{hash}".format(
+                node_module = node_module,
+                impl_partition = impl_partition,
+                hash = impl_hash,
+            )
+        if _GENERATE_PARTITIONS or graph_module != node_module:
+            node_common_imports = "import {m};\n".format(m = graph_module) + common_imports
 
         _write_src(
             name = src_name,
@@ -141,48 +153,63 @@ module;
 #if !ARC_IMPORT_STD
 #include <type_traits>
 #endif
-module {module_name};
+module {module_decl};
 import :{impl_partition};
 
-import {graph_module};
 import arc;
 {common_imports}
 
 ARC_INSTANTIATE(({graph_type}), {node_name}) {hint}
 """.format(
                 hint = _instantiate_hint(name),
-                module_name = module_name,
+                module_decl = module_decl,
                 impl_partition = impl_partition,
                 graph_module = graph_module,
                 graph_type = graph_type,
                 node_name = node_name,
-                common_imports = common_imports,
+                common_imports = node_common_imports,
             ),
         )
 
-        all_mods.append(":" + src_name)
-        module_names[pkg + "/" + out_file] = module_name
+        all_srcs.append(":" + src_name)
 
         direct_deps = [
+            node_module,
             "{node_module}:{impl_partition}".format(
                 node_module = node_module, impl_partition = impl_partition),
             graph_module,
             "arc",
         ] + list(common_modules)
-        known_direct_deps_map[module_name] = direct_deps
+        if _GENERATE_PARTITIONS:
+            module_names[pkg + "/" + out_file] = module_decl
+            known_direct_deps_map[module_decl] = direct_deps
+        else:
+            # An implementation unit, which nothing can import: it compiles
+            # straight to an object, with no module file.
+            src_deps[pkg + "/" + out_file] = direct_deps
         for dep_module in direct_deps:
             label = MODULE_PROVIDER_TARGETS.get(dep_module)
             if label != None and label not in seen:
                 seen[label] = True
                 computed_module_deps.append(label)
 
+    if _GENERATE_PARTITIONS:
+        cpp_module(
+            name = name,
+            mods = all_srcs,
+            module_names = module_names,
+            known_direct_deps_map = known_direct_deps_map,
+            module_deps = computed_module_deps,
+            leaf = True,
+            **kwargs
+        )
+        return
+
     cpp_module(
         name = name,
-        mods = all_mods,
-        module_names = module_names,
+        srcs = all_srcs,
+        src_deps = src_deps,
         module_deps = computed_module_deps,
-        known_direct_deps_map = known_direct_deps_map,
-        leaf = True,
         **kwargs
     )
 

@@ -271,6 +271,8 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
             suffix = "" if not safe_name else "_" + safe_name)
         user_cxxopts = toolchain_cxxopts + _user_cxxopts(ctx)
         if ctx.attr.leaf:
+            # Nothing imports a leaf module, so no importer's CRC depends on
+            # its .gcm: one pass writes both it and the object.
             ctx.actions.run(
                 inputs = depset(
                     direct    = [src, mapper] + dep_gcms,
@@ -287,50 +289,77 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
                 mnemonic         = "CppCompileModule",
                 progress_message = "Compiling C++ module {} [{}]".format(module_name, ctx.label),
             )
-        else:
-            ctx.actions.run(
-                inputs = depset(
-                    direct    = [src, mapper] + dep_gcms,
-                    transitive = all_hdrs + [cc_toolchain.all_files],
-                ),
-                outputs    = [gcm],
-                executable = compiler,
-                env        = _GCC_ENV,
-                arguments  = [
-                    "-fmodules-ts",
-                    "-fmodule-mapper=" + mapper.path,
-                    "-fmodule-only", "-x", "c++", "-c", src.path,
-                ] + user_cxxopts + include_flags + define_flags + expanded_copts,
-                mnemonic         = "CppCompileModulePrecompile",
-                progress_message = "Precompiling C++ module {} [{}]".format(module_name, ctx.label),
-            )
-            # Compiling the object rewrites the interface's own .gcm, so this
-            # action maps it to one of its own: rewriting the precompiled .gcm
-            # in place changes its CRC under every importer built against it.
-            obj_gcm = ctx.actions.declare_file(prefix + ".obj.gcm")
-            obj_mapper, _ = _gcc_write_mapper(
-                ctx, module_name, obj_gcm, needed_modules,
-                suffix = ("" if not safe_name else "_" + safe_name) + "_obj")
-            ctx.actions.run(
-                inputs = depset(
-                    direct    = [src, obj_mapper] + dep_gcms,
-                    transitive = all_hdrs + [cc_toolchain.all_files],
-                ),
-                outputs    = [obj, obj_gcm],
-                executable = compiler,
-                env        = _GCC_ENV,
-                arguments  = [
-                    "-fmodules-ts",
-                    "-fmodule-mapper=" + obj_mapper.path,
-                    "-x", "c++", "-c", src.path, "-o", obj.path,
-                ] + user_cxxopts + include_flags + define_flags + expanded_copts,
-                mnemonic         = "CppCompileModuleObj",
-                progress_message = "Compiling C++ module object {}".format(prefix),
-            )
+            return gcm, obj
+        ctx.actions.run(
+            inputs = depset(
+                direct    = [src, mapper] + dep_gcms,
+                transitive = all_hdrs + [cc_toolchain.all_files],
+            ),
+            outputs    = [gcm],
+            executable = compiler,
+            env        = _GCC_ENV,
+            arguments  = [
+                "-fmodules-ts",
+                "-fmodule-mapper=" + mapper.path,
+                "-fmodule-only", "-x", "c++", "-c", src.path,
+            ] + user_cxxopts + include_flags + define_flags + expanded_copts,
+            mnemonic         = "CppCompileModulePrecompile",
+            progress_message = "Precompiling C++ module {} [{}]".format(module_name, ctx.label),
+        )
+        # Compiling the object rewrites the interface's own .gcm, so this
+        # action maps it to one of its own: rewriting the precompiled .gcm
+        # in place changes its CRC under every importer built against it.
+        obj_gcm = ctx.actions.declare_file(prefix + ".obj.gcm")
+        obj_mapper, _ = _gcc_write_mapper(
+            ctx, module_name, obj_gcm, needed_modules,
+            suffix = ("" if not safe_name else "_" + safe_name) + "_obj")
+        ctx.actions.run(
+            inputs = depset(
+                direct    = [src, obj_mapper] + dep_gcms,
+                transitive = all_hdrs + [cc_toolchain.all_files],
+            ),
+            outputs    = [obj, obj_gcm],
+            executable = compiler,
+            env        = _GCC_ENV,
+            arguments  = [
+                "-fmodules-ts",
+                "-fmodule-mapper=" + obj_mapper.path,
+                "-x", "c++", "-c", src.path, "-o", obj.path,
+            ] + user_cxxopts + include_flags + define_flags + expanded_copts,
+            mnemonic         = "CppCompileModuleObj",
+            progress_message = "Compiling C++ module object {}".format(prefix),
+        )
         return gcm, obj
     else:
         user_cxxopts = toolchain_cxxopts + _user_cxxopts(ctx)
         pcm = ctx.actions.declare_file(prefix + ".pcm")
+        # Embeds its inputs, so an importer, sandboxed without the sources,
+        # reads them from the .pcm; and records them relative to the execroot,
+        # as no sandbox shares another's path.
+        pcm_flags = [
+            "-fmodules-embed-all-files",
+            "-Xclang", "-fmodule-file-home-is-cwd",
+        ]
+        if ctx.attr.leaf:
+            # Nothing imports a leaf module: one pass writes both the .pcm and
+            # the object.
+            obj = ctx.actions.declare_file(prefix + ".o")
+            ctx.actions.run(
+                inputs = depset(
+                    direct    = [src] + module_pcm_files,
+                    transitive = all_hdrs + [cc_toolchain.all_files],
+                ),
+                outputs    = [pcm, obj],
+                executable = compiler,
+                arguments  = [
+                    "-x", "c++-module", "-c", "-fmodule-output=" + pcm.path,
+                ] + pcm_flags + user_cxxopts + module_flags + include_flags + define_flags + expanded_copts + [
+                    src.path, "-o", obj.path,
+                ],
+                mnemonic         = "CppCompileModule",
+                progress_message = "Compiling C++ module {} [{}]".format(module_name, ctx.label),
+            )
+            return pcm, obj
         ctx.actions.run(
             inputs = depset(
                 direct    = [src] + module_pcm_files,
@@ -340,7 +369,7 @@ def _compile_module_interface(ctx, compiler, cc_toolchain, is_gcc, src, module_n
             executable = compiler,
             arguments  = [
                 "-x", "c++-module", "--precompile",
-            ] + user_cxxopts + module_flags + include_flags + define_flags + expanded_copts + [
+            ] + pcm_flags + user_cxxopts + module_flags + include_flags + define_flags + expanded_copts + [
                 src.path, "-o", pcm.path,
             ],
             mnemonic         = "CppCompileModulePrecompile",
@@ -368,7 +397,9 @@ def _compile_src(ctx, compiler, cc_toolchain, is_gcc, src, all_mod_modules,
     """Compile a single .cpp source file against modules. Returns obj."""
     obj = ctx.actions.declare_file(
         src.basename.replace("/", "_") + "." + ctx.label.name + ".o")
-    direct_imports = FILE_DIRECT_DEPS.get(src.short_path)
+    direct_imports = ctx.attr.src_deps.get(src.short_path)
+    if direct_imports == None:
+        direct_imports = FILE_DIRECT_DEPS.get(src.short_path)
     needed_modules = _compute_needed_modules(all_mod_modules, direct_imports)
 
     if is_gcc:
@@ -691,8 +722,12 @@ cpp_module = rule(
         "copts":                 attr.string_list(),
         # Per-module MODULE_DIRECT_DEPS overrides. Key: module name.
         "known_direct_deps_map": attr.string_list_dict(),
-        # Leaf modules: skip two-step GCC precompile (single pass).
+        # Leaf modules, which nothing imports: each compiles in one pass,
+        # writing its module file and object together.
         "leaf":                  attr.bool(default = False),
+        # Per-file FILE_DIRECT_DEPS overrides for generated srcs the scanner
+        # never walks. Key: file short_path.
+        "src_deps":              attr.string_list_dict(),
         "_cc_link_flags":        attr.label(default = Label("//bazel:cc_link_flags"),
                                             providers = [CcInfo]),
     } | CC_TOOLCHAIN_ATTRS,

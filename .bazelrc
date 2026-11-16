@@ -14,9 +14,6 @@ build:gcc --platform_suffix=gcc --repo_env=CC=gcc --repo_env=CXX=g++
 # Force use of Clang (with libc++)
 build:clang --platform_suffix=clang --repo_env=CC=clang --repo_env=CXX=clang++ --config=libcxx
 
-build --incompatible_enable_cc_toolchain_resolution=false
-build --check_direct_dependencies=off
-
 # Custom module rules use the compiler directly with -fmodule-file flags that embed absolute paths,
 # which are incompatible with sandboxing. Use local strategy for module compilation actions.
 build --strategy=Genrule=local

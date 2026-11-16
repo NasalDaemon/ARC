@@ -96,6 +96,8 @@ def _std_module_impl(ctx):
             executable = compiler,
             arguments = [
                 "-x", "c++-module", "--precompile",
+                "-fmodules-embed-all-files",
+                "-Xclang", "-fmodule-file-home-is-cwd",
             ] + cxxopts + [
                 # After the user's flags, so -Wall/-Werror cannot re-enable them:
                 # std.cppm declares the reserved `std` module and exports
