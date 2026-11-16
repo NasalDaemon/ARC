@@ -111,7 +111,8 @@ namespace detail {
             text.append("[[").append(joinTraitNames(LinkTraits<Link>{}, " + ")).append("]]");
         else
             text.append("[").append(arc::typeName<typename Link::Trait>).append("]");
-        return text.append(" at ").append(Link::Pos);
+        text.append(" at ").append(Link::Pos);
+        return text;
     }
 
     template<class... As, class... Bs>
@@ -130,17 +131,14 @@ namespace detail {
     template<class LinkA, class LinkB>
     consteval std::string linkPairOverlap()
     {
-        if constexpr (not LinkA::isTrunk and not LinkB::isTrunk)
+        std::string trait;
+        if constexpr (LinkA::isTrunk or LinkB::isTrunk)
         {
-            return {};
+            trait = firstOverlap(LinkTraits<LinkA>{}, LinkTraits<LinkB>{});
+            if (not trait.empty())
+                trait.append(" through ").append(describeLink<LinkA>()).append(" and ").append(describeLink<LinkB>());
         }
-        else
-        {
-            std::string trait = firstOverlap(LinkTraits<LinkA>{}, LinkTraits<LinkB>{});
-            if (trait.empty())
-                return trait;
-            return trait.append(" through ").append(describeLink<LinkA>()).append(" and ").append(describeLink<LinkB>());
-        }
+        return trait;
     }
 
     template<class Link, class... Rest>
@@ -213,7 +211,7 @@ namespace detail {
         if constexpr (sizeof...(Rest) > 0)
         {
             if (not at.found)
-                return firstTrunkOverlapFrom<I + 1, Rest...>();
+                at = firstTrunkOverlapFrom<I + 1, Rest...>();
         }
         return at;
     }
