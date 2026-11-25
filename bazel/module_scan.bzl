@@ -60,13 +60,9 @@ def _arc_module_scan_impl(rctx):
             label_prefix,
         ))
 
-    # Watch only files that actually affect module deps:
-    #   .ixx / .ixx.arc — module interface units and ARC DSL sources
-    #   arc-embed .cpp  — .cpp files containing arc-begin/arc-end blocks
-    #
-    # CAVEAT: adding a brand-new .ixx/.ixx.arc file requires
-    #   bazel clean --expunge
-    # to force rediscovery (since we are not watching directory structure).
+    # Watch every file the scan reads and every directory it walks (a
+    # directory's watch covers its listing), so an edited import in any source,
+    # .cpp included, or an added or removed source re-runs the scan.
     list_args = ["python3", str(list_script_path)]
     for path, _, _ in roots:
         list_args.append("--root=" + path)

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""List source files that affect the module dependency graph.
+"""List the paths the module dependency scan reads.
 
-Prints absolute paths (one per line) for:
-  - All .ixx files (module interface units)
-  - All .ixx.arc files (ARC DSL module sources)
-  - All .cpp/.cc files that contain arc-begin blocks (arc_embed_module sources)
+Prints absolute paths (one per line) for every file scan_module_deps.py scans
+(.ixx, .ixx.arc, .cpp, .cc) and every directory it walks, so that a changed
+import in any of them, or a source added or removed, re-runs the scan.
 
 Accepts one or more --root=<absolute_path> arguments. Each root is walked.
 
-Used by module_scan.bzl to register precise file watches so that the module
-dependency scan only re-runs when a module-affecting file changes, not on
-every .cpp implementation file edit.
+Used by module_scan.bzl to register its watches. A plain .cpp is listed too:
+its imports land in FILE_DIRECT_DEPS, so an import added to a test or an
+implementation unit must reach the PCM set its compile action is given. When
+the scan's output is unchanged, Bazel prunes the re-run and nothing is
+re-analysed.
 
 Usage: python3 list_module_files.py --root=<workspace_root> [--root=<other_root> ...]
 """
@@ -33,17 +34,10 @@ def walk_root(workspace):
             d for d in dirs
             if d not in _SKIP_DIRS and not d.startswith(_SKIP_DIR_PREFIXES)
         )
+        print(root)
         for fname in files:
-            path = os.path.join(root, fname)
-            if fname.endswith(".ixx") or fname.endswith(".ixx.arc"):
-                print(path)
-            elif fname.endswith(".cpp") or fname.endswith(".cc"):
-                try:
-                    with open(path, encoding="utf-8", errors="ignore") as fh:
-                        if "arc-begin" in fh.read():
-                            print(path)
-                except OSError:
-                    pass
+            if fname.endswith((".ixx", ".ixx.arc", ".cpp", ".cc")):
+                print(os.path.join(root, fname))
 
 
 def main(argv):
