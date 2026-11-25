@@ -413,6 +413,16 @@ struct Collection
                 func(el->id, el->getElementHandle(), el->node);
         }
 
+        // The first element `func` holds for, as getId gives it; null when it holds for none.
+        template<class Self, std::predicate<ID, StrongHandle, detail::ConstLike<Self, ElementNode>&> F>
+        [[nodiscard]] constexpr detail::ConstLike<Self, ElementNode>* findIf(this Self& self, F&& func)
+        {
+            for (auto el : self.elementsView())
+                if (func(el->id, el->getElementHandle(), el->node))
+                    return std::addressof(el->node);
+            return nullptr;
+        }
+
         template<class Self, std::predicate<ID, StrongHandle, detail::ConstLike<Self, ElementNode>&> F>
         constexpr void removeIf(this Self& self, F&& func) requires Dynamic
         {

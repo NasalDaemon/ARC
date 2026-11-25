@@ -513,6 +513,15 @@ void checkDynamicMap()
     count = 0;
     g->collection->forEach([&](int id, auto const&, auto const&) { CHECK(id % 2 == 1); ++count; });
     CHECK(count == 999);
+
+    // findIf stops at the first element it holds for, giving it as getId does, and
+    // null when it holds for none
+    count = 0;
+    auto const* found = g->collection->findIf([&](int id, auto const&, auto const&) { ++count; return id == 7; });
+    CHECK(found == g->collection->getId(7));
+    CHECK(found != nullptr);
+    CHECK(count < 999);
+    CHECK(g->collection->findIf([](int id, auto const&, auto const&) { return id == 8; }) == nullptr);
 }
 
 TEST_CASE("arc::DynamicMap")
