@@ -9,7 +9,7 @@ import std;
 
 using namespace examples::filesystem;
 
-using TestGraph = arc::test::Graph<node::CommandHandler, arc::test::Mock<tests::MockFilesystemTypes>>;
+using TestGraph = arc::test::Graph<node::CommandHandler, arc::test::MockWithTypes<tests::MockFilesystemTypes>>;
 
 SCENARIO(R"(isCommand recognises known commands)")
 {

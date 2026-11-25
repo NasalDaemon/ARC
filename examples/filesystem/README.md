@@ -170,7 +170,7 @@ struct MockStorageTypes {
     using Children = std::vector<std::string_view>;
 };
 
-arc::test::Graph<node::Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+arc::test::Graph<node::Filesystem, arc::test::MockWithTypes<MockStorageTypes>> graph;
 auto fs = graph.asTrait(trait::filesystem);
 
 // Define mock behavior for Storage and PathOps traits

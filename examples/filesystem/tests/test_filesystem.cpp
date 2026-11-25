@@ -13,7 +13,7 @@ SCENARIO(R"(Filesystem node operations with mocks)")
 {
     GIVEN(R"(a filesystem with mocked dependencies)")
     {
-        arc::test::Graph<node::Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+        arc::test::Graph<node::Filesystem, arc::test::MockWithTypes<MockStorageTypes>> graph;
         auto fs = graph.asTrait(trait::filesystem);
 
         graph.mocks->setThrowIfMissing();
@@ -348,7 +348,7 @@ SCENARIO(R"(Filesystem node uses PathOps for normalization)")
 {
     GIVEN(R"(a filesystem with path-transforming mocks)")
     {
-        arc::test::Graph<node::Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+        arc::test::Graph<node::Filesystem, arc::test::MockWithTypes<MockStorageTypes>> graph;
         auto fs = graph.asTrait(trait::filesystem);
 
         graph.mocks->setThrowIfMissing();
@@ -399,7 +399,7 @@ SCENARIO(R"(Filesystem node uses PathOps for normalization)")
 
 SCENARIO(R"(Filesystem trait methods reject empty paths)")
 {
-    arc::test::Graph<node::Filesystem, arc::test::Mock<MockStorageTypes>> graph;
+    arc::test::Graph<node::Filesystem, arc::test::MockWithTypes<MockStorageTypes>> graph;
     auto fs = graph.asTrait(trait::filesystem);
 
     graph.mocks->setThrowIfMissing();

@@ -10,8 +10,22 @@ namespace detail {
 }
 
 ARC_MODULE_EXPORT
+struct MockNodeBase;
+
+ARC_MODULE_EXPORT
 template<class DefaultTypes = EmptyTypes, class... MockedTraits>
-struct Mock;
+struct MockNode/* : MockNodeBase */;
+
+ARC_MODULE_EXPORT
+template<class DefaultTypes>
+using MockWithTypes = MockNode<DefaultTypes>;
+
+ARC_MODULE_EXPORT
+template<class... MockedTraits>
+using MockWithTraits = MockNode<EmptyTypes, MockedTraits...>;
+
+ARC_MODULE_EXPORT
+using Mock = MockNode<>;
 
 }
 

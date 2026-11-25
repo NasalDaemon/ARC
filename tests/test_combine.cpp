@@ -89,7 +89,7 @@ TEST_CASE("arc::Combine test doubles")
     CHECK(99 == g.node.getNode(trait::b).c());
 }
 
-TEST_CASE_TEMPLATE("arc::Combine with Mock", Mock, test::Mock<EmptyTypes, trait::B>, Narrow<test::Mock<>, trait::B>)
+TEST_CASE_TEMPLATE("arc::Combine with Mock", Mock, test::MockWithTraits<trait::B>, Narrow<test::Mock, trait::B>)
 {
     test::Graph<C, Combine<A, Mock>> g;
 

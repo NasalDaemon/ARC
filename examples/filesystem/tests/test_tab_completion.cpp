@@ -9,7 +9,7 @@ import std;
 
 using namespace examples::filesystem;
 
-using LineReaderGraph = arc::test::Graph<node::TerminalLineReader, arc::test::Mock<tests::MockFilesystemTypes>>;
+using LineReaderGraph = arc::test::Graph<node::TerminalLineReader, arc::test::MockWithTypes<tests::MockFilesystemTypes>>;
 
 SCENARIO(R"(getPathCompletions returns matching entries)")
 {

@@ -303,7 +303,11 @@ export namespace arc {
         using test::MockParams;
         using test::ArgsTuple;
         using test::argsTuple;
+        using test::MockNodeBase;
+        using test::MockNode;
         using test::Mock;
+        using test::MockWithTypes;
+        using test::MockWithTraits;
     }
     // nodes/narrow.hpp
     using arc::Narrow;

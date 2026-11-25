@@ -74,7 +74,7 @@ arc_graph(
 arc_graph(
     name = "test_filesystem_graph",
     graph_module = "examples.filesystem.tests.mocks",
-    graph_type = "arc::test::Graph<examples::filesystem::node::Filesystem, arc::test::Mock<examples::filesystem::tests::MockStorageTypes>>",
+    graph_type = "arc::test::Graph<examples::filesystem::node::Filesystem, arc::test::MockWithTypes<examples::filesystem::tests::MockStorageTypes>>",
     nodes = {
         "node": "examples.filesystem.filesystem",
     },
@@ -83,7 +83,7 @@ arc_graph(
 arc_graph(
     name = "test_command_handler_graph",
     graph_module = "examples.filesystem.tests.mocks",
-    graph_type = "arc::test::Graph<examples::filesystem::node::CommandHandler, arc::test::Mock<examples::filesystem::tests::MockFilesystemTypes>>",
+    graph_type = "arc::test::Graph<examples::filesystem::node::CommandHandler, arc::test::MockWithTypes<examples::filesystem::tests::MockFilesystemTypes>>",
     nodes = {
         "node": "examples.filesystem.command_handler",
     },
@@ -92,7 +92,7 @@ arc_graph(
 arc_graph(
     name = "test_terminal_line_reader_graph",
     graph_module = "examples.filesystem.tests.mocks",
-    graph_type = "arc::test::Graph<examples::filesystem::node::TerminalLineReader, arc::test::Mock<examples::filesystem::tests::MockFilesystemTypes>>",
+    graph_type = "arc::test::Graph<examples::filesystem::node::TerminalLineReader, arc::test::MockWithTypes<examples::filesystem::tests::MockFilesystemTypes>>",
     nodes = {
         "node": "examples.filesystem.terminal_line_reader",
     },

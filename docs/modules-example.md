@@ -640,7 +640,7 @@ TEST_SUITE("my::node::Sessions as trait::SessionManager")
     TEST_CASE("Using arc::test::Mock")
     {
         // The mock is limited to `trait::AuthService`, leaving `trait::Logger` to `MockLogger`
-        using Mocks = arc::test::Mock<MockTypes, trait::AuthService>;
+        using Mocks = arc::test::MockNode<MockTypes, trait::AuthService>;
         arc::test::Graph<my::node::Sessions, arc::Combine<MockLogger, Mocks>, MockRoot> graph;
         auto& mocks = graph.mocks.get<Mocks>();
 

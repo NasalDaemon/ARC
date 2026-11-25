@@ -196,15 +196,15 @@ namespace detail {
 } // namespace detail
 
 ARC_MODULE_EXPORT
-template<IsNodeHandle Node, IsNodeHandle Mocks = Mock<>>
+template<IsNodeHandle Node, IsNodeHandle Mocks = Mock>
 using Cluster = MapInfo<detail::Cluster<Node, Mocks>, detail::TestMapInfo>;
 
 ARC_MODULE_EXPORT
-template<IsNodeHandle Node, IsNodeHandle Mocks = Mock<>, class Root = void>
+template<IsNodeHandle Node, IsNodeHandle Mocks = Mock, class Root = void>
 using Graph = arc::Graph<Cluster<Node, Mocks>, Root>;
 
 ARC_MODULE_EXPORT
-template<IsNodeHandle Node, class GlobalNode, IsNodeHandle Mocks = Mock<>, class Root = void>
+template<IsNodeHandle Node, class GlobalNode, IsNodeHandle Mocks = Mock, class Root = void>
 using GraphWithGlobal = arc::Graph<MapInfo<arc::detail::GraphWithGlobal<detail::Cluster<Node, Mocks>, GlobalNode>, detail::TestMapInfo>, Root>;
 
 } // namespace arc::test

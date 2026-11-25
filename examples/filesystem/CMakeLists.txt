@@ -65,7 +65,7 @@ if(ARC_BUILD_TESTS)
         GRAPH_MODULE
             examples.filesystem.tests.mocks
         GRAPH_TYPE
-            "arc::test::Graph<examples::filesystem::node::Filesystem, arc::test::Mock<examples::filesystem::tests::MockStorageTypes>>"
+            "arc::test::Graph<examples::filesystem::node::Filesystem, arc::test::MockWithTypes<examples::filesystem::tests::MockStorageTypes>>"
         NODES
             node  examples.filesystem.filesystem
     )
@@ -74,7 +74,7 @@ if(ARC_BUILD_TESTS)
         GRAPH_MODULE
             examples.filesystem.tests.mocks
         GRAPH_TYPE
-            "arc::test::Graph<examples::filesystem::node::CommandHandler, arc::test::Mock<examples::filesystem::tests::MockFilesystemTypes>>"
+            "arc::test::Graph<examples::filesystem::node::CommandHandler, arc::test::MockWithTypes<examples::filesystem::tests::MockFilesystemTypes>>"
         NODES
             node  examples.filesystem.command_handler
     )
@@ -83,7 +83,7 @@ if(ARC_BUILD_TESTS)
         GRAPH_MODULE
             examples.filesystem.tests.mocks
         GRAPH_TYPE
-            "arc::test::Graph<examples::filesystem::node::TerminalLineReader, arc::test::Mock<examples::filesystem::tests::MockFilesystemTypes>>"
+            "arc::test::Graph<examples::filesystem::node::TerminalLineReader, arc::test::MockWithTypes<examples::filesystem::tests::MockFilesystemTypes>>"
         NODES
             node  examples.filesystem.terminal_line_reader
     )

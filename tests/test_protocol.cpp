@@ -176,7 +176,7 @@ struct IffProtoCaller : arc::NodeUses<protocol::IffProto>
     bool isLit(this auto& s, std::string k) { return s.getIffProto().isLit(std::move(k)); }
 };
 
-using Mocks         = arc::test::Mock<>;
+using Mocks         = arc::test::Mock;
 using Graph         = arc::test::Graph<Caller,         Mocks>;
 using ProtoGraph    = arc::test::Graph<ProtoCaller,    Mocks>;
 using IffGraph      = arc::test::Graph<IffCaller,      Mocks>;

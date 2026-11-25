@@ -7,6 +7,7 @@
 #include <optional>
 #include <span>
 #include <typeinfo>
+#include <utility>
 #include <vector>
 #endif
 
@@ -82,7 +83,7 @@ struct MockTypes
     using OptionalInt = std::optional<int>;
 };
 
-using MockTestGraph = arc::test::Graph<MockTestNode, arc::test::Mock<MockTypes>>;
+using MockTestGraph = arc::test::Graph<MockTestNode, arc::test::MockWithTypes<MockTypes>>;
 
 TEST_CASE("arc::test::Mock")
 {
@@ -567,6 +568,155 @@ TEST_CASE("arc::test::Mock MockReturn conversion matrix")
         CHECK(88 == copy);
         int const& c = stored;
         CHECK(88 == c);
+    }
+}
+
+TEST_CASE("arc::test::Mock logCalls")
+{
+    MockTestGraph g{.mocks{test::MockParams{}}};
+    g.mocks->setReturnDefault();
+
+    CHECK_THROWS(g.mocks->visitCallLogs<trait::Trait::takesInt, int>());
+
+    // Log a single impl
+    g.mocks->logCalls<trait::Trait::takesInt(int)>();
+    CHECK(g.mocks->callCountingEnabled());
+    CHECK(not g.mocks->callLoggingEnabled());
+    CHECK(g.mocks->callLoggingEnabled<trait::Trait::takesInt(int)>());
+    CHECK(g.mocks->callLoggingEnabled<trait::Trait::takesInt(int const&)>());
+    CHECK(not g.mocks->callLoggingEnabled<trait::Trait::takesInt>());
+    CHECK(not g.mocks->callLoggingEnabled<trait::Trait>());
+
+    // Visitable before the first call
+    auto calls = g.mocks->visitCallLogs<trait::Trait::takesInt, int>();
+    CHECK(calls.empty());
+
+    CHECK(0 == g.node->testNothing());
+    CHECK(0 == g.node->testInt(3));
+    CHECK(0 == g.node->testInt(5));
+    CHECK(3 == g.mocks->totalCallCount());
+
+    REQUIRE(2 == calls.size());
+    CHECK(std::tuple(3) == calls.popFront().value());
+    CHECK(std::tuple(5) == calls.popFront().value());
+
+    // Its log would be incomplete
+    CHECK_THROWS(g.mocks->logCalls<trait::Trait::takesNothing>());
+
+    g.mocks->logCalls<trait::Trait::takesInt(int)>(false);
+    CHECK(not g.mocks->callLoggingEnabled<trait::Trait::takesInt(int)>());
+    CHECK_THROWS(calls.assertValid(false));
+    CHECK_THROWS(g.mocks->visitCallLogs<trait::Trait::takesInt, int>());
+
+    // Logging a trait logs each of its impls
+    g.mocks->resetTracking();
+    g.mocks->logCalls<trait::Trait>();
+    CHECK(g.mocks->callLoggingEnabled<trait::Trait>());
+    CHECK(g.mocks->callLoggingEnabled<trait::Trait::takesInt>());
+    CHECK(g.mocks->callLoggingEnabled<trait::Trait::takesInt(int)>());
+
+    auto traitCalls = g.mocks->visitCallLogs<trait::Trait::takesInt, int>();
+    CHECK(0 == g.node->testInt(7));
+    CHECK(std::tuple(7) == traitCalls.popFront().value());
+
+    // Impls can be named as <Method, Args...> or <Method(Args...)>
+    CHECK(1 == g.mocks->implCallCount<trait::Trait::takesInt, int>());
+    CHECK(1 == g.mocks->implCallCount<trait::Trait::takesInt(int)>());
+    auto sigCalls = g.mocks->visitCallLogs<trait::Trait::takesInt(int)>();
+    CHECK(std::tuple(7) == sigCalls.popFront().value());
+    auto sigCallsFrom = g.mocks->visitCallLogs<trait::Trait::takesInt(int)>(std::size_t(0), [](int i) { return i * 2; });
+    CHECK(14 == sigCallsFrom.popFront().value());
+    auto sigCallsMapped = g.mocks->visitCallLogs<trait::Trait::takesInt(int)>([](int i) { return i + 1; });
+    CHECK(8 == sigCallsMapped.popFront().value());
+
+    g.mocks->implReturns<trait::Trait::takesInt(int)>(42);
+    CHECK(42 == g.node->testInt(1));
+    g.mocks->implReturns<trait::Trait::takesInt(int), int>(43);
+    CHECK(43 == g.node->testInt(1));
+    g.mocks->undefine<trait::Trait::takesInt(int)>();
+    CHECK(0 == g.node->testInt(1));
+    g.mocks->implReturnsN<trait::Trait::takesInt, int>(1, 2);
+    CHECK(1 == g.node->testInt(1));
+    CHECK(2 == g.node->testInt(1));
+    g.mocks->undefine<trait::Trait::takesInt, int>();
+    CHECK(0 == g.node->testInt(1));
+
+    // Logging settings survive resetTracking, but not disableCallCounting
+    g.mocks->resetTracking();
+    CHECK(g.mocks->callLoggingEnabled<trait::Trait>());
+    g.mocks->disableCallCounting();
+    CHECK(not g.mocks->callLoggingEnabled<trait::Trait>());
+}
+
+TEST_CASE("arc::test::Mock define ordering")
+{
+    MockTestGraph g{.mocks{test::MockParams{}}};
+    auto& mock = *g.mocks.operator->();
+    auto callMut = [&] -> int { return mock.impl(trait::Trait::takesNothing{}); };
+    auto callConst = [&] -> int { return std::as_const(mock).impl(trait::Trait::takesNothing{}); };
+    auto counter = [n = 0](trait::Trait::takesNothing) mutable { return ++n; };
+    auto constant = [](int v) { return [v](trait::Trait::takesNothing) { return v; }; };
+    using TakesNothing = trait::Trait::takesNothing();
+
+    SUBCASE("define shares one object between const and mutable calls")
+    {
+        mock.define(counter);
+        CHECK(1 == callMut());
+        CHECK(2 == callConst());
+        CHECK(3 == callMut());
+    }
+    SUBCASE("defineConst after define leaves mutable calls with define")
+    {
+        mock.define(counter);
+        mock.defineConst(constant(-1));
+        CHECK(-1 == callConst());
+        CHECK(1 == callMut());
+        CHECK(2 == callMut());
+    }
+    SUBCASE("defineMut after define leaves const calls with define")
+    {
+        mock.define(counter);
+        CHECK(1 == callConst());
+        mock.defineMut(constant(-2));
+        CHECK(-2 == callMut());
+        CHECK(2 == callConst());
+    }
+    SUBCASE("define replaces defineConst and defineMut")
+    {
+        mock.defineConst(constant(-1));
+        mock.defineMut(constant(-2));
+        mock.define(counter);
+        CHECK(1 == callMut());
+        CHECK(2 == callConst());
+    }
+    SUBCASE("defineConst and defineMut are independent")
+    {
+        mock.defineMut(constant(-2));
+        mock.defineConst(constant(-1));
+        CHECK(-1 == callConst());
+        CHECK(-2 == callMut());
+    }
+    SUBCASE("undefineConst after define leaves mutable calls with define")
+    {
+        mock.define(counter);
+        mock.undefineConst<TakesNothing>();
+        CHECK_THROWS(callConst());
+        CHECK(1 == callMut());
+        CHECK(2 == callMut());
+    }
+    SUBCASE("undefineMut after define falls back to the const definition")
+    {
+        mock.define(counter);
+        mock.undefineMut<TakesNothing>();
+        CHECK(1 == callMut());
+        CHECK(2 == callConst());
+    }
+    SUBCASE("undefine removes both")
+    {
+        mock.define(counter);
+        mock.undefine<TakesNothing>();
+        CHECK_THROWS(callConst());
+        CHECK_THROWS(callMut());
     }
 }
 

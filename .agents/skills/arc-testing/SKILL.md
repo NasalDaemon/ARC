@@ -184,7 +184,9 @@ graph.mocks->defineConst([](trait::T::method) { return 1; });
 graph.mocks->defineMut([](trait::T::method) { return 2; });
 
 // Fixed return value without a lambda (replaces an earlier define for the same overload, and is replaced by a later one)
-graph.mocks->implReturns<trait::Calculator::add, int, int>(42);
+graph.mocks->implReturns<trait::Calculator::add(int, int)>(42);
+// Return type optionally specified in second template param (e.g. to return a reference)
+graph.mocks->implReturns<trait::Store::get(std::string), Item const&>(item);
 // Fixed return value for all method overloads (lower priority than define and implReturns)
 graph.mocks->methodReturns<trait::Calculator::add>(42);
 
@@ -193,7 +195,7 @@ graph.mocks->methodReturnsN<trait::LineReader::readLine, std::optional<std::stri
 graph.mocks->implReturnsN<trait::LineReader::readLine(std::string_view), std::optional<std::string>>("first", std::nullopt);
 
 // Remove all matching definitions and return values of impl
-graph.mocks->undefine<trait::Calculator::add, int, int>();
+graph.mocks->undefine<trait::Calculator::add(int, int)>();
 // Remove matching methodReturns definition
 graph.mocks->undefineMethodReturns<trait::Calculator::add>();
 ```
@@ -208,7 +210,7 @@ graph.mocks->enableCallCounting();
 graph.mocks->totalCallCount();                          // All calls
 graph.mocks->traitCallCount<trait::Logger>();            // All Logger calls
 graph.mocks->methodCallCount<trait::Logger::log>();      // Specific method
-graph.mocks->implCallCount<trait::T::method, int>();     // Specific overload
+graph.mocks->implCallCount<trait::T::method(int)>();     // Specific overload
 ```
 
 ### Call Logging
@@ -216,9 +218,15 @@ graph.mocks->implCallCount<trait::T::method, int>();     // Specific overload
 Inspect actual arguments passed to mocks:
 ```cpp
 graph.mocks->logAllCalls();
+// or log only some calls (enable before they are first called):
+graph.mocks->logCalls<trait::T>();               // every method of a trait
+graph.mocks->logCalls<trait::T::method>();       // every impl of a method
+graph.mocks->logCalls<trait::T::method(int)>();  // one impl
 
 // After exercising the node...
-auto visitor = graph.mocks->visitCallLogs<trait::T::method, int>();
+auto visitor = graph.mocks->visitCallLogs<trait::T::method(int)>();
+// or transform each call's args with a visitor
+auto doubled = graph.mocks->visitCallLogs<trait::T::method(int)>([](int i) { return i * 2; });
 
 visitor.size();                       // Number of unvisited calls
 visitor.popFront();                   // Returns optional<tuple<args...>>, advances
